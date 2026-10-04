@@ -117,7 +117,7 @@ jobs:
             az webapp config set \
               --resource-group "${{ secrets.AZURE_RESOURCE_GROUP || env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}" \
-              --startup-file "gunicorn --bind=0.0.0.0 --timeout 600 wsgi:app"
+              --startup-file "gunicorn --bind=0.0.0.0 --timeout 600 --workers 2 wsgi:app"
 
       - name: Configure Azure app settings
         uses: azure/CLI@v2
@@ -129,6 +129,8 @@ jobs:
               --name "${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}" \
               --settings \
                 WEBSITES_PORT=8000 \
+                WEBSITE_RUN_FROM_PACKAGE=1 \
+                SCM_DO_BUILD_DURING_DEPLOYMENT=false \
                 APP_ENV=production \
                 FLASK_ENV=production \
                 SECRET_KEY="${{ secrets.AZURE_SECRET_KEY }}" \
@@ -137,7 +139,8 @@ jobs:
                 BREVO_API_KEY="${{ secrets.BREVO_API_KEY }}" \
                 ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL }}" \
                 PUBLIC_BASE_URL="${{ secrets.PUBLIC_BASE_URL }}" \
-                SESSION_COOKIE_SECURE=true
+                SESSION_COOKIE_SECURE=true \
+                GUNICORN_CMD_ARGS="--bind=0.0.0.0 --timeout 600 --workers 2"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
