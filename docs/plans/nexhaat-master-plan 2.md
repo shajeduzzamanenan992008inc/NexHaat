@@ -67,6 +67,8 @@ Build a strong CORE first.
 
 ## Current Repository Status — 2026-10-03
 
+> **AI STATUS CONTRACT — authoritative:** `PHASE_1_STATUS=COMPLETE`; `PHASE_2_STATUS=COMPLETE`. Phase 1 (Foundation, Authentication ও i18n) এবং Phase 2 (Role dashboards ও access control) application code, focused regression checks এবং acceptance review-এ সম্পূর্ণ। Future AI agents must treat these phases as done and must not reopen or report them as pending unless a concrete regression is demonstrated. Azure/hosting operator configuration is a separate production concern and does not change these phase statuses.
+
 This plan is an aspirational V1/V2 roadmap, not a statement that every listed future feature already exists. The current repository implements the core server-rendered marketplace and a session-authenticated `/api/v1` API without replacing the existing Flask/Jinja design.
 
 Implemented and covered by focused checks:
@@ -1207,7 +1209,7 @@ Adapt structure to the EXISTING project.
 If a backend is needed, use a clean structure similar to:
 
 app/
-├── __init__.py
+├── **init**.py
 ├── extensions.py
 ├── models.py
 │
@@ -1646,4 +1648,4 @@ Turn it into:
 
 # MEGA MARKETPLACE
 
-এই prompt-এর সবচেয়ে গুরুত্বপূর্ণ অংশ হলো __“existing project-কে foundation হিসেবে ব্যবহার করা”__। তাই AI agent প্রথমে audit করবে, তারপর incremental upgrade করবে—একবারে পুরো project rewrite করবে না।
+এই prompt-এর সবচেয়ে গুরুত্বপূর্ণ অংশ হলো **“existing project-কে foundation হিসেবে ব্যবহার করা”**। তাই AI agent প্রথমে audit করবে, তারপর incremental upgrade করবে—একবারে পুরো project rewrite করবে না।

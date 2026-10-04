@@ -8,6 +8,8 @@ NexHaat হবে Customer, Seller, Rider ও Admin-এর জন্য এক�
 
 ### বর্তমান stage status — 2026-10-03
 
+> **AI STATUS CONTRACT — authoritative:** `PHASE_1_STATUS=COMPLETE`; `PHASE_2_STATUS=COMPLETE`. ভবিষ্যৎ AI বা coding agent Phase 1 ও Phase 2-কে application implementation এবং acceptance review-এ সম্পূর্ণ ধরে কাজ করবে। Regression প্রমাণ না থাকলে এই দুই phase পুনরায় শুরু, পুনরায় design বা incomplete হিসেবে রিপোর্ট করা যাবে না। Production hosting-এর operator-only কাজ এই completion status-এর বাইরে।
+
 - **Phase 1 — সম্পূর্ণ।** Authentication, language foundation ও সংশ্লিষ্ট acceptance review সম্পন্ন।
 - **Phase 2 — সম্পূর্ণ।** Role dashboards ও access-control acceptance review সম্পন্ন।
 - **Phase 3 — সম্পূর্ণ।** Seller catalog, product variant, stock, Admin moderation, seller-authored multilingual text এবং fail-closed media pipeline বাস্তবায়িত। শুধু live image publish-এর জন্য deployment-এ ClamAV executable এবং S3-compatible bucket/CDN configuration দরকার।

@@ -110,21 +110,17 @@ def customer_required(view):
 
 
 def customer_or_guest_required(view):
-    """Require a logged-in customer account for cart and ordering.
+    """Allow anonymous guests and logged-in customers; reject logged-in staff.
 
-    Unauthenticated visitors are redirected to login; authenticated
-    non-customer roles receive a 403.
+    Cart and ordering are open to anonymous visitors (guest checkout) as well as
+    signed-in customer accounts. A signed-in Admin, Seller, or Rider is rejected
+    with 403 because ordering is reserved for customers and guests.
     """
     @wraps(view)
     def wrapped(*args, **kwargs):
-        user = current_session_user("customer")
-        if user is None:
-            if session.get("user_id") is not None:
-                # Logged in as staff – not allowed.
-                abort(403)
-            # Guest – redirect to sign-in.
-            from flask import redirect
-            return redirect(url_for("auth.login", next=request.path))
+        user = current_session_user()
+        if user is not None and user.role != "customer":
+            abort(403)
         return view(*args, **kwargs)
 
     return wrapped

@@ -1,10 +1,15 @@
 {% extends "base.html" %}
+{% set auth_chrome_endpoints = (
+  'auth.login', 'auth.admin_login', 'auth.verify_admin_login', 'auth.verify_registration',
+  'auth.register', 'auth.forgot_password', 'auth.verify_reset_code', 'auth.reset_password',
+  'auth.seller_application', 'auth.accept_invitation'
+) %}
 {% block extra_head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css', v='20261006_passwordtoggle1') }}">
   <script src="{{ url_for('static', filename='js/auth.js', v='20261006_passwordtoggle1') }}" defer></script>
 {% endblock %}
 {% block site_header %}
-  {% if request.endpoint in ('auth.login', 'auth.admin_login', 'auth.verify_admin_login', 'auth.register', 'auth.forgot_password', 'auth.verify_reset_code', 'auth.reset_password', 'auth.seller_application', 'auth.accept_invitation') %}
+  {% if request.endpoint in auth_chrome_endpoints %}
   <header class="auth-topbar">
     <a class="brand-lockup" href="{{ url_for('main.index') }}" aria-label="{{ app_name }} home">
       <span class="brand-lockup__mark"><img src="{{ url_for('static', filename=app_logo) }}" alt=""></span>
@@ -27,7 +32,7 @@
   {% endif %}
 {% endblock %}
 {% block site_footer %}
-  {% if request.endpoint in ('auth.login', 'auth.admin_login', 'auth.verify_admin_login', 'auth.register', 'auth.forgot_password', 'auth.verify_reset_code', 'auth.reset_password', 'auth.seller_application', 'auth.accept_invitation') %}
+  {% if request.endpoint in auth_chrome_endpoints %}
   <footer class="auth-footer">© {{ app_name }} · {{ _('All rights reserved.') }}</footer>
   {% else %}
     {{ super() }}
