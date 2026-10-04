@@ -19,8 +19,9 @@ jobs:
     permissions:
       contents: read
     env:
-      FLASK_ENV: testing
+      FLASK_DEBUG: "0"
       APP_ENV: testing
+      FLASK_TESTING: "1"
       SECRET_KEY: ci-test-key-not-for-production
       DATABASE_URL: sqlite:///test.db
       PYTHON_VERSION: "3.12"
@@ -132,7 +133,7 @@ jobs:
                 WEBSITE_RUN_FROM_PACKAGE=1 \
                 SCM_DO_BUILD_DURING_DEPLOYMENT=false \
                 APP_ENV=production \
-                FLASK_ENV=production \
+                FLASK_DEBUG=0 \
                 SECRET_KEY="${{ secrets.AZURE_SECRET_KEY }}" \
                 DATABASE_URL="${{ secrets.AZURE_DATABASE_URL }}" \
                 MAIL_DEFAULT_SENDER="${{ secrets.MAIL_DEFAULT_SENDER }}" \

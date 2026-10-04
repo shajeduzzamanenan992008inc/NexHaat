@@ -1,31 +1,22 @@
-function flipCard() {
-  const card = document.getElementById("authCard");
-  card.classList.toggle("flipped");
-}
+(() => {
+    const card = document.querySelector('[data-card]');
+    document.querySelectorAll('[data-switch]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            card.dataset.mode = link.dataset.switch;
+            document.querySelectorAll('[data-panel]').forEach((panel) => {
+                panel.setAttribute('aria-hidden', String(panel.dataset.panel !== link.dataset.switch));
+            });
+        });
+    });
 
-function togglePassword(id, button) {
-  const input = document.getElementById(id);
-  if (input.type === "password") {
-    input.type = "text";
-    document.getElementById("faIcon").classList.remove("fa-eye");
-    document.getElementById("faIcon").classList.add("fa-eye-slash");
-  } else {
-    input.type = "password";
-    document.getElementById("faIcon").classList.remove("fa-eye-slash");
-    document.getElementById("faIcon").classList.add("fa-eye");
-  }
-}
-
-/*    DEMO SUBMIT  */
-
-document.querySelectorAll("form").forEach((form) => {
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    const button = this.querySelector(".main-btn");
-    const oldText = button.textContent;
-    button.textContent = "✓ SUCCESS";
-    setTimeout(() => {
-      button.textContent = oldText;
-    }, 1800);
-  });
-});
+    document.querySelectorAll('[data-password]').forEach((button) => {
+        const input = document.getElementById(button.dataset.password);
+        button.addEventListener('click', () => {
+            const visible = input.type === 'password';
+            input.type = visible ? 'text' : 'password';
+            button.textContent = visible ? 'Hide' : 'Show';
+            button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+        });
+    });
+})();

@@ -8,6 +8,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
+def _env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be one of: 1, 0, true, false, yes, no, on, off")
+
+
 class Config:
     APP_NAME = "NexHaat"
     BABEL_DEFAULT_LOCALE = "en_US"
@@ -36,10 +48,7 @@ class Config:
     SESSION_COOKIE_NAME = "nexhaat_session"
     SESSION_REFRESH_EACH_REQUEST = False
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 12
-    SESSION_COOKIE_SECURE = os.getenv(
-        "SESSION_COOKIE_SECURE",
-        "true" if ENVIRONMENT == "production" else "false",
-    ).lower() == "true"
+    SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", ENVIRONMENT == "production")
     WTF_CSRF_TIME_LIMIT = 3600
     MAIL_TIMEOUT = int(os.getenv("MAIL_TIMEOUT", "15"))
     BREVO_API_KEY = os.getenv("BREVO_API_KEY")

@@ -16,7 +16,9 @@ jobs:
       contents: read
 
     env:
-      FLASK_ENV: testing
+      FLASK_DEBUG: "0"
+      APP_ENV: testing
+      FLASK_TESTING: "1"
       SECRET_KEY: ci-test-key-not-for-production
       DATABASE_URL: "sqlite:///test.db"
 
@@ -26,8 +28,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: "3.12"
+          cache: "pip"
 
       - name: Install dependencies
         run: |

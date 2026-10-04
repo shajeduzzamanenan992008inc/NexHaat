@@ -1,60 +1,44 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CodeByGaurav | Secure Vault Access</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NexHaat OTP Verification Reference</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="CodeByGaurav.css">
 </head>
+
 <body>
-
-    <div class="pointer-light" id="pointerLight"></div>
-    <div class="noise"></div>
-
-    <main class="card" id="card">
-        <h1 id="title">Enter Access Code</h1>
-        <p class="subtitle" id="subtitle">A 4-digit code has been sent to your device.</p>
-
-        <div class="stage" id="stage">
-            <div class="input-stage" id="inputStage">
-                <input type="text" class="input-pill" maxlength="1" inputmode="numeric" aria-label="Digit 1" data-index="0">
-                <input type="text" class="input-pill" maxlength="1" inputmode="numeric" aria-label="Digit 2" data-index="1">
-                <input type="text" class="input-pill" maxlength="1" inputmode="numeric" aria-label="Digit 3" data-index="2">
-                <input type="text" class="input-pill" maxlength="1" inputmode="numeric" aria-label="Digit 4" data-index="3">
-            </div>
-
-            <div class="orbit-layer" id="orbitLayer">
-                <div class="orbit-ring" id="orbitRing"></div>
-            </div>
-
-            <div class="loading-wrap" id="loadingWrap">
-                <div class="loading-core">
-                    <div class="loading-ring"></div>
-                    <div class="loading-pulse"></div>
-                    <div class="loading-inner" id="loadingPercent">0</div>
+    <div class="ambient ambient--one" aria-hidden="true"></div>
+    <div class="ambient ambient--two" aria-hidden="true"></div>
+    <header class="topbar"><a class="brand" href="../index.html"><span
+                class="brand__mark">N</span><span>NexHaat</span></a><span class="status">SECURE ACCESS</span></header>
+    <main class="otp-layout">
+        <section class="otp-card" data-card data-state="idle" aria-labelledby="otp-title">
+            <div class="panel-mark">N</div>
+            <p class="eyebrow">SECURE VERIFICATION</p>
+            <h1 id="otp-title">Check your email</h1>
+            <p class="subtitle">Enter the 6-digit code sent to your account email. It expires in 10 minutes.</p>
+            <div class="stage">
+                <div class="input-stage" data-input-stage role="group" aria-label="6-digit verification code">
+                    <input class="input-pill" inputmode="numeric" maxlength="6" aria-label="Digit 1" data-digit>
+                    <input class="input-pill" inputmode="numeric" maxlength="1" aria-label="Digit 2" data-digit>
+                    <input class="input-pill" inputmode="numeric" maxlength="1" aria-label="Digit 3" data-digit>
+                    <input class="input-pill" inputmode="numeric" maxlength="1" aria-label="Digit 4" data-digit>
+                    <input class="input-pill" inputmode="numeric" maxlength="1" aria-label="Digit 5" data-digit>
+                    <input class="input-pill" inputmode="numeric" maxlength="1" aria-label="Digit 6" data-digit>
                 </div>
+                <div class="loading" data-loading aria-hidden="true"><span></span><strong>0%</strong></div>
+                <div class="result result--success" data-success aria-hidden="true"><span
+                        class="check">✓</span><strong>Verified</strong></div>
+                <div class="result result--error" data-error aria-hidden="true"><span class="cross">×</span><strong>Code
+                        not verified</strong></div>
             </div>
-
-            <div class="success-wrap" id="successWrap">
-                <div class="success-flash"></div>
-                <div class="bubble"></div>
-                <div class="bubble"></div>
-                <div class="bubble"></div>
-                <div class="success-vault">
-                    <svg class="checkmark" viewBox="0 0 24 24">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                </div>
-                <div class="success-badge">Verified</div>
-            </div>
-        </div>
-
-        <div class="error-msg" id="errorMsg">Incorrect code. Please try again.</div>
-
-        <button class="resend-btn" id="resendBtn" disabled>Didn't receive it? <span>Resend</span></button>
+            <p class="error" data-message aria-live="polite"></p>
+            <button class="resend" type="button" data-resend>Didn't receive the code? <strong>Resend</strong></button>
+        </section>
     </main>
-
     <script src="script.js"></script>
 </body>
+
 </html>

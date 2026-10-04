@@ -1,150 +1,80 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login & Sign Up Form UI | CodeByGaurav</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NexHaat Auth Reference</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <div class="bg-circle bg1"></div>
-    <div class="bg-circle bg2"></div>
-    <div class="bg-circle bg3"></div>
-
-    <div class="auth-wrapper">
-        <div class="auth-card" id="authCard">
-
-            <!-- Login Form -->
-            <div class="form-panel login-panel">
-                <div class="logo">
-                    <i class="fa-solid fa-lock"></i>
-                </div>
-                <h1>Welcome</h1>
-                <p class="subtitle">Login to continue your journey</p>
-
-                <form>
-                    <!-- Email -->
-                    <div class="input-group">
-                        <div class="electric-glow"></div>
-                        <div class="electric-border"></div>
-                        <input type="email" id="loginEmail" placeholder=" " autocomplete="email" required>
-                        <label for="loginEmail">
-                            Email Address
-                        </label>
-                    </div>
-
-                    <!-- Password -->
-                    <div class="input-group">
-                        <div class="electric-glow"></div>
-                        <div class="electric-border"></div>
-                        <input type="password" id="loginPassword" placeholder=" " autocomplete="current-password"
-                            required>
-                        <label for="loginPassword">
-                            Password
-                        </label>
-                        <button type="button" class="password-toggle" onclick="togglePassword('loginPassword', this)">
-                            <i id="faIcon" class="fa-solid fa-eye"></i>
-                        </button>
-                    </div>
-
-                    <div class="options">
-                        <label class="checkbox">
-                            <input type="checkbox">
-                            Remember me
-                        </label>
-                        <a href="#">
-                            Forgot Password?
-                        </a>
-                    </div>
-                    <button type="submit" class="main-btn">
-                        Login
-                    </button>
-                </form>
-
-                <div class="switch-area">
-                    <span>
-                        Don't have an account?
-                    </span>
-                    <button type="button" class="switch-circle" onclick="flipCard()">
-                        <i class="fa-solid fa-plus"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Sign Up -->
-            <div class="form-panel signup-panel">
-                <div class="logo">
-                    <i class="fa-solid fa-user"></i>
-                </div>
-                <h1>Create Account</h1>
-                <p class="subtitle">
-                    Start your journey with us
-                </p>
-
-                <form>
-                    <!-- Name -->
-                    <div class="input-group">
-                        <div class="electric-glow"></div>
-                        <div class="electric-border"></div>
-                        <input type="text" id="signupName" placeholder=" " autocomplete="name" required>
-                        <label for="signupName">
-                            Full Name
-                        </label>
-                    </div>
-
-                    <!-- Email -->
-                    <div class="input-group">
-                        <div class="electric-glow"></div>
-                        <div class="electric-border"></div>
-                        <input type="email" id="signupEmail" placeholder=" " autocomplete="email" required>
-                        <label for="signupEmail">
-                           Email Address
-                        </label>
-                    </div>
-
-                    <!-- Password -->
-                    <div class="input-group">
-                        <div class="electric-glow"></div>
-                        <div class="electric-border"></div>
-                        <input type="password" id="signupPassword" placeholder=" " autocomplete="new-password"
-                            required>
-                        <label for="signupPassword">
-                            Password
-                        </label>
-                        <button type="button" class="password-toggle" onclick="loginPassword('signupPassword', this)">
-                            <i id="faIcon" class="fa-solid fa-eye"></i>
-                        </button>
-                    </div>
-
-                    <!-- Confirm -->
-                    <div class="input-group">
-                        <div class="electric-glow"></div>
-                        <div class="electric-border"></div>
-                        <input type="password" id="confirmPassword" placeholder=" " autocomplete="new-password"
-                            required>
-                        <label for="confirmPassword">
-                           Confirm Password
-                        </label>
-                    </div>
-
-                    <button type="submit" class="main-btn">CREATE ACCOUNT</button>
-                </form>
-
-                <div class="switch-area">
-                    <span>
-                        Already have an account?
-                    </span>
-                    <button type="button" class="switch-circle" onclick="flipCard()">
-                        <i class="fa-solid fa-arrow-left"></i>
-                    </button>
-                </div>
-            </div>
+    <div class="ambient ambient--one" aria-hidden="true"></div>
+    <div class="ambient ambient--two" aria-hidden="true"></div>
+    <header class="topbar">
+        <a class="brand" href="#" aria-label="NexHaat home"><span class="brand__mark">N</span><span>NexHaat</span></a>
+        <div class="locale" aria-label="Language selector">
+            <select id="language">
+                <option>English (US)</option>
+                <option>বাংলা</option>
+                <option>हिन्दी</option>
+                <option>العربية</option>
+            </select>
+            <button type="button">Go</button>
         </div>
-    </div>
+    </header>
+
+    <main class="auth-layout">
+        <section class="story" aria-labelledby="story-title">
+            <p class="eyebrow">NEXHAAT MARKETPLACE</p>
+            <h1 id="story-title">Local finds,<br><span>delivered with care.</span></h1>
+            <p>One calm place for neighborhood food, groceries, and thoughtful everyday finds.</p>
+            <div class="story-line"><span></span><span></span><span></span></div>
+        </section>
+
+        <section class="auth-card" data-card data-mode="login" aria-live="polite">
+            <div class="auth-flipper">
+                <article class="auth-panel" data-panel="login">
+                    <div class="panel-mark">N</div>
+                    <p class="eyebrow">WELCOME BACK</p>
+                    <h2>Sign in to continue</h2>
+                    <p class="muted">Your local marketplace is waiting.</p>
+                    <form class="auth-form">
+                        <label>Email address<input type="email" placeholder="you@example.com"
+                                autocomplete="email"></label>
+                        <label>Password<div class="password"><input id="login-password" type="password"
+                                    placeholder="Enter your password"><button type="button"
+                                    data-password="login-password" aria-label="Show password">Show</button></div>
+                            </label>
+                        <div class="form-row"><label class="check"><input type="checkbox"> Remember me</label><a
+                                href="#">Forgot password?</a></div>
+                        <button class="submit" type="submit">Log in</button>
+                    </form>
+                    <p class="switch">Don't have an account? <a href="#signup" data-switch="signup">Create an
+                            account</a></p>
+                </article>
+                <article class="auth-panel auth-panel--back" data-panel="signup" aria-hidden="true">
+                    <div class="panel-mark">N</div>
+                    <p class="eyebrow">NEW HERE?</p>
+                    <h2>Create your account</h2>
+                    <p class="muted">Start your journey with NexHaat.</p>
+                    <form class="auth-form">
+                        <label>Full name<input type="text" placeholder="Your name" autocomplete="name"></label>
+                        <label>Email address<input type="email" placeholder="you@example.com"
+                                autocomplete="email"></label>
+                        <label>Password<div class="password"><input id="signup-password" type="password"
+                                    placeholder="Create a password"><button type="button"
+                                    data-password="signup-password" aria-label="Show password">Show</button></div>
+                            </label>
+                        <button class="submit" type="submit">Create account</button>
+                    </form>
+                    <p class="switch">Already have an account? <a href="#login" data-switch="login">Return to sign
+                            in</a></p>
+                </article>
+            </div>
+        </section>
+    </main>
+    <script src="script.js"></script>
 </body>
-<script src="script.js"></script>
 
 </html>
