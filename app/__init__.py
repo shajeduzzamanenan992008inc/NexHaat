@@ -335,3 +335,7 @@ def request_is_secure():
     from flask import request
 
     return request.is_secure
+
+
+# Gunicorn/Azure expects a module-level WSGI object named "app".
+app = create_app()

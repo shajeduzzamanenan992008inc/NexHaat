@@ -117,7 +117,7 @@ jobs:
             az webapp config set \
               --resource-group "${{ secrets.AZURE_RESOURCE_GROUP || env.AZURE_RESOURCE_GROUP }}" \
               --name "${{ secrets.AZURE_WEBAPP_NAME || env.AZURE_WEBAPP_NAME }}" \
-              --startup-file "gunicorn --bind=0.0.0.0 --timeout 600 app:app"
+              --startup-file "gunicorn --bind=0.0.0.0 --timeout 600 wsgi:app"
 
       - name: Configure Azure app settings
         uses: azure/CLI@v2
