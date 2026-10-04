@@ -64,5 +64,25 @@ Desktop.ini
 build/
 dist/
 *.egg-info/
+*.whl
+*.tar.gz
+nexhaat-deploy.zip
+staging/
+coverage.xml
+pytest-report.xml
 *.bak
 *.swp
+
+# Azure / deployment diagnostics
+*.zip
+*.publishsettings
+azure-logs/
+startup.log
+oryx-manifest.toml
+
+# Local tooling state
+.python-version
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.hypothesis/
