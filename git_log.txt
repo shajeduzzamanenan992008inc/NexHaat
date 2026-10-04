@@ -1,6 +1,0 @@
-8676b0d Harden config parsing and OTP paste flow
-a7ac7bd Align design references and translation runtime
-869a667 Upgrade environment and dependency configuration
-359a6d5 Harden Azure App Service deployment
-84034ac Fix Azure WSGI startup entrypoint
-3beab90 Finalize auth, email, and deployment polish

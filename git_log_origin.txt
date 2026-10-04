@@ -1,4 +1,0 @@
-c00ace9 Delete docs directory
-a0aabf7 Delete docs/design-references directory
-8676b0d Harden config parsing and OTP paste flow
-a7ac7bd Align design references and translation runtime
