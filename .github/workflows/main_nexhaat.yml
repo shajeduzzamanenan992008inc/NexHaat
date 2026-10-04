@@ -111,7 +111,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure Azure startup command
-        uses: azure/CLI@v2
+        uses: azure/CLI@v3
         with:
           azcliversion: latest
           inlineScript: |
@@ -121,7 +121,7 @@ jobs:
               --startup-file "gunicorn --bind=0.0.0.0 --timeout 600 --workers 2 wsgi:app"
 
       - name: Configure Azure app settings
-        uses: azure/CLI@v2
+        uses: azure/CLI@v3
         with:
           azcliversion: latest
           inlineScript: |
