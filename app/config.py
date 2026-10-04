@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -6,6 +7,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
+logger = logging.getLogger(__name__)
 
 
 def _env_bool(name, default=False):
@@ -17,7 +19,13 @@ def _env_bool(name, default=False):
         return True
     if normalized in {"0", "false", "no", "off"}:
         return False
-    raise ValueError(f"{name} must be one of: 1, 0, true, false, yes, no, on, off")
+    logger.warning(
+        "Invalid boolean value for %s=%r; using default %s.",
+        name,
+        value,
+        default,
+    )
+    return default
 
 
 class Config:

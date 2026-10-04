@@ -17,8 +17,8 @@ def test_env_bool_accepts_false_values(monkeypatch, value):
     assert _env_bool("TEST_BOOLEAN") is False
 
 
-def test_env_bool_rejects_unknown_values(monkeypatch):
+def test_env_bool_falls_back_and_warns_for_unknown_values(monkeypatch, caplog):
     monkeypatch.setenv("TEST_BOOLEAN", "maybe")
 
-    with pytest.raises(ValueError):
-        _env_bool("TEST_BOOLEAN")
+    assert _env_bool("TEST_BOOLEAN", default=True) is True
+    assert "Invalid boolean value for TEST_BOOLEAN" in caplog.text
