@@ -11,6 +11,8 @@ from ..i18n import SUPPORTED_LOCALES
 
 from ..services.catalog import (
     get_active_categories,
+    get_active_brands,
+    get_active_sellers,
     get_category_by_slug,
     get_catalog_products,
     get_home_products,
@@ -19,6 +21,7 @@ from ..services.catalog import (
     get_reference_foods,
     search_suggestions,
 )
+from ..services.recent_views import recent_products_for_user, record_recent_view
 from ..services.reviews import (
     ReviewError,
     create_review,
@@ -78,8 +81,17 @@ def set_language():
     return redirect(destination)
 
 
+@main_bp.get("/health/live")
+def health_live():
+    """Liveness probe that does not depend on database availability."""
+    return {"status": "ok"}, 200
+
+
 @main_bp.get("/health")
+@main_bp.get("/health/db")
+@main_bp.get("/health/ready")
 def health():
+    """Readiness probe for traffic that requires a working database."""
     try:
         db.session.execute(text("SELECT 1"))
     except SQLAlchemyError:
@@ -89,25 +101,15 @@ def health():
     return {"status": "ok"}, 200
 
 
-@main_bp.get("/health/db")
-def health_db():
-    """Dedicated database readiness probe for deployment checks."""
-    try:
-        db.session.execute(text("SELECT 1"))
-    except SQLAlchemyError:
-        db.session.rollback()
-        current_app.logger.exception("Database readiness check failed.")
-        return {"status": "unavailable"}, 503
-    return {"status": "ok"}, 200
-
-
 @main_bp.get("/")
 def index():
+    user = getattr(g, "current_user", None)
     return render_template(
         "home.html",
         categories=get_active_categories(),
         products=get_home_products(),
         current_user_id=session.get("user_id"),
+        recent_products=recent_products_for_user(user) if user and user.role == "customer" else [],
     )
 
 
@@ -120,6 +122,10 @@ def menu():
     query = request.args.get("q", "").strip()[:current_app.config["MAX_SEARCH_LENGTH"]]
     min_price = _price_filter("min_price")
     max_price = _price_filter("max_price")
+    seller_id = request.args.get("seller_id", type=int)
+    brand_name = request.args.get("brand_name", "").strip()[:120]
+    in_stock = request.args.get("in_stock") == "1"
+    variant_value = request.args.get("variant_value", "").strip()[:80]
     if min_price is not None and max_price is not None and min_price > max_price:
         abort(400)
     sort = request.args.get("sort", "featured")
@@ -133,6 +139,10 @@ def menu():
         min_price=min_price,
         max_price=max_price,
         sort=sort,
+        seller_id=seller_id,
+        brand_name=brand_name,
+        in_stock=in_stock,
+        variant_value=variant_value,
     )
     reference_categories = []
     reference_foods = []
@@ -158,6 +168,12 @@ def menu():
         min_price=min_price,
         max_price=max_price,
         selected_category_id=category_id,
+        selected_seller_id=seller_id,
+        selected_brand_name=brand_name,
+        brands=get_active_brands(),
+        in_stock=in_stock,
+        variant_value=variant_value,
+        sellers=get_active_sellers(),
         selected_reference_category_id=reference_category_id,
         reference_categories=reference_categories,
         reference_foods=reference_foods,
@@ -172,6 +188,10 @@ def category(slug):
         abort(404)
     min_price = _price_filter("min_price")
     max_price = _price_filter("max_price")
+    seller_id = request.args.get("seller_id", type=int)
+    brand_name = request.args.get("brand_name", "").strip()[:120]
+    in_stock = request.args.get("in_stock") == "1"
+    variant_value = request.args.get("variant_value", "").strip()[:80]
     if min_price is not None and max_price is not None and min_price > max_price:
         abort(400)
     sort = request.args.get("sort", "featured")
@@ -184,6 +204,10 @@ def category(slug):
         min_price=min_price,
         max_price=max_price,
         sort=sort,
+        seller_id=seller_id,
+        brand_name=brand_name,
+        in_stock=in_stock,
+        variant_value=variant_value,
     )
     return render_template(
         "catalog/category.html",
@@ -193,6 +217,12 @@ def category(slug):
         min_price=min_price,
         max_price=max_price,
         sort=sort,
+        sellers=get_active_sellers(),
+        selected_seller_id=seller_id,
+        selected_brand_name=brand_name,
+        brands=get_active_brands(),
+        in_stock=in_stock,
+        variant_value=variant_value,
     )
 
 
@@ -202,6 +232,8 @@ def food(slug):
     if product is None:
         abort(404)
     user = getattr(g, "current_user", None)
+    if user is not None and user.role == "customer" and product.is_available:
+        record_recent_view(user, product)
     return render_template(
         "catalog/food.html",
         product=product,
@@ -245,6 +277,10 @@ def search():
     category_id = request.args.get("category_id", type=int)
     min_price = _price_filter("min_price")
     max_price = _price_filter("max_price")
+    seller_id = request.args.get("seller_id", type=int)
+    brand_name = request.args.get("brand_name", "").strip()[:120]
+    in_stock = request.args.get("in_stock") == "1"
+    variant_value = request.args.get("variant_value", "").strip()[:80]
     if min_price is not None and max_price is not None and min_price > max_price:
         abort(400)
     sort = request.args.get("sort", "relevance")
@@ -258,6 +294,10 @@ def search():
         min_price=min_price,
         max_price=max_price,
         sort=sort,
+        seller_id=seller_id,
+        brand_name=brand_name,
+        in_stock=in_stock,
+        variant_value=variant_value,
     )
     reference_foods, reference_pagination = get_reference_foods(
         page, min(current_app.config["CATALOG_PAGE_SIZE"], 20), query=query
@@ -272,10 +312,44 @@ def search():
         min_price=min_price,
         max_price=max_price,
         selected_category_id=category_id,
+        selected_seller_id=seller_id,
+        selected_brand_name=brand_name,
+        brands=get_active_brands(),
+        in_stock=in_stock,
+        variant_value=variant_value,
+        sellers=get_active_sellers(),
         selected_reference_category_id=None,
         reference_categories=[],
         reference_foods=reference_foods,
         reference_pagination=reference_pagination,
+    )
+
+
+@main_bp.get("/deals")
+def deals():
+    page = max(1, request.args.get("page", 1, type=int))
+    min_price = _price_filter("min_price")
+    max_price = _price_filter("max_price")
+    if min_price is not None and max_price is not None and min_price > max_price:
+        abort(400)
+    seller_id = request.args.get("seller_id", type=int)
+    brand_name = request.args.get("brand_name", "").strip()[:120]
+    in_stock = request.args.get("in_stock") == "1"
+    variant_value = request.args.get("variant_value", "").strip()[:80]
+    sort = request.args.get("sort", "newest")
+    if sort not in {"featured", "newest", "price_asc", "price_desc"}:
+        abort(400)
+    products, pagination = get_catalog_products(
+        page, current_app.config["CATALOG_PAGE_SIZE"], min_price=min_price,
+        max_price=max_price, sort=sort, seller_id=seller_id, in_stock=in_stock,
+        brand_name=brand_name, variant_value=variant_value, deals_only=True,
+    )
+    return render_template(
+        "catalog/deals.html", products=products, pagination=pagination,
+        min_price=min_price, max_price=max_price, sort=sort,
+        sellers=get_active_sellers(), selected_seller_id=seller_id,
+        brands=get_active_brands(), selected_brand_name=brand_name,
+        in_stock=in_stock, variant_value=variant_value,
     )
 
 

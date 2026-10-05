@@ -59,6 +59,22 @@ class Category(CatalogTimestampMixin, db.Model):
         return value
 
 
+class RecentViewedProduct(CatalogTimestampMixin, db.Model):
+    __tablename__ = "recently_viewed_products"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    viewed_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), index=True)
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "product_id", name="uq_recently_viewed_user_product"),
+        db.Index("ix_recently_viewed_user_viewed_at", "user_id", "viewed_at"),
+    )
+
+    user = db.relationship("User", backref="recently_viewed_products")
+    product = db.relationship("Product", back_populates="recent_views")
+
+
 class Product(CatalogTimestampMixin, db.Model):
     __tablename__ = "products"
 
@@ -67,6 +83,7 @@ class Product(CatalogTimestampMixin, db.Model):
     category_id = db.Column(
         db.Integer, db.ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    brand_name = db.Column(db.String(120), nullable=True, index=True)
     name = db.Column(db.String(160), nullable=False, index=True)
     slug = db.Column(db.String(180), unique=True, nullable=False, index=True)
     description = db.Column(db.Text, nullable=False)
@@ -112,6 +129,10 @@ class Product(CatalogTimestampMixin, db.Model):
     )
     wishlist_items = db.relationship(
         "WishlistItem", back_populates="product", cascade="all, delete-orphan",
+    )
+    recent_views = db.relationship(
+        "RecentViewedProduct", back_populates="product", cascade="all, delete-orphan",
+        order_by="RecentViewedProduct.viewed_at.desc()",
     )
 
     _locale_labels = {
@@ -161,6 +182,13 @@ class Product(CatalogTimestampMixin, db.Model):
         if not normalized:
             raise ValueError("Product slug must contain letters or numbers.")
         return normalized
+
+    @validates("brand_name")
+    def validate_brand_name(self, key, value):
+        normalized = (value or "").strip()
+        if len(normalized) > 120:
+            raise ValueError("Brand name must be 120 characters or fewer.")
+        return normalized or None
 
     @validates("price", "discount_price")
     def validate_price(self, key, value):
@@ -267,3 +295,108 @@ class ProductVariant(CatalogTimestampMixin, db.Model):
         if amount is not None and amount != amount.quantize(Decimal("0.01")):
             raise ValueError("Variant prices can have at most two decimal places.")
         return amount
+
+
+class PromotionCode(CatalogTimestampMixin, db.Model):
+    __tablename__ = "promotion_codes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    seller_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    code = db.Column(db.String(40), nullable=False, unique=True)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    campaign_type = db.Column(db.String(20), nullable=False, default="coupon", server_default="coupon")
+    discount_type = db.Column(db.String(20), nullable=False, default="percent")
+    discount_value = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    minimum_order_amount = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    max_discount_amount = db.Column(db.Numeric(10, 2), nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    starts_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    usage_limit = db.Column(db.Integer, nullable=True)
+    used_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    __table_args__ = (
+        db.CheckConstraint("length(trim(code)) > 0", name="ck_promotion_code_nonempty"),
+        db.CheckConstraint("length(trim(name)) > 0", name="ck_promotion_name_nonempty"),
+        db.CheckConstraint("campaign_type IN ('coupon', 'seller_deal')", name="ck_promotion_campaign_type_valid"),
+        db.CheckConstraint("discount_type IN ('percent', 'fixed')", name="ck_promotion_discount_type_valid"),
+        db.CheckConstraint("discount_value >= 0", name="ck_promotion_discount_value_nonnegative"),
+        db.CheckConstraint("minimum_order_amount >= 0", name="ck_promotion_min_order_nonnegative"),
+        db.CheckConstraint("used_count >= 0", name="ck_promotion_used_count_nonnegative"),
+        db.CheckConstraint("usage_limit IS NULL OR usage_limit > 0", name="ck_promotion_usage_limit_positive"),
+        db.CheckConstraint("max_discount_amount IS NULL OR max_discount_amount >= 0", name="ck_promotion_max_discount_nonnegative"),
+        db.CheckConstraint("discount_type != 'percent' OR discount_value <= 100", name="ck_promotion_percent_max_100"),
+        db.CheckConstraint("expires_at IS NULL OR expires_at > starts_at", name="ck_promotion_dates_ordered"),
+        db.CheckConstraint("campaign_type != 'seller_deal' OR seller_id IS NOT NULL", name="ck_seller_deal_has_owner"),
+    )
+
+    seller = db.relationship("User", foreign_keys=[seller_id])
+    redemptions = db.relationship("PromotionRedemption", back_populates="promotion", cascade="all, delete-orphan")
+
+    @validates("code")
+    def validate_code(self, key, value):
+        normalized = (value or "").strip().upper()
+        if not normalized:
+            raise ValueError("Promotion code cannot be empty.")
+        if len(normalized) > 40:
+            raise ValueError("Promotion code is too long.")
+        return normalized
+
+    @validates("discount_type")
+    def validate_discount_type(self, key, value):
+        if value not in {"percent", "fixed"}:
+            raise ValueError("Promotion discount type must be percent or fixed.")
+        return value
+
+    @validates("campaign_type")
+    def validate_campaign_type(self, key, value):
+        if value not in {"coupon", "seller_deal"}:
+            raise ValueError("Choose a valid campaign type.")
+        return value
+
+    @validates("discount_value", "minimum_order_amount", "max_discount_amount")
+    def validate_promotion_amount(self, key, value):
+        amount = Decimal(str(value)) if value is not None else None
+        if amount is None:
+            return None
+        if not amount.is_finite() or amount < 0 or amount > Decimal("99999999.99"):
+            raise ValueError("Promotion amounts must be finite and within the supported range.")
+        if amount != amount.quantize(Decimal("0.01")):
+            raise ValueError("Promotion amounts can have at most two decimal places.")
+        if key == "discount_value" and self.discount_type == "percent" and amount > Decimal("100.00"):
+            raise ValueError("Percentage discounts cannot exceed 100%.")
+        return amount
+
+    @validates("usage_limit", "used_count")
+    def validate_usage_count(self, key, value):
+        if value is None and key == "usage_limit":
+            return None
+        try:
+            count = int(value)
+        except (TypeError, ValueError) as error:
+            raise ValueError("Promotion usage counts must be whole numbers.") from error
+        if isinstance(value, bool) or count < (1 if key == "usage_limit" else 0):
+            raise ValueError("Promotion usage count is outside the supported range.")
+        return count
+
+    @property
+    def normalized_code(self):
+        return (self.code or "").strip().upper()
+
+
+class PromotionRedemption(db.Model):
+    __tablename__ = "promotion_redemptions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    promotion_id = db.Column(db.Integer, db.ForeignKey("promotion_codes.id", ondelete="RESTRICT"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    checkout_group = db.Column(db.String(40), nullable=False)
+    discount_amount = db.Column(db.Numeric(10, 2), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (
+        db.UniqueConstraint("promotion_id", "checkout_group", name="uq_promotion_redemption_checkout"),
+        db.CheckConstraint("discount_amount >= 0", name="ck_promotion_redemption_amount_nonnegative"),
+    )
+
+    promotion = db.relationship("PromotionCode", back_populates="redemptions")
+    user = db.relationship("User")
