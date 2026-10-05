@@ -1,6 +1,7 @@
 from pathlib import Path
 import logging
 import secrets
+import time
 import zipfile
 from urllib.parse import urlsplit
 
@@ -63,6 +64,7 @@ def create_app(config_object=None):
 
     @app.before_request
     def reject_revoked_sessions():
+        g.app_request_started_at = time.perf_counter()
         g.current_user = None
         if session.get("user_id") is not None:
             user = current_session_user()
@@ -103,6 +105,11 @@ def create_app(config_object=None):
 
     @app.after_request
     def security_headers(response):
+        if app.config.get("APP_TIMING_ENABLED"):
+            started_at = getattr(g, "app_request_started_at", None)
+            if started_at is not None:
+                duration_ms = max(0.0, (time.perf_counter() - started_at) * 1000)
+                response.headers.setdefault("Server-Timing", f"app;dur={duration_ms:.2f}")
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -197,6 +204,20 @@ def create_app(config_object=None):
         delivered = retry_pending_emails()
         click.echo(f"Queued emails retried: {delivered} delivered.")
 
+    @app.cli.command("expire-payments")
+    @click.option("--batch-size", default=200, show_default=True, type=click.IntRange(min=1, max=2000))
+    def expire_payments_command(batch_size):
+        """Expire unpaid checkout sessions and release their reserved stock."""
+        from .services.payments import expire_pending_payments
+
+        total = 0
+        while True:
+            expired = expire_pending_payments(limit=batch_size)
+            total += expired
+            if expired < batch_size:
+                break
+        click.echo(f"Expired online payments and released stock for {total} checkout(s).")
+
     @app.cli.command("db-size")
     def db_size():
         """Report the current database size against the configured ceiling."""
@@ -224,8 +245,18 @@ def create_app(config_object=None):
 
     @app.cli.command("restore-db")
     @click.option("--from", "source", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path))
-    def restore_db(source):
-        """Restore a verified backup over the live database."""
+    @click.option(
+        "--confirm-target",
+        is_flag=True,
+        help="Confirm that the configured database is the intended isolated restore target.",
+    )
+    def restore_db(source, confirm_target):
+        """Restore a verified backup over the configured database."""
+        if not confirm_target:
+            raise click.UsageError(
+                "This operation replaces the configured database. Verify that it is an isolated "
+                "restore target, then pass --confirm-target."
+            )
         from .services.backup import restore_database
 
         try:
@@ -247,6 +278,31 @@ def create_app(config_object=None):
         for issue in issues:
             click.echo(f"  - {issue}")
         raise SystemExit(1)
+
+    @app.cli.command("catalog-media-smoke-check")
+    @click.option(
+        "--confirm-external-write",
+        is_flag=True,
+        help="Allow a temporary image upload and cleanup in the configured media bucket.",
+    )
+    def catalog_media_smoke_check(confirm_external_write):
+        """Exercise live image scanning and storage with a disposable image."""
+        if not confirm_external_write:
+            raise click.UsageError(
+                "This command writes and deletes a temporary object in the configured bucket. "
+                "Review the target environment, then pass --confirm-external-write."
+            )
+        from .services.catalog_media import catalog_media_smoke_check as run_smoke_check
+
+        try:
+            run_smoke_check()
+        except (RuntimeError, ValueError, OSError) as error:
+            raise click.ClickException(str(error)) from error
+        except Exception as error:  # noqa: BLE001 - avoid printing provider details or credentials
+            raise click.ClickException(
+                f"Catalog media smoke check failed ({error.__class__.__name__})."
+            ) from error
+        click.echo("Catalog media scan, sanitized upload, object read, and cleanup passed.")
 
     @app.errorhandler(404)
     def not_found(error):

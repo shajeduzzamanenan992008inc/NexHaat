@@ -112,7 +112,11 @@ def _render_invoice(order, locale, restaurant_name):
     line(f"{gettext('Invoice number')}: {order.order_number}")
     if order.created_at is not None:
         line(f"{gettext('Date')}: {format_datetime(order.created_at, format='medium')}")
-    line(f"{gettext('Payment method')}: {gettext('Cash on delivery')}")
+    payment_method = (
+        gettext("Paid online") if order.payment_method == "sslcommerz"
+        else gettext("Cash on delivery")
+    )
+    line(f"{gettext('Payment method')}: {payment_method}")
     y -= 6
 
     pdf.setFont(font, 11)
@@ -155,6 +159,12 @@ def _render_invoice(order, locale, restaurant_name):
     delivery_fee = getattr(order, "delivery_fee", None) or Decimal("0.00")
     total_row(gettext("Subtotal"), getattr(order, "items_subtotal", Decimal("0.00")))
     total_row(gettext("Delivery"), delivery_fee)
+    discount_amount = getattr(order, "discount_amount", Decimal("0.00")) or Decimal("0.00")
+    if discount_amount:
+        label = gettext("Promotion discount")
+        if getattr(order, "promotion_code", None):
+            label = f"{label} ({order.promotion_code})"
+        total_row(label, -discount_amount)
     total_row(gettext("Total"), order.total, bold=True)
 
     y -= 10

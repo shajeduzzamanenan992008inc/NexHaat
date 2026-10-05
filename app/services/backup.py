@@ -1,6 +1,5 @@
 """Database size limits plus simple, verifiable backup and restore helpers."""
 
-import shutil
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -98,9 +97,17 @@ def restore_database(source):
         target = _sqlite_path()
         if target is None:
             raise RuntimeError("SQLite restore target is not configured.")
+        if source.resolve() == target.resolve():
+            raise RuntimeError("The backup source must be different from the active database file.")
         db.session.remove()
         db.engine.dispose()
-        shutil.copyfile(source, target)
+        source_connection = sqlite3.connect(f"file:{source}?mode=ro", uri=True)
+        target_connection = sqlite3.connect(str(target))
+        try:
+            source_connection.backup(target_connection)
+        finally:
+            target_connection.close()
+            source_connection.close()
         _verify_sqlite_file(target)
     else:
         _pg_restore(source)

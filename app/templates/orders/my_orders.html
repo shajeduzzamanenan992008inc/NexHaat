@@ -18,6 +18,7 @@
           <th>{{ _('Items') }}</th>
           <th>{{ _('Status') }}</th>
           <th>{{ _('Delivery') }}</th>
+          <th>{{ _('Payment') }}</th>
           <th>{{ _('Total') }}</th>
           <th>{{ _('Actions') }}</th>
         </tr>
@@ -31,17 +32,34 @@
           <td><span class="status-pill status-pill--{{ order.status }}">{{ _(order.status|capitalize) }}</span></td>
           <td><span class="status-pill status-pill--{{ order.delivery_status }}">{{ _(order.delivery_status|replace('_',
               ' ')|capitalize) }}</span></td>
+          <td>{% if order.payment %}<span class="status-pill status-pill--{{ order.payment.status }}">{{ _(order.payment.status|replace('_', ' ')|capitalize) }}</span>{% else %}{{ _('Cash on delivery') }}{% endif %}</td>
           <td><strong>৳{{ '%.2f'|format(order.total) }}</strong></td>
-          <td>{% if order.status in ('pending', 'confirmed') %}<form method="post"
-              action="{{ url_for('orders.customer_order_cancel', order_number=order.order_number) }}"><input
-                type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-secondary button-small"
-                type="submit">{{ _('Cancel order') }}</button></form>{% else %}—{% endif %}</td>
+          <td>
+            {% if order.status in ('pending', 'confirmed') %}
+            <form method="post" action="{{ url_for('orders.customer_order_cancel', order_number=order.order_number) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-secondary button-small" type="submit">{{ _('Cancel order') }}</button>
+            </form>
+            {% endif %}
+            {% if order.return_request %}
+            <p>{{ _('Return') }}: <span class="status-pill status-pill--{{ order.return_request.status }}">{{ _(order.return_request.status|replace('_', ' ')|capitalize) }}</span></p>
+            {% if order.payment %}{% set return_refund = order.payment.refunds|selectattr('order_id', 'equalto', order.id)|first %}{% if return_refund %}<small>{{ _('Refund status') }}: {{ _(return_refund.status|replace('_', ' ')|capitalize) }}</small>{% endif %}{% endif %}
+            {% if order.return_request.review_note %}<small>{{ order.return_request.review_note }}</small>{% endif %}
+            {% if order.return_request.provider_refund_id %}<small>{{ _('Refund reference') }}: {{ order.return_request.provider_refund_id }}</small>{% elif order.return_request.manual_refund_reference %}<small>{{ _('Refund reference') }}: {{ order.return_request.manual_refund_reference }}</small>{% endif %}
+            {% elif order.is_return_eligible and order.delivery_status == 'delivered' %}
+            <form method="post" action="{{ url_for('orders.customer_order_return', order_number=order.order_number) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label class="visually-hidden" for="return-reason-{{ order.id }}">{{ _('Return reason') }}</label>
+              <input id="return-reason-{{ order.id }}" name="reason" maxlength="255" placeholder="{{ _('Return reason') }}" required>
+              <button class="button-secondary button-small" type="submit">{{ _('Request return') }}</button>
+            </form>
+            {% endif %}
+            {% if order.status not in ('pending', 'confirmed') and not order.return_request and not order.is_return_eligible %}—{% endif %}
+          </td>
         </tr>{% endfor %}
       </tbody>
     </table>
   </div>
-  {% else %}<div class="empty-state"><strong>{{ _('No orders yet') }}</strong>{{ _('Your completed checkout orders will
-    appear here.') }}<p><a class="button" href="{{ url_for('main.menu') }}">{{ _('Explore marketplace') }}</a></p>
+  {% else %}<div class="empty-state"><strong>{{ _('No orders yet') }}</strong>{{ _('Your completed checkout orders will appear here.') }}<p><a class="button" href="{{ url_for('main.menu') }}">{{ _('Explore marketplace') }}</a></p>
   </div>{% endif %}
 </div>
 {% endblock %}

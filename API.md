@@ -5,8 +5,9 @@ The application serves server-rendered HTML routes and a versioned JSON API. Sta
 ## Storefront
 
 - `GET /` — home page with active categories and featured products
-- `GET /menu?page=&q=&category_id=&min_price=&max_price=&sort=` — paginated active catalog with marketplace filters and separate optional reference-food search
+- `GET /menu?page=&q=&category_id=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&sort=` — paginated active catalog with marketplace filters and separate optional reference-food search
 - `GET /category/<slug>?page=&min_price=&max_price=&sort=` — paginated active category products
+- `GET /deals?page=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&sort=` — paginated active discounted listings
 - `GET /food/<slug>` — available product detail with localized text and source-language fallback
 - `POST /food/<slug>/reviews` — purchase-verified product review (customers only; enters moderation)
 - `GET /search?q=&page=&category_id=&min_price=&max_price=&sort=` — bounded, paginated search across name, description, and translations
@@ -46,13 +47,15 @@ cents are lost, and error responses never include stack traces or internal paths
 - `POST /api/v1/auth/register/verify` — consume the signup OTP and create the account (`201`)
 - `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me` — session authentication for Customer/Seller/Rider; Admin password login is refused
 - `POST /api/v1/auth/admin/code`, `POST /api/v1/auth/admin/verify` — passwordless Admin OTP sign-in
-- `GET /api/v1/products?page=&limit=&q=&category_id=&min_price=&max_price=&sort=` — filtered, paginated active listings
+- `GET /api/v1/products?page=&limit=&q=&category_id=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&sort=` — filtered, paginated active listings
+- `GET /api/v1/deals?page=&limit=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&sort=` — discounted listings
 - `GET /api/v1/products/{id}` — product details, localized text, stock and active SKU variants
 - `GET /api/v1/categories`, `GET /api/v1/categories/{slug}` — active category list and paginated products
 - `GET /api/v1/search?q=&page=&limit=&category_id=&min_price=&max_price=&sort=` — catalog search
 - `GET /api/v1/cart`, `POST /api/v1/cart/items`, `PATCH /api/v1/cart/items/{product-or-variant-key}`, `DELETE /api/v1/cart/items/{product-or-variant-key}`, `DELETE /api/v1/cart` — session cart
-- `POST /api/v1/checkout/preview`, `POST /api/v1/checkout` — server-priced seller-split COD checkout with transactional stock reservation
+- `POST /api/v1/checkout/preview`, `POST /api/v1/checkout` — server-priced seller-split checkout; optional `promotion_code` is validated and allocated server-side
 - `GET /api/v1/orders`, `GET /api/v1/orders/{number}`, `POST /api/v1/orders/{number}/cancel` — customer history, detail and eligible cancellation
+- `POST /api/v1/orders/{number}/return` — request an eligible delivered-order return with an optional JSON `reason`; subsequent order responses include return decision, refund state, and refund reference fields
 - `GET /api/v1/seller/dashboard`, `GET /api/v1/seller/orders`, `PATCH /api/v1/seller/orders/{id}` — approved-seller metrics and owner-scoped order actions
 - `GET /api/v1/seller/products`, `POST /api/v1/seller/products`, `PATCH /api/v1/seller/products/{id}`, `DELETE /api/v1/seller/products/{id}` — owner-scoped product management; create/edit submits for Admin moderation
 - `GET /api/v1/admin/dashboard`, `GET /api/v1/admin/users`, `PATCH /api/v1/admin/users/{id}`, `GET /api/v1/admin/sellers`, `PATCH /api/v1/admin/sellers/{id}`
@@ -76,6 +79,7 @@ API clients authenticate with the existing session cookie. Signup challenges are
 - `GET /orders/<order_number>` — confirmation listing every sub-order in the checkout group
 - `GET /my-orders` — signed-in customer order history
 - `POST /orders/<order_number>/cancel` — cancel an owned pending/confirmed order and restore reserved inventory
+- `POST /orders/<order_number>/return` — request a return for an owned delivered order within its snapshotted return window; the order response includes return status and refund reference
 
 ## Authentication and accounts
 
@@ -93,6 +97,7 @@ API clients authenticate with the existing session cookie. Signup challenges are
 - `POST /seller/orders/<id>/status` — confirm/decline pending orders or start preparing confirmed orders
 - `GET|POST /seller/account`, `POST /seller/account/password` — store contact details and password
 - `GET|POST /seller/products/new`, `GET|POST /seller/products/<id>/edit`
+- `GET|POST /seller/deals`, `POST /seller/deals/<id>/toggle` — create and manage seller-owned, scheduled discount codes
 - `GET|POST /seller/products/<id>/variants`, plus variant stock and availability actions
 
 ## Rider workspace
@@ -105,6 +110,7 @@ API clients authenticate with the existing session cookie. Signup challenges are
 
 - `GET /admin` — operations dashboard (seller review, catalog moderation, staff accounts, customers, orders, delivery, audit trail)
 - `GET|POST /admin/settings`, `/admin/products/new`, `/admin/products/<id>/edit`, `/admin/categories/new`, `/admin/categories/<id>/edit`, `/admin/customers/new`
+- `GET|POST /admin/promotions`, `POST /admin/promotions/<id>/toggle` — create and manage marketplace coupons and seller-scoped campaigns
 - `POST /admin/products/<id>/review`, `/admin/sellers/<profile_id>/review`
 - `POST /admin/reviews/<id>/moderate` — approve or reject a product review
 - `POST /admin/orders/<id>/status`, `/admin/orders/<id>/assign`, `/admin/orders/<id>/confirm`, `/admin/orders/<id>/decline`, `/admin/orders/confirm-all`, `/admin/orders/decline-all`
@@ -118,7 +124,7 @@ API clients authenticate with the existing session cookie. Signup challenges are
 - `flask --app run.py seed-catalog` — curated category seed
 - `flask --app run.py import-fdc` / `import-foodon` — reference-data import with the database ceiling
 - `flask --app run.py retry-emails` — resend queued transactional email
-- `flask --app run.py db-size`, `flask --app run.py backup-db --to <file>`, `flask --app run.py restore-db --from <file>`
+- `flask --app run.py db-size`, `flask --app run.py backup-db --to <file>`, `flask --app run.py restore-db --from <file> --confirm-target` (only after verifying the configured target is isolated)
 - `flask --app run.py production-check` — production launch readiness review
 
 Future JSON endpoints should return consistent success/error envelopes and validate input at the boundary.

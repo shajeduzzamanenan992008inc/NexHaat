@@ -353,14 +353,14 @@ def login():
         password_within_limit = len(password) <= current_app.config["MAX_PASSWORD_LENGTH"]
         password_valid = (
             user.check_password(password[:current_app.config["MAX_PASSWORD_LENGTH"]])
-            if user and user.role in {"customer", "seller", "rider"} and not throttled
+            if user and user.role in {"customer", "seller", "rider", "super_admin", "support"} and not throttled
             else check_password_hash(
                 DUMMY_LOGIN_HASH, password[:current_app.config["MAX_PASSWORD_LENGTH"]]
             ) if not throttled else False
         )
         valid_login = bool(
             not throttled and password_within_limit and user and user.is_active
-            and user.role in {"customer", "seller", "rider"} and password_valid
+            and user.role in {"customer", "seller", "rider", "super_admin", "support"} and password_valid
         )
         if not valid_login:
             if not throttled:
@@ -407,7 +407,7 @@ def admin_login():
 
         if not throttled and EMAIL_PATTERN.fullmatch(email) and len(email) <= 255:
             user = db.session.scalar(select(User).where(User.email == email))
-            if not (user and user.role == "admin" and user.is_active):
+            if not (user and user.role in {"admin", "super_admin", "support"} and user.is_active):
                 admin_missing = True
             elif _staff_email_ready():
                 now = datetime.now(timezone.utc)
@@ -493,7 +493,7 @@ def verify_admin_login():
         user = db.session.get(User, challenge.user_id) if challenge else None
         challenge_active = bool(
             challenge and challenge.consumed_at is None and expires and expires >= now
-            and user and user.role == "admin" and user.is_active
+            and user and user.role in {"admin", "super_admin", "support"} and user.is_active
         )
         code = request.form.get("code", "").strip()
         valid_code = bool(
@@ -552,7 +552,7 @@ def resend_admin_login_code():
     user = db.session.get(User, challenge.user_id) if challenge else None
     eligible = bool(
         challenge and challenge.consumed_at is None and expires and expires >= now
-        and user and user.role == "admin" and user.is_active and _staff_email_ready()
+        and user and user.role in {"admin", "super_admin", "support"} and user.is_active and _staff_email_ready()
         and not login_is_throttled(request.remote_addr)
     )
     if eligible:
@@ -572,10 +572,10 @@ def resend_admin_login_code():
 
 
 @auth_bp.get("/portal")
-@role_required("customer", "seller", "rider", "admin")
+@role_required("customer", "seller", "rider", "admin", "super_admin", "support")
 def portal():
     user = current_session_user()
-    if user.role == "admin":
+    if user.role in {"admin", "super_admin", "support"}:
         return redirect(url_for("admin.dashboard"))
     if user.role == "customer":
         return render_template("portals/dashboard.html", role=user.role, user=user, profile=user.customer_profile)

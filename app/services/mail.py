@@ -272,16 +272,18 @@ def _order_locale(order):
 def enqueue_order_emails(order):
     """Store the customer and Admin order emails and start background delivery."""
     locale = _order_locale(order)
-    record_ids = [
-        _enqueue(
-            "order_pending",
-            f"NexHaat order received: {order.order_number}",
-            [order.email],
-            locale,
-            order=order,
-            restaurant_name="NexHaat",
+    record_ids = []
+    if order.payment_method != "sslcommerz":
+        record_ids.append(
+            _enqueue(
+                "order_pending",
+                f"NexHaat order received: {order.order_number}",
+                [order.email],
+                locale,
+                order=order,
+                restaurant_name="NexHaat",
+            )
         )
-    ]
     admin_email = (
         current_app.config.get("ADMIN_EMAIL") or current_app.config.get("MAIL_DEFAULT_SENDER")
     )

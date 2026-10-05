@@ -44,7 +44,7 @@ def _price_arg(name):
     return price
 
 
-def _listing(category_id_override=None):
+def _listing(category_id_override=None, *, deals_only=False):
     page, limit = _page_args()
     query = request.args.get("q", "").strip()[:100]
     category_id = (
@@ -59,8 +59,20 @@ def _listing(category_id_override=None):
     sort = request.args.get("sort", "relevance" if query else "featured")
     if sort not in {"featured", "relevance", "newest", "price_asc", "price_desc"}:
         raise ApiError("Unsupported product sort order.", "VALIDATION_ERROR", 422)
+    seller_id = request.args.get("seller_id", type=int)
+    raw_stock = request.args.get("in_stock", "0")
+    if raw_stock not in {"0", "1"}:
+        raise ApiError("in_stock must be 0 or 1.", "VALIDATION_ERROR", 422)
+    variant_value = request.args.get("variant_value", "").strip()
+    if len(variant_value) > 80:
+        raise ApiError("variant_value is too long.", "VALIDATION_ERROR", 422)
+    brand_name = request.args.get("brand_name", "").strip()
+    if len(brand_name) > 120:
+        raise ApiError("brand_name is too long.", "VALIDATION_ERROR", 422)
     products, pagination = get_catalog_products(
-        page, limit, query, category_id, minimum, maximum, sort
+        page, limit, query, category_id, minimum, maximum, sort,
+        seller_id=seller_id, brand_name=brand_name, in_stock=raw_stock == "1",
+        variant_value=variant_value, deals_only=deals_only,
     )
     return paginated_response(
         [product_to_dict(product) for product in products],
@@ -73,6 +85,11 @@ def _listing(category_id_override=None):
 @catalog_api.get("/products")
 def list_products():
     return _listing()
+
+
+@catalog_api.get("/deals")
+def list_deals():
+    return _listing(deals_only=True)
 
 
 @catalog_api.get("/products/<int:product_id>")

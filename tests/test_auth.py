@@ -130,6 +130,25 @@ def test_invalid_login_is_rejected(client):
     assert b"Invalid email or password" in response.data
 
 
+def test_marketplace_staff_roles_can_sign_in_to_admin_dashboard(client, app):
+    client.application.config["WTF_CSRF_ENABLED"] = False
+    users = [
+        User(email="super-admin@example.com", role="super_admin"),
+        User(email="support@example.com", role="support"),
+    ]
+    for user in users:
+        user.set_password("password123")
+    with app.app_context():
+        db.session.add_all(users)
+        db.session.commit()
+
+    for email in ["super-admin@example.com", "support@example.com"]:
+        response = client.post("/auth/login", data={"email": email, "password": "password123"})
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/admin")
+        client.post("/auth/logout")
+
+
 def test_one_login_dispatches_customer_and_admin_roles(client, app, login_admin):
     csrf_off = {"WTF_CSRF_ENABLED": False}
     client.application.config.update(csrf_off)

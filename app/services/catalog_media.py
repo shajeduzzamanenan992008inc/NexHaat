@@ -20,7 +20,8 @@ import warnings
 import boto3
 from flask import current_app
 from PIL import Image, UnidentifiedImageError
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
+from werkzeug.datastructures import FileStorage
 
 
 class CatalogMediaError(ValueError):
@@ -218,3 +219,74 @@ def store_catalog_image(upload):
     except OSError:
         current_app.logger.warning("Clean catalog quarantine file %s could not be removed.", token)
     return public_url
+
+
+def catalog_media_smoke_check():
+    """Exercise the live scanner and object store, then remove the probe object."""
+    bucket = (current_app.config.get("CATALOG_MEDIA_BUCKET") or "").strip()
+    base_url = (current_app.config.get("CATALOG_MEDIA_PUBLIC_BASE_URL") or "").strip().rstrip("/")
+    if not bucket or not base_url:
+        raise CatalogMediaError("Catalog media storage is not configured.")
+    client = boto3.client(
+        "s3",
+        region_name=current_app.config["CATALOG_MEDIA_REGION"],
+        endpoint_url=current_app.config.get("CATALOG_MEDIA_ENDPOINT_URL") or None,
+    )
+
+    image = Image.new("RGB", (1, 1), (37, 99, 235))
+    source = BytesIO()
+    try:
+        image.save(source, format="PNG")
+    finally:
+        image.close()
+    source.seek(0)
+
+    public_url = store_catalog_image(
+        FileStorage(stream=source, filename="nexhaat-media-smoke.png", content_type="image/png")
+    )
+    expected = urlsplit(base_url)
+    uploaded = urlsplit(public_url or "")
+    base_path = expected.path.rstrip("/")
+    object_path_prefix = f"{base_path}/" if base_path else "/"
+    if (
+        uploaded.scheme != expected.scheme
+        or uploaded.netloc != expected.netloc
+        or not uploaded.path.startswith(object_path_prefix)
+        or uploaded.query
+        or uploaded.fragment
+    ):
+        raise RuntimeError("Smoke upload returned an unexpected public media URL; check the bucket/CDN configuration.")
+
+    key = unquote(uploaded.path[len(object_path_prefix):])
+    configured_prefix = (current_app.config.get("CATALOG_MEDIA_KEY_PREFIX") or "products").strip(" /")
+    key_parts = key.split("/")
+    if (
+        not key.startswith(f"{configured_prefix}/")
+        or any(part in {"", ".", ".."} for part in key_parts)
+        or len(key_parts) != len(configured_prefix.split("/")) + 1
+    ):
+        raise RuntimeError("Smoke upload returned an unsafe object key; remove it manually after review.")
+
+    verification_error = None
+    object_version = None
+    try:
+        head = client.head_object(Bucket=bucket, Key=key)
+        if int(head.get("ContentLength") or 0) < 1 or head.get("ContentType") != "image/png":
+            verification_error = RuntimeError("Stored smoke object did not match the expected PNG image.")
+        object_version = head.get("VersionId")
+    except Exception as error:  # noqa: BLE001 - report a safe provider-neutral message
+        verification_error = error
+
+    try:
+        delete_args = {"Bucket": bucket, "Key": key}
+        if object_version:
+            delete_args["VersionId"] = object_version
+        client.delete_object(**delete_args)
+    except Exception as error:  # noqa: BLE001 - a failed cleanup needs an operator action
+        raise RuntimeError(
+            "Catalog smoke object could not be removed; delete the temporary object from the configured bucket."
+        ) from error
+
+    if verification_error:
+        raise RuntimeError("Catalog smoke upload could not be verified in object storage.") from verification_error
+    return True

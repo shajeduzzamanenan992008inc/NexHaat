@@ -22,6 +22,7 @@ from ..services.profiles import (
 )
 from ..services.audit import record_audit
 from ..services.notifications import notify
+from ..services.payments import make_seller_ledger_eligible
 from ..security import (
     admin_required, customer_required, current_session_user, role_required, save_raster_upload,
 )
@@ -164,6 +165,7 @@ def update_delivery(order_id):
             order.delivery_note = note
         order.delivered_at = now
         order.status = "delivered"
+        make_seller_ledger_eligible(order, now)
     elif target == "failed":
         note = request.form.get("delivery_note", "").strip()[:500]
         if note:

@@ -6,8 +6,7 @@
     <div>
       <p class="eyebrow">{{ _('Find your next favorite') }}</p>
       <h1>{{ _('Explore the marketplace') }}</h1>
-      <p>{{ _('Browse active local listings, compare prices, and search the food reference library for quick
-        discovery.') }}</p>
+      <p>{{ _('Browse active local listings, compare prices, and search the food reference library for quick discovery.') }}</p>
     </div>
     <form class="search-box" method="get" action="{{ url_for('main.search') }}" role="search">
       <label class="visually-hidden" for="market-search">{{ _('Search products') }}</label><input id="market-search"
@@ -18,8 +17,7 @@
   </header>
 
   {% if categories %}<nav class="tag-row" aria-label="{{ _('Product categories') }}"><a
-      class="tag {% if not selected_category_id %}tag--active{% endif %}" href="{{ url_for('main.menu') }}">{{ _('All
-      categories') }}</a>{% for category in categories %}<a class="tag"
+      class="tag {% if not selected_category_id %}tag--active{% endif %}" href="{{ url_for('main.menu') }}">{{ _('All categories') }}</a>{% for category in categories %}<a class="tag"
       href="{{ url_for('main.category', slug=category.slug) }}">{{ category.name }}</a>{% endfor %}</nav>{% endif %}
 
   <form class="catalog-filters" method="get" action="{{ url_for('main.menu') }}"
@@ -31,6 +29,19 @@
           value="{{ category.id }}" {% if selected_category_id==category.id %}selected{% endif %}>{{ category.name }}
         </option>{% endfor %}
       </select></div>
+    <div class="form-field"><label for="catalog-store">{{ _('Store') }}</label><select id="catalog-store"
+        name="seller_id">
+        <option value="">{{ _('All stores') }}</option>{% for seller in sellers %}<option value="{{ seller.user_id }}"
+          {% if selected_seller_id==seller.user_id %}selected{% endif %}>{{ seller.store_name }}</option>{% endfor %}
+      </select></div>
+    <div class="form-field"><label for="catalog-brand">{{ _('Brand') }}</label><select id="catalog-brand"
+        name="brand_name">
+        <option value="">{{ _('All brands') }}</option>{% for brand in brands %}<option value="{{ brand }}" {% if
+          selected_brand_name==brand %}selected{% endif %}>{{ brand }}</option>{% endfor %}
+      </select></div>
+    <div class="form-field"><label for="catalog-option">{{ _('Product option') }}</label><input id="catalog-option"
+        name="variant_value" maxlength="80" value="{{ variant_value }}" placeholder="{{ _('For example: Large') }}">
+    </div>
     <div class="form-field"><label for="catalog-min-price">{{ _('Minimum price') }}</label><input id="catalog-min-price"
         name="min_price" type="number" min="0" step="0.01" value="{{ min_price if min_price is not none else '' }}">
     </div>
@@ -41,6 +52,8 @@
         for value, label in [('featured', _('Featured')), ('relevance', _('Relevance')), ('newest', _('Newest')),
         ('price_asc', _('Price: low to high')), ('price_desc', _('Price: high to low'))] %}<option value="{{ value }}"
           {% if sort==value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <label class="form-field"><span>{{ _('In stock') }}</span><span><input type="checkbox" name="in_stock" value="1" {%
+          if in_stock %}checked{% endif %}> {{ _('Available now') }}</span></label>
     <button class="button-secondary" type="submit">{{ _('Apply filters') }}</button>
   </form>
 
@@ -51,17 +64,20 @@
         <h2 id="listings-title">{{ _('Local listings') }}</h2>
       </div>
     </div>
+    {% if query %}<div class="search-summary" aria-live="polite">
+      <strong>{{ _('Showing results for') }} “{{ query }}”</strong>
+      <span>{{ pagination.total }} {{ _('matches') }}</span>
+    </div>{% endif %}
     {% if products %}<div class="product-grid">{% for product in products %}{% include "_product_card.html" %}{% endfor
       %}</div>
     {% if pagination.pages > 1 %}<nav class="pagination" aria-label="{{ _('Marketplace pages') }}">{% if
       pagination.has_prev %}<a
-        href="{{ url_for('main.menu', page=pagination.prev_num, q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort) }}">←</a>{%
+        href="{{ url_for('main.menu', page=pagination.prev_num, q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">←</a>{%
       endif %}<span class="is-current">{{ pagination.page }} / {{ pagination.pages }}</span>{% if pagination.has_next
       %}<a
-        href="{{ url_for('main.menu', page=pagination.next_num, q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort) }}">→</a>{%
+        href="{{ url_for('main.menu', page=pagination.next_num, q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">→</a>{%
       endif %}</nav>{% endif %}
-    {% else %}<div class="empty-state"><strong>{{ _('No local listings found yet') }}</strong>{{ _('Try another search,
-      or browse the food reference library below.') }}</div>{% endif %}
+    {% else %}<div class="empty-state"><strong>{{ _('No local listings found yet') }}</strong>{{ _('Try another search, or browse the food reference library below.') }}</div>{% endif %}
   </section>
 
   <section class="section-block" aria-labelledby="reference-title">
@@ -71,8 +87,7 @@
         <h2 id="reference-title">{{ _('Food reference library') }}</h2>
       </div>
     </div>
-    <p class="reference-note">{{ _('Reference records are for information only. They are not seller listings, have no
-      marketplace price, and cannot be added to your cart.') }}</p>
+    <p class="reference-note">{{ _('Reference records are for information only. They are not seller listings, have no marketplace price, and cannot be added to your cart.') }}</p>
     {% if query or selected_reference_category_id %}
     {% if reference_categories %}<div class="tag-row" style="margin-block:16px">{% for ref_category, count in
       reference_categories %}<a

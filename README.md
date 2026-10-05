@@ -1,6 +1,8 @@
 # NexHaat Marketplace
 
-NexHaat is being developed in reviewed phases as a multilingual marketplace for customers, sellers, delivery riders, and administrators. **All six planned phases are complete in the application code.** Phase 3 delivered the seller catalog, variants, moderation, and the fail-closed image pipeline; Phase 4 added multi-seller checkout, seller-specific invoices, a durable email outbox, and localized order email; Phase 5 added Rider delivery assignment and a validated delivery workflow with proof of delivery; Phase 6 added the audit trail, backup/restore and database-size tooling, and the production readiness review. Enabling the live WAF/ingress, media storage, and a backup schedule is an operator step in the hosting account.
+NexHaat is being developed in reviewed phases as a multilingual marketplace for customers, sellers, delivery riders, and administrators. **Foundation Phases 1–6 and Stages 7–9 are complete in application code. Stages 10 and 11 are in progress in parallel.** Phase 3 delivered the seller catalog, variants, moderation, and the fail-closed image pipeline; Phase 4 added multi-seller checkout, seller-specific invoices, a durable email outbox, and localized order email; Phase 5 added Rider delivery assignment and a validated delivery workflow with proof of delivery; Phase 6 added the audit trail, backup/restore and database-size tooling, and the production readiness review. Enabling live WAF/ingress, media storage, scheduled backups, and live payment callbacks remains an operator step in the hosting account.
+
+The canonical marketplace roadmap, stage status, acceptance gates, and AI handoff instructions are in [docs/plans/nexhaat-master-plan.md](docs/plans/nexhaat-master-plan.md). **Stage 9 — stronger product discovery and promotions — is complete in application code. Stage 10 — production readiness — and Stage 11 — advanced marketplace capabilities — are active in parallel.**
 
 ## Phase plan
 
@@ -11,7 +13,7 @@ NexHaat is being developed in reviewed phases as a multilingual marketplace for 
 5. **Rider and delivery operations** — delivery assignment, pickup and delivery states, and proof of delivery.
 6. **Security and production launch** — WAF/firewall configuration, production review of upload scanning, backups, restore checks, and release review.
 
-Complete and review each phase before beginning the next one.
+For upcoming marketplace work, follow the canonical master plan and update its stage status only after the acceptance gate is verified.
 
 ## Languages
 
@@ -91,10 +93,33 @@ Run the automated checks with `python -m pytest`. SQLite is the local default; d
 ## Phase 6 complete
 
 - **Audit trail:** the `audit_events` table records security-relevant actions (sign-in, sign-out, denied Admin codes, seller and product review, order status, delivery assignment and updates, settings changes). Events carry a keyed client-address hash and never store raw IP addresses or credentials. Recent activity is listed on the Admin dashboard.
-- **Backup and restore:** `flask --app run.py backup-db --to <file>` writes a consistent, integrity-verified backup and `flask --app run.py restore-db --from <file>` restores it only after verification. SQLite uses its online backup API; PostgreSQL uses `pg_dump`/`psql` when present in the runtime.
+- **Backup and restore:** `flask --app run.py backup-db --to <file>` writes a consistent, integrity-verified backup and `flask --app run.py restore-db --from <file> --confirm-target` restores it only after verification and explicit target confirmation. SQLite uses its online backup API; PostgreSQL uses `pg_dump`/`psql` when present in the runtime.
 - **Database monitoring:** `flask --app run.py db-size` reports the size against the `MAX_DATABASE_BYTES` ceiling (default 400 MiB), and a backup refuses to run once the ceiling is exceeded.
-- **Launch review:** `flask --app run.py production-check` lists every remaining production blocker (secret strength, secure cookies, HTTPS base URL, mail provider, PostgreSQL, Admin bootstrap, invoice font, media storage, and scan tooling).
+- **Health probes:** `/health/live` checks that the web process responds without querying the database; `/health/ready` checks database readiness. `/health` and `/health/db` remain readiness aliases for existing deployments. Set `APP_TIMING_ENABLED=1` to expose app handling time in the standard `Server-Timing` response header; it does not write request logs or create log files.
+- **Launch review:** `flask --app run.py production-check` lists remaining production blockers, including secret strength, secure cookies, HTTPS base URL, mail provider, TLS-required PostgreSQL, Admin bootstrap, invoice font, media storage, scan tooling, and live SSLCOMMERZ credentials.
+- **Live media smoke check:** after configuring the deployment's ClamAV scanner and S3-compatible bucket/CDN, run `flask --app run.py catalog-media-smoke-check --confirm-external-write`. It sends one generated 1×1 PNG through the upload scanner and sanitizer, writes it to the configured bucket, verifies the object, and removes it. Run it only after confirming the active deployment environment and bucket permissions; it requires put, head, and delete access.
 - **Operator steps (hosting account, not application code):** enable Cloudflare WAF/Tunnel in front of a private Render service, schedule backups and rehearse a restore, install the ClamAV scanner and configure the media bucket/CDN, and confirm the database stays inside the 400 MB ceiling.
+
+## Stage 7 complete — online payments and seller settlement
+
+- Checkout supports cash on delivery and SSLCOMMERZ hosted checkout in BDT. Online checkout creates one payment record for all seller-specific orders, reserves stock, and snapshots commission and the return window. Orders are released to sellers only after server-side transaction validation; failed, duplicate, mismatched, late, and risk-flagged callbacks have separate handling.
+- Admin can reconcile payment attempts, review risk-flagged transactions, request and refresh eligible pre-shipment refunds, configure commission and the seller hold period, and record manual seller payouts. Seller balances become payable only after delivery plus the saved return-window period.
+- Migration `20261009_16` adds payment, attempt, refund, commission-snapshot, payout, and seller-ledger persistence. Apply migrations with `flask --app run.py db upgrade`; existing COD checkout remains supported.
+- For local sandbox checkout, set `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, and a reachable `PUBLIC_BASE_URL`; leave `SSLCOMMERZ_SANDBOX=1`. For production, use private live credentials, `SSLCOMMERZ_SANDBOX=0`, canonical HTTPS callback URLs, an explicitly saved Admin commission (0% is valid), and verify live IPN/refund callbacks before accepting real payments. `flask --app run.py production-check` reports missing live payment configuration.
+- Schedule `flask --app run.py expire-payments` periodically (for example, every few minutes) so timed-out unpaid checkouts release reserved stock even when customers do not revisit their payment page. It is safe to rerun.
+- Manual payout records are accounting records only; Admin sends the bank/mobile-wallet transfer separately and saves its reference. Stage 7 does not store card details or perform automatic payouts.
+
+## Stage 8 complete — returns and refunds
+
+Customers can request eligible delivered-order returns and follow status and refund details in order history and the API. The owning Seller or Admin can review the request and mark returned goods received; Admin then starts an online provider refund or records a completed manual COD refund. Provider status refresh finalizes online returns and posts idempotent seller-ledger reversals. Apply migration `20261005_19` with `flask --app run.py db upgrade` before deploying. Live refund-provider confirmation still requires the Stage 7 SSLCOMMERZ operator setup.
+
+## Stage 9 complete — discovery and promotions
+
+The existing catalog supports typo-tolerant search and suggestions, category/price/store/brand/variant/stock filters, relevance and price sorting, a discounted-listings page, canonical URLs, and Product/Offer structured data. Admins can create and activate scheduled marketplace coupons or seller-scoped campaigns; approved sellers can create and manage their own dated deal codes. Checkout recalculates discounts from current server-side merchandise totals, allocates cents across seller orders, and records usage in the order transaction. Verification: 16 catalog/promotion tests passed, including the isolated migration check. Apply migration `20261011_18` before deployment. Evidence is recorded in the canonical master plan.
+
+## Stage 10 in progress — production readiness
+
+The focused security/operations/media/configuration suite passes 29 tests, covering health probes, opt-in timing, readiness configuration, media failure handling, PostgreSQL TLS enforcement, restore target confirmation, and CLI safety. The full project suite passed 204 tests in the 2026-10-05 audit. Live ClamAV/S3 upload, managed PostgreSQL, WAF/ingress, scheduled backups and isolated restore, monitoring, CDN delivery, and workload review still need hosting access and recorded operator evidence. Stage 11 has a verified recently-viewed-products slice; its other capabilities remain for separately scoped increments. Follow [the Stage 10 operations runbook](docs/operations/stage-10-runbook.md).
 
 ## Account management
 
@@ -105,6 +130,8 @@ Run the automated checks with `python -m pytest`. SQLite is the local default; d
 
 ## Deployment
 
-The project includes a production entry point, a `Procfile`, and a Render blueprint. The blueprint builds Python dependencies and translation catalogs, applies migrations before serving traffic, initializes the admin account, and seeds the catalog. Configure a strong secret, managed PostgreSQL URL, Brevo API key, sender address, canonical HTTPS `PUBLIC_BASE_URL`, and any admin bootstrap values using the host's private environment settings.
+The project includes a production entry point and a `Procfile` that starts Gunicorn. Configure the host's release/deploy step to install dependencies, apply database migrations before serving traffic, and provision a strong secret, managed PostgreSQL URL, Brevo API key, sender address, canonical HTTPS `PUBLIC_BASE_URL`, and Admin bootstrap values through private environment settings.
 
 The Phase 6 design proposes Cloudflare WAF and Tunnel in front of a private Render service. That external account and network configuration is not enabled by this Phase 2 code change. Security uses layered controls; no application can promise to be impossible to hack.
+
+See [the Stage 10 operations runbook](docs/operations/stage-10-runbook.md) for the production setup and acceptance checklist.

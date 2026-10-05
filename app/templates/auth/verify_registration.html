@@ -26,8 +26,7 @@
                 <div class="auth-panel__brand" aria-hidden="true">N</div>
                 <p class="eyebrow">{{ _('SECURE ACCOUNT VERIFICATION') }}</p>
                 <h1 id="otp-title" data-otp-title aria-live="polite">{{ _('Verify your account code') }}</h1>
-                <p class="subtitle" data-otp-subtitle>{{ _('Enter the 6-digit code sent to %(email)s. It expires in 10
-                    minutes.', email=challenge.email) }}</p>
+                <p class="subtitle" data-otp-subtitle>{{ _('Enter the 6-digit code sent to %(email)s. It expires in 10 minutes.', email=challenge.email) }}</p>
 
                 <div class="stage" aria-label="{{ _('Verification code entry') }}">
                     <input class="otp-fallback" id="otp-fallback" name="code" type="text" inputmode="numeric"
@@ -84,8 +83,7 @@
                 <button class="text-button" type="submit">{{ _('Resend') }}</button>
             </form>
         </div>
-        <p class="auth-switch"><a href="{{ url_for('auth.register') }}" data-auth-page-flip>{{ _('Use a different
-                account') }}</a></p>
+        <p class="auth-switch"><a href="{{ url_for('auth.register') }}" data-auth-page-flip>{{ _('Use a different account') }}</a></p>
     </main>
 </div>
 {% endblock %}

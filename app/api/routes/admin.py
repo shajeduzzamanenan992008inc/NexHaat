@@ -9,11 +9,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from ...extensions import db
-from ...models import Category, Order, Product, Review, SellerProfile, User
+from ...models import (
+    Category, Order, Payment, PaymentRefund, Product, Review, SellerPayout,
+    SellerProfile, User,
+)
 from ...services.audit import record_audit
 from ...services.mail import queue_order_receipt, queue_order_status
 from ...services.notifications import notify
 from ...services.orders import transition_order
+from ...services.payments import (
+    PaymentError, approve_payment_review, cancel_order_with_refund,
+    record_seller_payout, refresh_refund_status, seller_settlement_balance,
+)
 from ...security import current_session_user
 from ..errors import ApiError
 from ..responses import paginated_response, success_response
@@ -321,7 +328,20 @@ def update_order(order_id):
         raise ApiError("Order not found.", "NOT_FOUND", 404)
     payload = request.get_json(silent=True) or {}
     target = payload.get("status")
-    if not isinstance(target, str) or not transition_order(order, target):
+    if not isinstance(target, str):
+        raise ApiError("That order status transition is not allowed.", "INVALID_TRANSITION", 409)
+    if target in {"cancelled", "declined"}:
+        try:
+            cancel_order_with_refund(
+                order,
+                actor=admin,
+                reason="Administrator cancelled the unshipped order",
+                final_order_status=target,
+            )
+        except PaymentError as error:
+            db.session.rollback()
+            raise ApiError(str(error), "ORDER_CANCELLATION_REJECTED", 409) from error
+    elif not transition_order(order, target):
         raise ApiError("That order status transition is not allowed.", "INVALID_TRANSITION", 409)
     db.session.commit()
     record_audit("order.status", actor=admin, target_type="order", target_id=order.id, detail=target)
@@ -336,3 +356,104 @@ def update_order(order_id):
             link=url_for("orders.confirmation", order_number=order.order_number),
         )
     return success_response(order_to_dict(order), "Order status updated.")
+
+
+@admin_api.get("/payments")
+def payments():
+    _admin()
+    rows = db.session.scalars(
+        select(Payment)
+        .options(selectinload(Payment.attempts), selectinload(Payment.refunds))
+        .order_by(Payment.created_at.desc(), Payment.id.desc())
+        .limit(100)
+    ).all()
+    return success_response([
+        {
+            "id": payment.id,
+            "checkout_group": payment.checkout_group,
+            "amount": f"{payment.amount:.2f}",
+            "currency": payment.currency,
+            "status": payment.status,
+            "bank_tran_id": payment.bank_tran_id,
+            "validation_id": payment.validation_id,
+            "created_at": payment.created_at.isoformat(),
+            "paid_at": payment.paid_at.isoformat() if payment.paid_at else None,
+            "attempts": [
+                {
+                    "transaction_id": attempt.transaction_id,
+                    "status": attempt.status,
+                    "risk_level": attempt.risk_level,
+                    "bank_tran_id": attempt.bank_tran_id,
+                    "validation_id": attempt.validation_id,
+                }
+                for attempt in payment.attempts
+            ],
+            "refunds": [
+                {
+                    "id": refund.id,
+                    "order_id": refund.order_id,
+                    "amount": f"{refund.amount:.2f}",
+                    "status": refund.status,
+                }
+                for refund in payment.refunds
+            ],
+        }
+        for payment in rows
+    ])
+
+
+@admin_api.post("/payments/<int:payment_id>/approve-risk")
+def approve_payment_risk(payment_id):
+    admin = _admin()
+    payment = db.session.get(Payment, payment_id)
+    if payment is None:
+        raise ApiError("Payment not found.", "NOT_FOUND", 404)
+    try:
+        approve_payment_review(payment, admin)
+    except PaymentError as error:
+        db.session.rollback()
+        raise ApiError(str(error), "PAYMENT_REVIEW_REJECTED", 409) from error
+    return success_response({"id": payment.id, "status": payment.status}, "Payment review completed.")
+
+
+@admin_api.post("/refunds/<int:refund_id>/refresh")
+def refresh_payment_refund(refund_id):
+    _admin()
+    refund = db.session.get(PaymentRefund, refund_id)
+    if refund is None:
+        raise ApiError("Refund not found.", "NOT_FOUND", 404)
+    try:
+        refresh_refund_status(refund)
+    except PaymentError as error:
+        raise ApiError(str(error), "REFUND_STATUS_UNAVAILABLE", 502) from error
+    return success_response({"id": refund.id, "status": refund.status}, "Refund status refreshed.")
+
+
+@admin_api.post("/sellers/<int:seller_id>/payouts")
+def create_seller_payout(seller_id):
+    admin = _admin()
+    seller = db.session.get(User, seller_id)
+    payload = request.get_json(silent=True) or {}
+    try:
+        payout = record_seller_payout(
+            seller,
+            admin,
+            reference=str(payload.get("reference", "")),
+            note=str(payload.get("note", "")),
+        ) if seller else None
+    except PaymentError as error:
+        db.session.rollback()
+        raise ApiError(str(error), "PAYOUT_REJECTED", 422) from error
+    if payout is None:
+        raise ApiError("Seller not found.", "NOT_FOUND", 404)
+    return success_response(
+        {
+            "id": payout.id,
+            "seller_id": payout.seller_id,
+            "amount": f"{payout.amount:.2f}",
+            "reference": payout.reference,
+            "created_at": payout.created_at.isoformat(),
+        },
+        "Manual payout recorded.",
+        201,
+    )

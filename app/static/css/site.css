@@ -768,6 +768,22 @@ img {
   box-shadow: var(--shadow-soft);
 }
 
+.search-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  border: 1px solid rgb(180 204 235 / 78%);
+  border-radius: 14px;
+  background: rgb(231 242 255 / 70%);
+  color: var(--blue-deep);
+  font-size: .82rem;
+  font-weight: 700;
+}
+
 .catalog-filters .button-secondary {
   min-height: 48px;
 }

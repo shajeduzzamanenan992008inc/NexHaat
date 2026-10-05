@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Category, Product, SellerProfile, User
+from app.models import Category, Product, ProductVariant, SellerProfile, User
 
 
 def add_catalog():
@@ -57,6 +57,60 @@ def test_product_detail_category_and_search(client, app):
     assert client.get("/food/unavailable-pizza").status_code == 404
 
 
+def test_search_is_tolerant_to_common_typo_errors(client, app):
+    add_catalog()
+    response = client.get("/search?q=garrden")
+    assert response.status_code == 200
+    assert b"Garden Pizza" in response.data
+
+
+def test_store_stock_variant_and_deals_discovery(client, app):
+    with app.app_context():
+        category = Category(name="Discovery", slug="discovery", is_active=True)
+        seller = User(email="discovery-store@example.com", role="seller")
+        seller.set_password("password123")
+        seller.seller_profile = SellerProfile(
+            store_name="Discovery Store", contact_name="Owner", phone="01234567890",
+            approval_status="approved",
+        )
+        db.session.add_all([category, seller])
+        db.session.flush()
+        item = Product(
+            seller_id=seller.id, category_id=category.id, brand_name="Cedar House", name="Deal coffee",
+            slug="deal-coffee", description="Discounted coffee", price=Decimal("10.00"),
+            discount_price=Decimal("8.00"), stock_quantity=0, is_available=True,
+        )
+        item.variants.append(ProductVariant(
+            sku="DEAL-LARGE", option_name="Size", option_value="Large",
+            price=Decimal("8.00"), stock_quantity=3,
+        ))
+        db.session.add(item)
+        db.session.commit()
+        seller_id = seller.id
+
+    response = client.get(
+        f"/menu?seller_id={seller_id}&brand_name=Cedar+House&in_stock=1&variant_value=Large"
+    )
+    assert response.status_code == 200
+    assert b"Deal coffee" in response.data
+    assert client.get("/deals").status_code == 200
+    assert b"Deal coffee" in client.get("/deals").data
+    api_response = client.get(
+        f"/api/v1/products?seller_id={seller_id}&brand_name=Cedar+House&in_stock=1&variant_value=Large"
+    )
+    assert api_response.status_code == 200
+    assert b"Deal coffee" in api_response.data
+
+
+def test_product_seo_metadata_and_structured_data(client, app):
+    add_catalog()
+    response = client.get("/food/garden-pizza")
+    assert response.status_code == 200
+    assert b'rel="canonical"' in response.data
+    assert b'application/ld+json' in response.data
+    assert b'"@type": "Product"' in response.data
+
+
 def test_marketplace_filters_listing_search_price_category_and_sort(client, app):
     add_catalog()
     response = client.get("/menu?q=garden&min_price=10&max_price=13&sort=price_desc")
@@ -73,6 +127,62 @@ def test_marketplace_filters_listing_search_price_category_and_sort(client, app)
 
     response = client.get("/menu?min_price=25&max_price=5")
     assert response.status_code == 400
+
+
+def test_recently_viewed_products_are_tracked_and_filtered(client, app):
+    with app.app_context():
+        category = Category(name="Recent", slug="recent", is_active=True)
+        user = User(email="recent-user@example.com", role="customer")
+        user.set_password("password123")
+        user.customer_profile = User.__dict__.get("customer_profile") if False else None
+        product_one = Product(
+            category=category,
+            name="Recently Seen One",
+            slug="recently-seen-one",
+            description="One",
+            price=Decimal("12.00"),
+            is_available=True,
+        )
+        product_two = Product(
+            category=category,
+            name="Recently Seen Two",
+            slug="recently-seen-two",
+            description="Two",
+            price=Decimal("15.00"),
+            is_available=True,
+        )
+        unavailable = Product(
+            category=category,
+            name="Unavailable Recent",
+            slug="unavailable-recent",
+            description="Hidden",
+            price=Decimal("20.00"),
+            is_available=False,
+        )
+        db.session.add_all([category, user, product_one, product_two, unavailable])
+        db.session.commit()
+
+    assert client.post("/auth/login", data={"email": "recent-user@example.com", "password": "password123"}).status_code == 302
+    assert client.get("/food/recently-seen-one").status_code == 200
+    assert client.get("/food/recently-seen-two").status_code == 200
+
+    page = client.get("/").get_data(as_text=True)
+    assert "Recently Seen One" in page
+    assert "Recently Seen Two" in page
+    assert "Unavailable Recent" not in page
+
+    with app.app_context():
+        from app.models import CustomerProfile
+        user = db.session.scalar(db.select(User).where(User.email == "recent-user@example.com"))
+        if not user.customer_profile:
+            user.customer_profile = CustomerProfile(full_name="Recent User", phone="01234567890")
+            db.session.commit()
+        from app.services.recent_views import recent_products_for_user
+        recent = recent_products_for_user(user)
+        slugs = [product.slug for product in recent]
+        assert "recently-seen-one" in slugs
+        assert "recently-seen-two" in slugs
+        assert "unavailable-recent" not in slugs
 
 
 def test_missing_catalog_resources_return_404(client):

@@ -21,7 +21,7 @@ def make_product(slug="notify-pizza"):
     category = Category(name="Pizza", slug="pizza", is_active=True)
     product = Product(
         category=category, name="Notify Pizza", slug=slug,
-        description="A pizza", price=Decimal("10.00"), is_available=True,
+        description="A pizza", price=Decimal("10.00"), stock_quantity=2, is_available=True,
     )
     db.session.add(product)
     db.session.commit()

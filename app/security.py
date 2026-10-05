@@ -26,12 +26,51 @@ IMAGE_TYPES = {
     ".webp": "webp",
 }
 
+VALID_USER_ROLES = {"customer", "seller", "rider", "admin", "super_admin", "support"}
+ADMIN_LIKE_ROLES = {"admin", "super_admin", "support"}
 ROLE_DASHBOARD_ENDPOINTS = {
     "customer": "customer.dashboard",
     "seller": "seller.dashboard",
     "rider": "rider.dashboard",
     "admin": "admin.dashboard",
+    "super_admin": "admin.dashboard",
+    "support": "admin.dashboard",
 }
+ROLE_PERMISSIONS = {
+    "customer": {"cart:read", "cart:update", "checkout:create", "wishlist:read"},
+    "seller": {"product:create", "product:update", "product:delete", "order:read", "inventory:update"},
+    "admin": {"*"},
+    "super_admin": {"*"},
+    "support": {"order:read", "refund:create", "support:manage"},
+}
+
+
+def user_has_permission(role_or_user, permission):
+    """Return True when a user or role has a named permission."""
+    role = getattr(role_or_user, "role", role_or_user)
+    if not role or role not in VALID_USER_ROLES:
+        return False
+    permissions = ROLE_PERMISSIONS.get(role, set())
+    return "*" in permissions or permission in permissions
+
+
+def permission_required(*permissions):
+    """Require one or more permissions for a view."""
+    required = set(permissions)
+
+    def decorate(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            user = current_session_user()
+            if user is None:
+                abort(403)
+            if not any(user_has_permission(user, permission) for permission in required):
+                abort(403)
+            return view(*args, **kwargs)
+
+        return wrapped
+
+    return decorate
 
 
 def role_dashboard_url(role_or_user):
@@ -75,7 +114,7 @@ def role_required(*roles):
 
 
 def admin_required(view):
-    return role_required("admin")(view)
+    return role_required("admin", "super_admin", "support")(view)
 
 
 def primary_admin_email():

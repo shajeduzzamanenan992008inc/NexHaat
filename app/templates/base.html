@@ -1,34 +1,50 @@
 <!doctype html>
 <html lang="{{ current_locale|replace('_', '-') }}" dir="{{ 'rtl' if current_locale == 'ar' else 'ltr' }}">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#e7ebf0">
-  <meta name="description" content="{{ _('Discover neighborhood food, groceries, and local stores on NexHaat.') }}">
+  <meta name="description"
+    content="{% block meta_description %}{{ _('Discover neighborhood food, groceries, and local stores on NexHaat.') }}{% endblock %}">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
-  <link rel="icon" type="image/gif" sizes="48x48" data-static-href="{{ url_for('static', filename='logo.svg', v='20261005') }}" href="{{ url_for('static', filename='favicon.gif', v='20261005') }}">
+  <link rel="canonical" href="{% block canonical_url %}{{ request.base_url }}{% endblock %}">
+  <link rel="icon" type="image/gif" sizes="48x48"
+    data-static-href="{{ url_for('static', filename='logo.svg', v='20261005') }}"
+    href="{{ url_for('static', filename='favicon.gif', v='20261005') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css', v='20261001_linkhover1') }}">
   {% block extra_head %}{% endblock %}
   <script src="{{ url_for('static', filename='js/site.js', v='20261005') }}" defer></script>
 </head>
+
 <body class="{% block body_class %}site-body{% endblock %}">
   <a class="skip-link" href="#main-content">{{ _('Skip to content') }}</a>
   {% block site_header %}
   <header class="site-header">
     <div class="site-header__inner">
       <a class="brand" href="{{ url_for('main.index') }}" aria-label="{{ app_name }} home">
-        <span class="brand__mark"><img class="brand__image" src="{{ url_for('static', filename=app_logo) }}" alt=""></span><span>{{ app_name }}</span>
+        <span class="brand__mark"><img class="brand__image" src="{{ url_for('static', filename=app_logo) }}"
+            alt=""></span><span>{{ app_name }}</span>
       </a>
-      <input class="nav-toggle" type="checkbox" id="site-nav-toggle" aria-controls="site-nav" aria-label="{{ _('Toggle navigation') }}">
+      <input class="nav-toggle" type="checkbox" id="site-nav-toggle" aria-controls="site-nav"
+        aria-label="{{ _('Toggle navigation') }}">
       <label class="nav-toggle-label" for="site-nav-toggle" aria-hidden="true">☰</label>
       <nav class="site-nav" id="site-nav" data-site-nav aria-label="{{ _('Main navigation') }}">
-        <a href="{{ url_for('main.index') }}" {% if request.endpoint == 'main.index' %}aria-current="page"{% endif %}>{{ _('Home') }}</a>
-        <a href="{{ url_for('main.menu') }}" {% if request.endpoint in ('main.menu', 'main.search', 'main.category', 'main.food') %}aria-current="page"{% endif %}>{{ _('Explore') }}</a>
+        <a href="{{ url_for('main.index') }}" {% if request.endpoint=='main.index' %}aria-current="page" {% endif %}>{{
+          _('Home') }}</a>
+        <a href="{{ url_for('main.menu') }}" {% if request.endpoint in ('main.menu', 'main.search' , 'main.category'
+          , 'main.food' ) %}aria-current="page" {% endif %}>{{ _('Explore') }}</a>
+        <a href="{{ url_for('main.deals') }}" {% if request.endpoint=='main.deals' %}aria-current="page" {% endif %}>{{
+          _('Deals') }}</a>
         {% if g.current_user %}
-          {% if g.current_user.role == 'customer' %}<a href="{{ url_for('orders.my_orders') }}">{{ _('My orders') }}</a><a href="{{ url_for('wishlist.index') }}">{{ _('Wishlist') }}</a>{% endif %}
-          {% if g.current_user.role == 'admin' %}<a href="{{ url_for('admin.dashboard') }}">{{ _('Operations') }}</a>{% endif %}
-          {% if g.current_user.role == 'seller' %}<a href="{{ url_for('seller.dashboard') }}">{{ _('Seller space') }}</a>{% endif %}
-          {% if g.current_user.role == 'rider' %}<a href="{{ url_for('rider.dashboard') }}">{{ _('Rider space') }}</a>{% endif %}
+        {% if g.current_user.role == 'customer' %}<a href="{{ url_for('orders.my_orders') }}">{{ _('My orders') }}</a><a
+          href="{{ url_for('wishlist.index') }}">{{ _('Wishlist') }}</a>{% endif %}
+        {% if g.current_user.role == 'admin' %}<a href="{{ url_for('admin.dashboard') }}">{{ _('Operations') }}</a>{%
+        endif %}
+        {% if g.current_user.role == 'seller' %}<a href="{{ url_for('seller.dashboard') }}">{{ _('Seller space')
+          }}</a>{% endif %}
+        {% if g.current_user.role == 'rider' %}<a href="{{ url_for('rider.dashboard') }}">{{ _('Rider space') }}</a>{%
+        endif %}
         {% endif %}
       </nav>
       <div class="header-actions">
@@ -38,7 +54,7 @@
           <label class="visually-hidden" for="site-language">{{ _('Language') }}</label>
           <select id="site-language" name="locale" aria-label="{{ _('Language') }}">
             {% for locale, label in supported_locales.items() %}
-              <option value="{{ locale }}" {% if current_locale == locale %}selected{% endif %}>{{ label }}</option>
+            <option value="{{ locale }}" {% if current_locale==locale %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
           <button class="language-picker__submit" type="submit">{{ _('Go') }}</button>
@@ -50,34 +66,39 @@
         </a>
         {% endif %}
         {% if g.current_user %}
-          <a class="notification-link" href="{{ url_for('notifications.index') }}" aria-label="{{ _('Notifications') }}">
-            <span aria-hidden="true">🔔</span><span class="visually-hidden">{{ _('Notifications') }}</span>
-            {% if unread_notifications %}<span class="notification-count">{{ unread_notifications }}</span>{% endif %}
-          </a>
-          {% set account_endpoint = {'admin': 'auth.admin_account', 'seller': 'seller.account', 'rider': 'rider.account'}.get(g.current_user.role, 'auth.account') %}
-          <a class="header-account" href="{{ url_for(account_endpoint) }}">{{ _('Account') }}</a>
-          <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="header-logout" type="submit">{{ _('Sign out') }}</button></form>
+        <a class="notification-link" href="{{ url_for('notifications.index') }}" aria-label="{{ _('Notifications') }}">
+          <span aria-hidden="true">🔔</span><span class="visually-hidden">{{ _('Notifications') }}</span>
+          {% if unread_notifications %}<span class="notification-count">{{ unread_notifications }}</span>{% endif %}
+        </a>
+        {% set account_endpoint = {'admin': 'auth.admin_account', 'seller': 'seller.account', 'rider':
+        'rider.account'}.get(g.current_user.role, 'auth.account') %}
+        <a class="header-account" href="{{ url_for(account_endpoint) }}">{{ _('Account') }}</a>
+        <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token"
+            value="{{ csrf_token() }}"><button class="header-logout" type="submit">{{ _('Sign out') }}</button></form>
         {% else %}
-          <a class="header-account" href="{{ url_for('auth.login') }}">{{ _('Sign in') }}</a>
+        <a class="header-account" href="{{ url_for('auth.login') }}">{{ _('Sign in') }}</a>
         {% endif %}
       </div>
     </div>
   </header>
   {% endblock %}
   {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}<div class="flash-stack page-width" aria-live="polite">
-      {% for category, message in messages %}<div class="flash flash--{{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>{% endfor %}
-    </div>{% endif %}
+  {% if messages %}<div class="flash-stack page-width" aria-live="polite">
+    {% for category, message in messages %}<div class="flash flash--{{ category }}"
+      role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>{% endfor %}
+  </div>{% endif %}
   {% endwith %}
   <main id="main-content">{% block page_content %}{% endblock %}</main>
   {% block site_footer %}
   <footer class="site-footer">
     <div class="site-footer__inner">
-      <a class="brand brand--footer" href="{{ url_for('main.index') }}"><span class="brand__mark" aria-hidden="true">N</span><span>{{ app_name }}</span></a>
+      <a class="brand brand--footer" href="{{ url_for('main.index') }}"><span class="brand__mark"
+          aria-hidden="true">N</span><span>{{ app_name }}</span></a>
       <p>{{ _('Good food and thoughtful finds, close to home.') }}</p>
       <span>© {{ app_name }} · {{ _('All rights reserved.') }}</span>
     </div>
   </footer>
   {% endblock %}
 </body>
+
 </html>

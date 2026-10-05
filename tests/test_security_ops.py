@@ -137,8 +137,10 @@ def test_production_readiness_reviews_configuration(app):
             SECRET_KEY="x" * 40, SESSION_COOKIE_SECURE=True,
             PUBLIC_BASE_URL="https://nexhaat.example", BREVO_API_KEY="key",
             MAIL_DEFAULT_SENDER="noreply@nexhaat.example",
-            SQLALCHEMY_DATABASE_URI="postgresql+psycopg://user:pass@host/nexhaat",
+            SQLALCHEMY_DATABASE_URI="postgresql+psycopg://user:pass@host/nexhaat?sslmode=require",
             ADMIN_EMAIL="admin@nexhaat.example", INVOICE_FONT_PATH=str(Path(__file__)),
+            SSLCOMMERZ_STORE_ID="live-store-id", SSLCOMMERZ_STORE_PASSWORD="live-store-password",
+            SSLCOMMERZ_SANDBOX=False,
             CATALOG_MEDIA_BUCKET="media",
             CATALOG_MEDIA_PUBLIC_BASE_URL="https://cdn.nexhaat.example",
             CATALOG_VIRUS_SCANNER=sys.executable,
@@ -146,3 +148,8 @@ def test_production_readiness_reviews_configuration(app):
         ok, issues = production_readiness(app.config)
         assert ok is True
         assert issues == []
+
+        app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql+psycopg://user:pass@host/nexhaat"
+        ok, issues = production_readiness(app.config)
+        assert ok is False
+        assert any("sslmode=require" in issue for issue in issues)

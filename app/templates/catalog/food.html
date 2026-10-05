@@ -1,5 +1,26 @@
 {% extends "base.html" %}
 {% block title %}{{ product.localized_name(current_locale) }} · {{ app_name }}{% endblock %}
+{% block meta_description %}{{ product.localized_description(current_locale)|striptags|truncate(160, true, '') }}{%
+endblock %}
+{% block canonical_url %}{{ request.base_url }}{% endblock %}
+{% block extra_head %}
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": product.localized_name(current_locale),
+  "description": product.localized_description(current_locale)|striptags|truncate(500, true, ''),
+  "brand": ({"@type": "Brand", "name": product.brand_name} if product.brand_name else none),
+  "image": product.display_image,
+  "sku": product.slug,
+  "offers": {
+    "@type": "Offer",
+    "priceCurrency": "BDT",
+    "price": "%.2f"|format(product.display_price),
+    "availability": "https://schema.org/" ~ ("InStock" if product.available_stock > 0 else "OutOfStock"),
+    "url": request.base_url
+  }
+}|tojson }}</script>
+{% endblock %}
 {% block page_content %}
 <div class="page-shell">
   <p class="eyebrow"><a href="{{ url_for('main.category', slug=product.category.slug) }}">{{ product.category.name
@@ -9,13 +30,13 @@
         alt="{{ product.localized_name(current_locale) }}" fetchpriority="high">{% else %}<div
         class="product-card__placeholder" aria-hidden="true">✦</div>{% endif %}</div>
     <div class="product-detail__content">
-      <p class="eyebrow">{{ _('Local listing') }}{% if product.seller and product.seller.seller_profile %} · {{
+      <p class="eyebrow">{{ _('Local listing') }}{% if product.brand_name %} · {{ product.brand_name }}{% endif %}{% if
+        product.seller and product.seller.seller_profile %} · {{
         product.seller.seller_profile.store_name }}{% endif %}</p>
       <h1>{{ product.localized_name(current_locale) }}</h1>
       <p>{{ product.localized_description(current_locale) }}</p>
       {% if product.needs_original_language_label(current_locale, 'name') or
-      product.needs_original_language_label(current_locale, 'description') %}<p class="source-caption">{{ _('Original
-        language: %(language)s', language=product.original_language_label) }}</p>{% endif %}
+      product.needs_original_language_label(current_locale, 'description') %}<p class="source-caption">{{ _('Original language: %(language)s', language=product.original_language_label) }}</p>{% endif %}
       <p class="product-detail__price">৳{{ '%.2f'|format(product.display_price) }}{% if product.discount_price
         %}<del>৳{{ '%.2f'|format(product.price) }}</del>{% endif %}</p>
       {% if g.current_user and g.current_user.role == 'customer' %}
@@ -65,8 +86,7 @@
       </div>
       <p class="review-summary" aria-live="polite">
         {% if rating.count %}<span class="review-stars" aria-hidden="true">{% for _s in range(rating.average|round(0,
-          'floor')|int) %}★{% endfor %}</span> <strong>{{ '%.1f'|format(rating.average) }}</strong> · {{ _('%(count)s
-        reviews', count=rating.count) }}
+          'floor')|int) %}★{% endfor %}</span> <strong>{{ '%.1f'|format(rating.average) }}</strong> · {{ _('%(count)s reviews', count=rating.count) }}
         {% else %}{{ _('No reviews yet.') }}{% endif %}
       </p>
     </header>

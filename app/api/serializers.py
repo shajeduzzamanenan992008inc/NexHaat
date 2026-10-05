@@ -44,6 +44,7 @@ def product_to_dict(product, locale=None):
         "name": product.name,
         "slug": product.slug,
         "description": product.description,
+        "brand_name": product.brand_name,
         "localized_name": product.localized_name(locale),
         "localized_description": product.localized_description(locale),
         "source_language": product.original_locale,
@@ -89,6 +90,11 @@ def order_item_to_dict(item):
 
 
 def order_to_dict(order):
+    return_request = order.return_request
+    return_refund = next(
+        (refund for refund in order.payment.refunds if refund.order_id == order.id),
+        None,
+    ) if order.payment and return_request else None
     return {
         "id": order.id,
         "order_number": order.order_number,
@@ -96,13 +102,31 @@ def order_to_dict(order):
         "status": order.status,
         "delivery_status": order.delivery_status,
         "payment_method": order.payment_method,
+        "payment_status": order.payment.status if order.payment else None,
         "customer_name": order.customer_name,
         "phone": order.phone,
         "email": order.email,
         "address": order.address,
         "total": _money(order.total),
         "delivery_fee": _money(order.delivery_fee),
+        "discount_amount": _money(order.discount_amount),
+        "promotion_code": order.promotion_code,
         "items_subtotal": _money(order.items_subtotal),
+        "return_deadline": _iso(order.return_deadline),
+        "return_eligible": order.is_return_eligible,
+        "return_request": ({
+            "id": return_request.id,
+            "status": return_request.status,
+            "reason": return_request.reason,
+            "refund_amount": _money(return_request.refund_amount),
+            "refund_status": return_refund.status if return_refund else None,
+            "review_note": return_request.review_note,
+            "provider_refund_id": return_request.provider_refund_id,
+            "manual_refund_reference": return_request.manual_refund_reference,
+            "created_at": _iso(return_request.created_at),
+            "reviewed_at": _iso(return_request.reviewed_at),
+            "resolved_at": _iso(return_request.resolved_at),
+        } if return_request else None),
         "seller_id": order.seller_id,
         "rider_id": order.rider_id,
         "created_at": _iso(order.created_at),

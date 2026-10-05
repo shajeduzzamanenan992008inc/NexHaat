@@ -3,11 +3,31 @@ import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
+from sqlalchemy.engine import make_url
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 logger = logging.getLogger(__name__)
+POSTGRES_TLS_MODES = frozenset({"require", "verify-ca", "verify-full"})
+
+
+def enforce_production_database_tls(database_url, environment):
+    """Require encrypted PostgreSQL transport in production without weakening stronger modes."""
+    if not database_url or environment != "production":
+        return database_url
+    try:
+        parsed_url = make_url(database_url)
+    except Exception:  # noqa: BLE001 - leave malformed input for production-check to report
+        return database_url
+    if parsed_url.get_backend_name() != "postgresql":
+        return database_url
+    sslmode = parsed_url.query.get("sslmode")
+    if not isinstance(sslmode, str) or sslmode.lower() not in POSTGRES_TLS_MODES:
+        return parsed_url.set(
+            query={**parsed_url.query, "sslmode": "require"}
+        ).render_as_string(hide_password=False)
+    return database_url
 
 
 def _env_bool(name, default=False):
@@ -44,6 +64,7 @@ class Config:
         _sqlite_path = Path(_database_url.removeprefix("sqlite:///"))
         if not _sqlite_path.is_absolute():
             _database_url = f"sqlite:///{(BASE_DIR / _sqlite_path).resolve()}"
+    _database_url = enforce_production_database_tls(_database_url, ENVIRONMENT)
     SQLALCHEMY_DATABASE_URI = _database_url or f"sqlite:///{BASE_DIR / 'instance' / 'food_ordering.sqlite3'}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
@@ -57,6 +78,7 @@ class Config:
     SESSION_REFRESH_EACH_REQUEST = False
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 12
     SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", ENVIRONMENT == "production")
+    APP_TIMING_ENABLED = _env_bool("APP_TIMING_ENABLED", False)
     WTF_CSRF_TIME_LIMIT = 3600
     MAIL_TIMEOUT = int(os.getenv("MAIL_TIMEOUT", "15"))
     BREVO_API_KEY = os.getenv("BREVO_API_KEY")
@@ -64,6 +86,11 @@ class Config:
     MAIL_DEFAULT_SENDER = _mail_sender if _mail_sender and "@" in _mail_sender else None
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
     PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    SSLCOMMERZ_STORE_ID = os.getenv("SSLCOMMERZ_STORE_ID", "").strip()
+    SSLCOMMERZ_STORE_PASSWORD = os.getenv("SSLCOMMERZ_STORE_PASSWORD", "").strip()
+    SSLCOMMERZ_SANDBOX = _env_bool("SSLCOMMERZ_SANDBOX", True)
+    SSLCOMMERZ_TIMEOUT = int(os.getenv("SSLCOMMERZ_TIMEOUT", "12"))
+    PAYMENT_SESSION_MINUTES = int(os.getenv("PAYMENT_SESSION_MINUTES", "15"))
     MAX_CONTENT_LENGTH = 4 * 1024 * 1024
     MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024
     MAX_RASTER_IMAGE_PIXELS = int(os.getenv("MAX_RASTER_IMAGE_PIXELS", "20000000"))

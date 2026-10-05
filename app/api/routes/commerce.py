@@ -1,23 +1,33 @@
 """Session-cart, checkout, customer-order, and seller-order API routes."""
 
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import re
 
-from flask import Blueprint, request, session, url_for
+from flask import Blueprint, current_app, request, session, url_for
 from flask_babel import gettext
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from ...extensions import db
-from ...models import Category, Order, Product, ProductTranslation, ProductVariant
+from ...models import Category, Order, Payment, Product, ProductTranslation, ProductVariant
 from ...i18n import SUPPORTED_LOCALES
 from ...routes.orders import _cart_key, cart_rows, parse_quantity
 from ...security import current_session_user
 from ...services.audit import record_audit
 from ...services.checkout import CheckoutError, create_checkout_orders
+from ...services.payments import (
+    PaymentError, begin_payment_attempt, cancel_order_with_refund,
+    expire_pending_payments, normalize_utc, request_order_return,
+)
+from ...services.sslcommerz import gateway_is_configured
 from ...services.mail import queue_order_status
 from ...services.notifications import notify
 from ...services.orders import transition_order
+from ...services.promotions import (
+    PromotionError, allocate_discount_shares, calculate_discount_for_order,
+    get_active_promotion,
+)
 from ..errors import ApiError
 from ..responses import created_response, success_response
 from ..serializers import order_to_dict, product_to_dict
@@ -160,6 +170,7 @@ def checkout_preview():
     rows, _subtotal = cart_rows()
     if not rows:
         raise ApiError("Your cart is empty.", "EMPTY_CART", 409)
+    payload = request.get_json(silent=True) or {}
     groups = {}
     for row in rows:
         group = groups.setdefault(row["seller_id"], {"items": [], "subtotal": Decimal("0.00")})
@@ -173,6 +184,25 @@ def checkout_preview():
             "subtotal": f"{row['subtotal']:.2f}",
         })
         group["subtotal"] += row["subtotal"]
+    promotion_code = str(payload.get("promotion_code", "")).strip().upper()
+    promotion_discount = Decimal("0.00")
+    eligible_subtotals = {seller_id: group["subtotal"] for seller_id, group in groups.items()}
+    if promotion_code:
+        try:
+            promotion = get_active_promotion(promotion_code)
+            if promotion.seller_id is not None:
+                eligible_subtotals = {
+                    seller_id: subtotal for seller_id, subtotal in eligible_subtotals.items()
+                    if seller_id == promotion.seller_id
+                }
+            eligible_subtotal = sum(eligible_subtotals.values(), Decimal("0.00"))
+            promotion_discount = calculate_discount_for_order(
+                eligible_subtotal, promotion_code,
+                seller_id=promotion.seller_id, promotion=promotion,
+            )
+        except PromotionError as error:
+            raise ApiError(str(error), "PROMOTION_REJECTED", 422) from error
+    discount_shares = allocate_discount_shares(promotion_discount, eligible_subtotals)
     return success_response({
         "orders": [
             {
@@ -180,10 +210,15 @@ def checkout_preview():
                 "items": group["items"],
                 "subtotal": f"{group['subtotal']:.2f}",
                 "delivery_fee": "2.50",
-                "total": f"{group['subtotal'] + Decimal('2.50'):.2f}",
+                "promotion_code": promotion_code or None,
+                "discount_amount": f"{discount_shares.get(seller_id, Decimal('0.00')):.2f}",
+                "total": f"{group['subtotal'] + Decimal('2.50') - discount_shares.get(seller_id, Decimal('0.00')):.2f}",
             }
             for seller_id, group in groups.items()
-        ]
+        ],
+        "promotion_code": promotion_code or None,
+        "promotion_discount": f"{promotion_discount:.2f}",
+        "total": f"{sum((group['subtotal'] for group in groups.values()), Decimal('0.00')) + Decimal('2.50') * len(groups) - promotion_discount:.2f}",
     })
 
 
@@ -192,6 +227,22 @@ def checkout():
     user = _customer()
     rows, _subtotal = cart_rows()
     payload = request.get_json(silent=True) or {}
+    payment_method = str(payload.get("payment_method", "")).strip().lower()
+    if payment_method == "sslcommerz":
+        from ...models import AppSetting
+
+        setting = db.session.get(AppSetting, 1)
+        if not gateway_is_configured():
+            raise ApiError("Online payment is not configured.", "PAYMENT_UNAVAILABLE", 503)
+        if (
+            current_app.config.get("ENVIRONMENT") == "production"
+            and (not setting or setting.commission_rate_percent is None)
+        ):
+            raise ApiError(
+                "Online payment is unavailable until marketplace commission is configured.",
+                "PAYMENT_UNAVAILABLE",
+                503,
+            )
     try:
         orders = create_checkout_orders(
             user,
@@ -199,18 +250,79 @@ def checkout():
             name=str(payload.get("customer_name", "")).strip(),
             phone=str(payload.get("phone", "")).strip(),
             address=str(payload.get("address", "")).strip(),
+            city=str(payload.get("city", "")).strip(),
             email=user.email,
-            payment_method=str(payload.get("payment_method", "")).strip().lower(),
+            payment_method=payment_method,
+            promotion_code=str(payload.get("promotion_code", "")).strip().upper() or None,
         )
     except CheckoutError as error:
         db.session.rollback()
         status = 409 if "stock" in str(error).lower() or "cart" in str(error).lower() else 422
         raise ApiError(str(error), "CHECKOUT_REJECTED", status) from error
     session["cart"] = {}
+    if payment_method == "sslcommerz":
+        payment = db.session.get(Payment, orders[0].payment_id)
+        try:
+            gateway_url = begin_payment_attempt(payment)
+        except PaymentError:
+            gateway_url = None
+        return created_response(
+            {
+                "orders": [order_to_dict(order) for order in orders],
+                "checkout_group": payment.checkout_group,
+                "payment_status": payment.status,
+                "checkout_url": gateway_url,
+                "payment_status_url": f"/api/v1/payments/{payment.checkout_group}",
+            },
+            "Order created. Complete online payment to confirm it.",
+        )
     return created_response(
         {"orders": [order_to_dict(order) for order in orders]},
         "Order placed.",
     )
+
+
+@commerce_api.get("/payments/<checkout_group>")
+def customer_payment_status(checkout_group):
+    user = _customer()
+    expire_pending_payments()
+    payment = db.session.scalar(
+        select(Payment)
+        .options(selectinload(Payment.attempts))
+        .where(Payment.checkout_group == checkout_group, Payment.user_id == user.id)
+    )
+    if payment is None:
+        raise ApiError("Payment not found.", "NOT_FOUND", 404)
+    latest = payment.attempts[-1] if payment.attempts else None
+    can_retry = bool(
+        payment.status == "pending"
+        and (latest is None or latest.status in {"failed", "cancelled", "expired"})
+        and normalize_utc(payment.expires_at) > datetime.now(timezone.utc)
+        and gateway_is_configured()
+    )
+    return success_response({
+        "checkout_group": payment.checkout_group,
+        "amount": f"{payment.amount:.2f}",
+        "currency": payment.currency,
+        "status": payment.status,
+        "expires_at": payment.expires_at.isoformat(),
+        "can_retry": can_retry,
+    })
+
+
+@commerce_api.post("/payments/<checkout_group>/retry")
+def retry_customer_payment(checkout_group):
+    user = _customer()
+    payment = db.session.scalar(
+        select(Payment).where(Payment.checkout_group == checkout_group, Payment.user_id == user.id)
+    )
+    if payment is None:
+        raise ApiError("Payment not found.", "NOT_FOUND", 404)
+    try:
+        gateway_url = begin_payment_attempt(payment)
+    except PaymentError as error:
+        raise ApiError(str(error), "PAYMENT_RETRY_REJECTED", 409) from error
+    return success_response({"checkout_url": gateway_url}, "Continue to the payment provider.")
 
 
 @commerce_api.get("/orders")
@@ -218,7 +330,11 @@ def customer_orders():
     user = _customer()
     orders = db.session.scalars(
         select(Order)
-        .options(selectinload(Order.items))
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.return_request),
+            selectinload(Order.payment).selectinload(Payment.refunds),
+        )
         .where(Order.user_id == user.id)
         .order_by(Order.created_at.desc())
         .limit(100)
@@ -231,12 +347,46 @@ def customer_order_detail(order_number):
     user = _customer()
     order = db.session.scalar(
         select(Order)
-        .options(selectinload(Order.items))
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.return_request),
+            selectinload(Order.payment).selectinload(Payment.refunds),
+        )
         .where(Order.order_number == order_number, Order.user_id == user.id)
     )
     if order is None:
         raise ApiError("Order not found.", "NOT_FOUND", 404)
     return success_response(order_to_dict(order))
+
+
+@commerce_api.post("/orders/<order_number>/return")
+def customer_order_return(order_number):
+    user = _customer()
+    order = db.session.scalar(
+        select(Order)
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.return_request),
+            selectinload(Order.payment).selectinload(Payment.refunds),
+        )
+        .where(Order.order_number == order_number, Order.user_id == user.id)
+        .with_for_update()
+    )
+    if order is None:
+        raise ApiError("Order not found.", "NOT_FOUND", 404)
+    payload = request.get_json(silent=True) or {}
+    reason = payload.get("reason", "") if isinstance(payload, dict) else None
+    if not isinstance(reason, str) or len(reason) > 255:
+        raise ApiError(
+            "Return request must include a text reason no longer than 255 characters.",
+            "INVALID_INPUT",
+            422,
+        )
+    try:
+        request_order_return(order, actor=user, reason=reason)
+    except PaymentError as error:
+        raise ApiError(str(error), "RETURN_REQUEST_INVALID", 409) from error
+    return success_response(order_to_dict(order), "Return request submitted.")
 
 
 @commerce_api.post("/orders/<order_number>/cancel")
@@ -250,8 +400,13 @@ def cancel_customer_order(order_number):
     )
     if order is None:
         raise ApiError("Order not found.", "NOT_FOUND", 404)
-    if order.status not in {"pending", "confirmed"} or not transition_order(order, "cancelled"):
+    if order.status not in {"pending", "confirmed"}:
         raise ApiError("This order can no longer be cancelled.", "INVALID_TRANSITION", 409)
+    try:
+        cancel_order_with_refund(order, actor=user, reason="Customer cancelled before shipment")
+    except PaymentError as error:
+        db.session.rollback()
+        raise ApiError(str(error), "CANCELLATION_REJECTED", 409) from error
     db.session.commit()
     record_audit("order.cancel", actor=user, target_type="order", target_id=order.id)
     queue_order_status(order)
@@ -264,7 +419,13 @@ def seller_orders():
     orders = db.session.scalars(
         select(Order)
         .options(selectinload(Order.items))
-        .where(Order.seller_id == user.id)
+        .where(
+            Order.seller_id == user.id,
+            or_(
+                Order.payment_method == "cod",
+                Order.payment.has(Payment.status.in_({"paid", "partially_refunded"})),
+            ),
+        )
         .order_by(Order.created_at.desc())
         .limit(100)
     ).all()
@@ -285,7 +446,12 @@ def seller_dashboard():
         ) or 0,
         "pending_orders": db.session.scalar(
             select(func.count(Order.id)).where(
-                Order.seller_id == user.id, Order.status == "pending"
+                Order.seller_id == user.id,
+                Order.status == "pending",
+                or_(
+                    Order.payment_method == "cod",
+                    Order.payment.has(Payment.status.in_({"paid", "partially_refunded"})),
+                ),
             )
         ) or 0,
         "completed_orders": db.session.scalar(
@@ -460,7 +626,18 @@ def update_seller_order(order_id):
         raise ApiError("Order not found.", "NOT_FOUND", 404)
     payload = request.get_json(silent=True) or {}
     target = payload.get("status")
-    if target not in {"confirmed", "preparing", "declined"} or not transition_order(order, target):
+    if target not in {"confirmed", "preparing", "declined"}:
+        raise ApiError("That order status transition is not allowed.", "INVALID_TRANSITION", 409)
+    if target == "declined":
+        try:
+            cancel_order_with_refund(
+                order, actor=user, reason="Seller declined the unshipped order",
+                final_order_status="declined",
+            )
+        except PaymentError as error:
+            db.session.rollback()
+            raise ApiError(str(error), "ORDER_DECLINE_REJECTED", 409) from error
+    elif not transition_order(order, target):
         raise ApiError("That order status transition is not allowed.", "INVALID_TRANSITION", 409)
     db.session.commit()
     record_audit("order.status", actor=user, target_type="order", target_id=order.id, detail=target)

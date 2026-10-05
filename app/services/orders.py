@@ -8,7 +8,8 @@ ORDER_STATUS_TRANSITIONS = {
     "pending": {"confirmed", "declined", "cancelled"},
     "confirmed": {"preparing", "declined", "cancelled"},
     "preparing": {"delivered", "cancelled"},
-    "delivered": set(),
+    "delivered": {"returned"},
+    "returned": set(),
     "cancelled": set(),
     "declined": set(),
 }
@@ -28,10 +29,22 @@ def release_reserved_stock(order):
                 product.stock_quantity = min(MAX_STOCK, product.stock_quantity + item.quantity)
 
 
-def transition_order(order: Order, target_status):
+def transition_order(order: Order, target_status, *, allow_paid_cancel=False):
     """Apply an allowed status transition and release stock when appropriate."""
     if target_status not in ORDER_STATUS_TRANSITIONS.get(order.status, set()):
         return False
+    if order.payment_method == "sslcommerz":
+        payment_status = order.payment.status if order.payment else None
+        if target_status in {"confirmed", "preparing", "delivered"} and payment_status not in {
+            "paid", "partially_refunded",
+        }:
+            return False
+        if (
+            target_status in {"cancelled", "declined"}
+            and payment_status in {"paid", "review_required", "partially_refunded"}
+            and not allow_paid_cancel
+        ):
+            return False
     if target_status in {"cancelled", "declined"}:
         release_reserved_stock(order)
     order.status = target_status

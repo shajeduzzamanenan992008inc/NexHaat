@@ -1,16 +1,17 @@
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_babel import gettext
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload
 
-from ..extensions import db
+from ..extensions import csrf, db
 from ..models import (
-    AppSetting, Category, CustomerAddress, CustomerProfile,
-    Order, Product, Review, SellerProfile, User,
+    AppSetting, Category, CustomerAddress, CustomerProfile, Order, OrderReturn, Payment,
+    PaymentAttempt, PaymentRefund, Product, PromotionCode, Review, SellerProfile, SellerPayout, User,
 )
 from ..security import (
     admin_required, customer_or_guest_required, current_session_user,
@@ -25,6 +26,18 @@ from ..services.mail import (
 from ..services.notifications import notify
 from ..services.orders import release_reserved_stock, transition_order
 from ..services.checkout import CheckoutError, DELIVERY_FEE, create_checkout_orders
+from ..services.promotions import (
+    PromotionError, calculate_discount_for_order, get_active_promotion,
+    promotion_values_from_form,
+)
+from ..services.payments import (
+    PaymentError, approve_payment_review, begin_payment_attempt, cancel_order_with_refund,
+    expire_pending_payments, initiate_order_refund, process_failed_callback, process_ipn,
+    mark_order_return_received, record_manual_return_refund, record_seller_payout,
+    refresh_refund_status, request_order_return, review_order_return,
+    issue_order_return_refund, seller_settlement_balance, normalize_utc,
+)
+from ..services.sslcommerz import gateway_is_configured
 
 
 orders_bp = Blueprint("orders", __name__)
@@ -187,6 +200,7 @@ def checkout():
     if not rows:
         flash("Your cart is empty.", "error")
         return redirect(url_for("orders.cart"))
+    promotion_code = (request.form.get("promotion_code", request.args.get("promotion_code", "")) or "").strip().upper()
     if request.method == "POST":
         name = request.form.get("customer_name", "").strip()
         phone = request.form.get("phone", "").strip()
@@ -194,6 +208,19 @@ def checkout():
         user = current_session_user("customer")
         email = user.email if user else request.form.get("email", "").strip() or None
         payment_method = request.form.get("payment_method", "").strip().lower()
+        city = request.form.get("city", "").strip()
+        promotion_code = (request.form.get("promotion_code", "") or "").strip().upper()
+        if payment_method == "sslcommerz":
+            setting = db.session.get(AppSetting, 1)
+            if not gateway_is_configured():
+                flash(gettext("Online payment is not configured yet. Please choose cash on delivery."), "error")
+                return redirect(url_for("orders.checkout"))
+            if (
+                current_app.config.get("ENVIRONMENT") == "production"
+                and (not setting or setting.commission_rate_percent is None)
+            ):
+                flash(gettext("Online payments are unavailable until the marketplace commission is configured."), "error")
+                return redirect(url_for("orders.checkout"))
         try:
             orders = create_checkout_orders(
                 user,
@@ -203,12 +230,26 @@ def checkout():
                 address=address,
                 email=email,
                 payment_method=payment_method,
+                city=city,
+                promotion_code=promotion_code,
             )
         except CheckoutError as error:
             db.session.rollback()
             flash(gettext(str(error)), "error")
         else:
             session["cart"] = {}
+            if user is None:
+                session["guest_checkout_group"] = orders[0].checkout_group
+            if payment_method == "sslcommerz":
+                payment = db.session.get(Payment, orders[0].payment_id)
+                try:
+                    gateway_url = begin_payment_attempt(payment)
+                except PaymentError as error:
+                    flash(gettext(str(error)), "error")
+                    return redirect(
+                        url_for("orders.payment_status", checkout_group=payment.checkout_group)
+                    )
+                return redirect(gateway_url)
             return redirect(url_for("orders.confirmation", order_number=orders[0].order_number))
     customer = None
     user_email = None
@@ -216,16 +257,131 @@ def checkout():
         signed_in_user = db.session.get(User, session["user_id"])
         customer = signed_in_user.customer_profile
         user_email = signed_in_user.email
-    return render_template(
-        "orders/checkout.html", rows=rows, subtotal=subtotal, delivery=DELIVERY_FEE,
-        total=subtotal + DELIVERY_FEE, customer=customer, user_email=user_email,
+    setting = db.session.get(AppSetting, 1)
+    online_payment_available = gateway_is_configured() and (
+        current_app.config.get("ENVIRONMENT") != "production"
+        or (setting is not None and setting.commission_rate_percent is not None)
     )
+    delivery_total = DELIVERY_FEE * len({row["seller_id"] for row in rows})
+    promotion_discount = Decimal("0.00")
+    if promotion_code:
+        try:
+            promotion = get_active_promotion(promotion_code)
+            eligible_total = sum(
+                (row["subtotal"] for row in rows if promotion.seller_id is None or row["seller_id"] == promotion.seller_id),
+                Decimal("0.00"),
+            )
+            promotion_discount = calculate_discount_for_order(
+                eligible_total, promotion_code, seller_id=promotion.seller_id, promotion=promotion
+            )
+        except PromotionError as error:
+            flash(gettext(str(error)), "error")
+    return render_template(
+        "orders/checkout.html", rows=rows, subtotal=subtotal, delivery=delivery_total,
+        total=subtotal + delivery_total - promotion_discount, promotion_discount=promotion_discount,
+        customer=customer, user_email=user_email,
+        online_payment_available=online_payment_available,
+        promotion_code=promotion_code,
+    )
+
+
+def _payment_for_current_customer(checkout_group):
+    payment = db.session.scalar(
+        select(Payment)
+        .options(selectinload(Payment.attempts), selectinload(Payment.refunds))
+        .where(Payment.checkout_group == checkout_group)
+    )
+    if payment is None:
+        abort(404)
+    user = current_session_user("customer")
+    if payment.user_id is not None:
+        if user is None or user.id != payment.user_id:
+            abort(404)
+    elif session.get("guest_checkout_group") != payment.checkout_group:
+        abort(404)
+    return payment
+
+
+@orders_bp.get("/payments/<checkout_group>")
+def payment_status(checkout_group):
+    expire_pending_payments()
+    payment = _payment_for_current_customer(checkout_group)
+    orders = db.session.scalars(
+        select(Order).options(selectinload(Order.items), selectinload(Order.return_request))
+        .where(Order.payment_id == payment.id).order_by(Order.order_number)
+    ).all()
+    latest_attempt = payment.attempts[-1] if payment.attempts else None
+    can_retry = bool(
+        payment.status == "pending"
+        and (latest_attempt is None or latest_attempt.status in {"failed", "cancelled", "expired"})
+        and normalize_utc(payment.expires_at) > datetime.now(timezone.utc)
+        and gateway_is_configured()
+    )
+    return render_template(
+        "orders/payment_status.html", payment=payment, orders=orders,
+        latest_attempt=latest_attempt, can_retry=can_retry,
+    )
+
+
+@orders_bp.post("/payments/<checkout_group>/retry")
+def payment_retry(checkout_group):
+    payment = _payment_for_current_customer(checkout_group)
+    try:
+        gateway_url = begin_payment_attempt(payment)
+    except PaymentError as error:
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.payment_status", checkout_group=checkout_group))
+    return redirect(gateway_url)
+
+
+@orders_bp.route("/payments/sslcommerz/success", methods=["GET", "POST"])
+@csrf.exempt
+def sslcommerz_success():
+    process_ipn(request.form if request.method == "POST" else request.args)
+    transaction_id = str(request.values.get("tran_id", "")).strip()
+    attempt = db.session.scalar(
+        select(PaymentAttempt).where(PaymentAttempt.transaction_id == transaction_id)
+    )
+    if not attempt:
+        abort(404)
+    return redirect(url_for("orders.payment_status", checkout_group=attempt.payment.checkout_group))
+
+
+@orders_bp.route("/payments/sslcommerz/return", methods=["GET", "POST"])
+@csrf.exempt
+def sslcommerz_return():
+    process_failed_callback(request.form if request.method == "POST" else request.args)
+    transaction_id = str(request.values.get("tran_id", "")).strip()
+    attempt = db.session.scalar(
+        select(PaymentAttempt).where(PaymentAttempt.transaction_id == transaction_id)
+    )
+    if not attempt:
+        abort(404)
+    return redirect(url_for("orders.payment_status", checkout_group=attempt.payment.checkout_group))
+
+
+@orders_bp.post("/payments/sslcommerz/ipn")
+@csrf.exempt
+def sslcommerz_ipn():
+    if process_ipn(request.form):
+        return "OK", 200
+    if process_failed_callback(request.form):
+        return "OK", 200
+    return "Notification not validated.", 400
 
 
 @orders_bp.get("/orders/<order_number>")
 def confirmation(order_number):
     order = db.session.scalar(select(Order).where(Order.order_number == order_number))
-    if not order or (order.user_id and order.user_id != session.get("user_id")):
+    if not order:
+        abort(404)
+    if order.user_id is not None:
+        if order.user_id != session.get("user_id"):
+            abort(404)
+    elif (
+        session.get("user_id") is not None
+        or session.get("guest_checkout_group") != order.checkout_group
+    ):
         abort(404)
     sub_orders = [order]
     if order.checkout_group:
@@ -249,7 +405,11 @@ def my_orders():
             abort(403)
         return redirect(url_for("auth.login", next=url_for("orders.my_orders")))
     orders = db.session.scalars(
-        select(Order).options(selectinload(Order.items))
+        select(Order).options(
+            selectinload(Order.items),
+            selectinload(Order.return_request),
+            selectinload(Order.payment).selectinload(Payment.refunds),
+        )
         .where(Order.user_id == user.id).order_by(Order.created_at.desc())
     ).all()
     return render_template("orders/my_orders.html", orders=orders)
@@ -270,8 +430,14 @@ def customer_order_cancel(order_number):
     )
     if not order:
         abort(404)
-    if order.status not in {"pending", "confirmed"} or not transition_order(order, "cancelled"):
+    if order.status not in {"pending", "confirmed"}:
         flash(gettext("This order can no longer be cancelled."), "error")
+        return redirect(url_for("orders.my_orders"))
+    try:
+        cancel_order_with_refund(order, actor=user, reason="Customer cancelled before shipment")
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
         return redirect(url_for("orders.my_orders"))
     db.session.commit()
     record_audit("order.cancel", actor=user, target_type="order", target_id=order.id)
@@ -285,6 +451,117 @@ def customer_order_cancel(order_number):
         )
     flash(gettext("Your order was cancelled."), "success")
     return redirect(url_for("orders.my_orders"))
+
+
+@orders_bp.post("/orders/<order_number>/return")
+def customer_order_return(order_number):
+    user = current_session_user("customer")
+    if not user:
+        if session.get("user_id") is not None:
+            abort(403)
+        return redirect(url_for("auth.login", next=url_for("orders.my_orders")))
+    order = db.session.scalar(
+        select(Order)
+        .options(selectinload(Order.items))
+        .where(Order.order_number == order_number, Order.user_id == user.id)
+        .with_for_update()
+    )
+    if not order:
+        abort(404)
+    if order.status != "delivered":
+        flash(gettext("Only delivered orders can be returned."), "error")
+        return redirect(url_for("orders.my_orders"))
+    try:
+        request_order_return(
+            order,
+            actor=user,
+            reason=request.form.get("reason", "").strip() or "Customer return request",
+        )
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.my_orders"))
+    flash(gettext("Your return request was submitted for review."), "success")
+    return redirect(url_for("orders.my_orders"))
+
+
+@orders_bp.post("/admin/orders/<int:return_id>/return-review")
+@admin_required
+def admin_review_order_return(return_id):
+    return_request = db.session.get(OrderReturn, return_id)
+    if return_request is None:
+        abort(404)
+    decision = request.form.get("decision", "").strip().lower()
+    if decision not in {"approved", "rejected"}:
+        abort(400)
+    try:
+        review_order_return(
+            return_request,
+            decision=decision,
+            actor=current_session_user(),
+            note=request.form.get("note", "").strip(),
+        )
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.admin_payments"))
+    flash(
+        gettext("Return request approved.") if decision == "approved" else gettext("Return request rejected."),
+        "success",
+    )
+    return redirect(url_for("orders.admin_payments"))
+
+
+@orders_bp.post("/admin/orders/<int:return_id>/return-received")
+@admin_required
+def admin_return_received(return_id):
+    return_request = db.session.get(OrderReturn, return_id)
+    if return_request is None:
+        abort(404)
+    try:
+        mark_order_return_received(return_request, actor=current_session_user())
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.admin_payments"))
+    flash(gettext("Returned items marked as received."), "success")
+    return redirect(url_for("orders.admin_payments"))
+
+
+@orders_bp.post("/admin/orders/<int:return_id>/return-refund")
+@admin_required
+def admin_return_refund(return_id):
+    return_request = db.session.get(OrderReturn, return_id)
+    if return_request is None:
+        abort(404)
+    try:
+        issue_order_return_refund(return_request, actor=current_session_user())
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.admin_payments"))
+    flash(gettext("Return refund request sent to the payment provider."), "success")
+    return redirect(url_for("orders.admin_payments"))
+
+
+@orders_bp.post("/admin/orders/<int:return_id>/manual-return-refund")
+@admin_required
+def admin_manual_return_refund(return_id):
+    return_request = db.session.get(OrderReturn, return_id)
+    if return_request is None:
+        abort(404)
+    try:
+        record_manual_return_refund(
+            return_request,
+            actor=current_session_user(),
+            reference=request.form.get("reference", ""),
+        )
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.admin_payments"))
+    flash(gettext("Manual return refund recorded."), "success")
+    return redirect(url_for("orders.admin_payments"))
 
 
 @orders_bp.post("/admin/sellers/<int:profile_id>/review")
@@ -378,6 +655,64 @@ def admin_moderate_review(review_id):
     return redirect(url_for("admin.dashboard"))
 
 
+@orders_bp.route("/admin/promotions", methods=["GET", "POST"])
+@admin_required
+def admin_promotions():
+    if request.method == "POST":
+        seller_id = request.form.get("seller_id", type=int)
+        if seller_id is not None:
+            eligible_seller = db.session.scalar(
+                select(SellerProfile).where(
+                    SellerProfile.user_id == seller_id,
+                    SellerProfile.approval_status == "approved",
+                )
+            )
+            if eligible_seller is None:
+                flash(gettext("Choose an approved seller for a seller deal."), "error")
+                return redirect(url_for("orders.admin_promotions"))
+        try:
+            campaign = PromotionCode(**promotion_values_from_form(request.form, seller_id=seller_id))
+            db.session.add(campaign)
+            db.session.commit()
+        except (PromotionError, ValueError, IntegrityError) as error:
+            db.session.rollback()
+            flash(gettext(str(error)) if not isinstance(error, IntegrityError) else gettext("That promotion code is already in use."), "error")
+            return redirect(url_for("orders.admin_promotions"))
+        record_audit(
+            "promotion.create", target_type="promotion", target_id=campaign.id,
+            detail=campaign.code,
+        )
+        flash(gettext("Promotion campaign created."), "success")
+        return redirect(url_for("orders.admin_promotions"))
+
+    campaigns = db.session.scalars(
+        select(PromotionCode).options(selectinload(PromotionCode.seller))
+        .order_by(PromotionCode.created_at.desc(), PromotionCode.id.desc())
+    ).all()
+    sellers = db.session.scalars(
+        select(SellerProfile).options(selectinload(SellerProfile.user))
+        .where(SellerProfile.approval_status == "approved")
+        .order_by(SellerProfile.store_name.asc())
+    ).all()
+    return render_template("admin/promotions.html", campaigns=campaigns, sellers=sellers)
+
+
+@orders_bp.post("/admin/promotions/<int:promotion_id>/toggle")
+@admin_required
+def admin_promotion_toggle(promotion_id):
+    campaign = db.session.get(PromotionCode, promotion_id)
+    if campaign is None:
+        abort(404)
+    campaign.is_active = not campaign.is_active
+    db.session.commit()
+    record_audit(
+        "promotion.activate" if campaign.is_active else "promotion.deactivate",
+        target_type="promotion", target_id=campaign.id, detail=campaign.code,
+    )
+    flash(gettext("Promotion status updated."), "success")
+    return redirect(url_for("orders.admin_promotions"))
+
+
 @orders_bp.route("/admin/settings", methods=["GET", "POST"])
 @admin_required
 def admin_settings():
@@ -387,10 +722,26 @@ def admin_settings():
         db.session.add(setting)
     if request.method == "POST":
         name = request.form.get("app_name", "").strip()
+        rate_value = request.form.get("commission_rate_percent", "").strip()
+        return_window_value = request.form.get("seller_return_window_days", "").strip()
         if len(name) < 2:
             flash("App name must contain at least 2 characters.", "error")
             return render_template("admin/settings.html", setting=setting), 400
+        try:
+            commission_rate = Decimal(rate_value) if rate_value else None
+            return_window_days = int(return_window_value)
+            if commission_rate is not None and not Decimal("0") <= commission_rate <= Decimal("100"):
+                raise ValueError
+            if not 0 <= return_window_days <= 90:
+                raise ValueError
+        except (InvalidOperation, TypeError, ValueError):
+            flash("Enter a commission from 0 to 100 percent and a return window from 0 to 90 days.", "error")
+            return render_template("admin/settings.html", setting=setting), 400
         setting.app_name = name[:120]
+        setting.commission_rate_percent = (
+            commission_rate.quantize(Decimal("0.01")) if commission_rate is not None else None
+        )
+        setting.seller_return_window_days = return_window_days
         logo = request.files.get("logo")
         if logo and logo.filename:
             filename, upload_error = save_raster_upload(
@@ -406,6 +757,138 @@ def admin_settings():
         return redirect(url_for("admin.dashboard"))
     db.session.commit()
     return render_template("admin/settings.html", setting=setting)
+
+
+@orders_bp.get("/admin/payments")
+@admin_required
+def admin_payments():
+    expire_pending_payments()
+    payments = db.session.scalars(
+        select(Payment)
+        .options(
+            selectinload(Payment.attempts),
+            selectinload(Payment.refunds),
+            selectinload(Payment.orders),
+        )
+        .order_by(Payment.created_at.desc(), Payment.id.desc())
+        .limit(100)
+    ).all()
+    return_requests = db.session.scalars(
+        select(OrderReturn)
+        .options(
+            joinedload(OrderReturn.order).selectinload(Order.items),
+            joinedload(OrderReturn.customer),
+        )
+        .order_by(OrderReturn.created_at.desc(), OrderReturn.id.desc())
+        .limit(100)
+    ).all()
+    return_order_ids = [item.order_id for item in return_requests]
+    return_refunds = {}
+    if return_order_ids:
+        return_refunds = {
+            refund.order_id: refund
+            for refund in db.session.scalars(
+                select(PaymentRefund).where(PaymentRefund.order_id.in_(return_order_ids))
+            ).all()
+        }
+    sellers = db.session.scalars(
+        select(User)
+        .where(User.role == "seller")
+        .order_by(User.email)
+        .limit(500)
+    ).all()
+    seller_balances = {
+        seller.id: seller_settlement_balance(seller.id) for seller in sellers
+    }
+    payouts = db.session.scalars(
+        select(SellerPayout)
+        .options(selectinload(SellerPayout.seller))
+        .order_by(SellerPayout.created_at.desc(), SellerPayout.id.desc())
+        .limit(100)
+    ).all()
+    return render_template(
+        "admin/payments.html",
+        payments=payments,
+        return_requests=return_requests,
+        return_refunds=return_refunds,
+        sellers=sellers,
+        seller_balances=seller_balances,
+        payouts=payouts,
+    )
+
+
+@orders_bp.post("/admin/payments/<int:payment_id>/approve-review")
+@admin_required
+def admin_payment_approve_review(payment_id):
+    payment = db.session.get(Payment, payment_id)
+    if payment is None:
+        abort(404)
+    try:
+        approve_payment_review(payment, actor=current_session_user())
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.admin_payments"))
+    flash("Payment review approved; the paid orders are now available to sellers.", "success")
+    return redirect(url_for("orders.admin_payments"))
+
+
+@orders_bp.post("/admin/payments/<int:payment_id>/orders/<int:order_id>/refund")
+@admin_required
+def admin_payment_refund_order(payment_id, order_id):
+    order = db.session.scalar(
+        select(Order).where(Order.id == order_id, Order.payment_id == payment_id)
+    )
+    if order is None:
+        abort(404)
+    try:
+        initiate_order_refund(
+            order,
+            actor=current_session_user(),
+            reason=request.form.get("reason", "").strip() or "Administrator refund",
+        )
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.admin_payments"))
+    flash("Refund request sent to SSLCOMMERZ; its final status is still being processed.", "success")
+    return redirect(url_for("orders.admin_payments"))
+
+
+@orders_bp.post("/admin/refunds/<int:refund_id>/refresh")
+@admin_required
+def admin_refund_refresh(refund_id):
+    refund = db.session.get(PaymentRefund, refund_id)
+    if refund is None:
+        abort(404)
+    try:
+        refresh_refund_status(refund)
+    except PaymentError as error:
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.admin_payments"))
+    flash(f"Refund status: {refund.status}.", "success")
+    return redirect(url_for("orders.admin_payments"))
+
+
+@orders_bp.post("/admin/sellers/<int:seller_id>/payouts")
+@admin_required
+def admin_seller_payout(seller_id):
+    seller = db.session.get(User, seller_id)
+    if seller is None:
+        abort(404)
+    try:
+        payout = record_seller_payout(
+            seller,
+            current_session_user(),
+            reference=request.form.get("reference", ""),
+            note=request.form.get("note", ""),
+        )
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("orders.admin_payments"))
+    flash(f"Manual payout of ৳{payout.amount:.2f} recorded for {seller.email}.", "success")
+    return redirect(url_for("orders.admin_payments"))
 
 
 @orders_bp.route("/admin/customers/new", methods=["GET", "POST"])
@@ -544,10 +1027,23 @@ def _set_admin_order_status(order_id, status):
     )
     if not order:
         abort(404)
-    if not transition_order(order, status):
-        flash(gettext("That order status transition is not allowed."), "error")
-        return redirect(url_for("admin.dashboard"))
-    db.session.commit()
+    if status in {"cancelled", "declined"}:
+        try:
+            cancel_order_with_refund(
+                order,
+                actor=current_session_user(),
+                reason="Administrator cancelled the unshipped order",
+                final_order_status=status,
+            )
+        except PaymentError as error:
+            db.session.rollback()
+            flash(gettext(str(error)), "error")
+            return redirect(url_for("admin.dashboard"))
+    else:
+        if not transition_order(order, status):
+            flash(gettext("That order status transition is not allowed."), "error")
+            return redirect(url_for("admin.dashboard"))
+        db.session.commit()
     record_audit("order.status", target_type="order", target_id=order.id, detail=status)
     queue_order_status(order)
     if status == "confirmed":
@@ -575,6 +1071,9 @@ def admin_order_remove(order_id):
     )
     if not order:
         abort(404)
+    if order.payment_method == "sslcommerz":
+        flash("Online payment orders are retained for financial audit.", "error")
+        return redirect(url_for("admin.dashboard"))
     if order.status in {"pending", "confirmed", "preparing"}:
         release_reserved_stock(order)
     db.session.delete(order)
@@ -588,14 +1087,34 @@ def _set_all_pending_order_status(status):
         select(Order).options(selectinload(Order.items))
         .where(Order.status == "pending").order_by(Order.created_at)
     ).all()
+    updated = []
+    rejected = 0
     for order in pending_orders:
-        transition_order(order, status)
+        try:
+            if status in {"cancelled", "declined"}:
+                cancel_order_with_refund(
+                    order,
+                    actor=current_session_user(),
+                    reason="Administrator bulk-cancelled the unshipped order",
+                    final_order_status=status,
+                )
+                updated.append(order)
+            elif transition_order(order, status):
+                updated.append(order)
+            else:
+                rejected += 1
+        except PaymentError:
+            db.session.rollback()
+            rejected += 1
     db.session.commit()
-    for order in pending_orders:
+    for order in updated:
         queue_order_status(order)
         if status == "confirmed":
             queue_order_receipt(order)
-    flash(f"{len(pending_orders)} pending order(s) marked {status}.", "success")
+    flash(
+        f"{len(updated)} pending order(s) marked {status}; {rejected} require payment review.",
+        "success" if not rejected else "error",
+    )
     return redirect(url_for("admin.dashboard"))
 
 
@@ -621,6 +1140,7 @@ def admin_product_new():
             discount_price = Decimal(request.form["discount_price"]) if request.form.get("discount_price") else None
             category_id = int(request.form["category_id"])
             name = request.form["name"].strip()
+            brand_name = request.form.get("brand_name", "").strip() or None
             slug = request.form["slug"].strip()
             description = request.form["description"].strip()
             if (
@@ -630,7 +1150,7 @@ def admin_product_new():
             ):
                 raise ValueError("Invalid product fields")
             product = Product(
-                category_id=category_id, name=name, slug=slug, description=description,
+                category_id=category_id, brand_name=brand_name, name=name, slug=slug, description=description,
                 price=price, discount_price=discount_price, is_available="is_available" in request.form,
             )
             if len(product.slug) > 180 or db.session.scalar(
@@ -666,6 +1186,7 @@ def admin_product_edit(product_id):
                 raise ValueError("Invalid product fields")
             candidate = Product(
                 category_id=category_id,
+                brand_name=request.form.get("brand_name", "").strip() or None,
                 name=name,
                 slug=request.form["slug"].strip(),
                 description=description,
@@ -683,6 +1204,7 @@ def admin_product_edit(product_id):
         product.name = candidate.name
         product.slug = candidate.slug
         product.category_id = candidate.category_id
+        product.brand_name = candidate.brand_name
         product.description = candidate.description
         product.price = candidate.price
         product.discount_price = candidate.discount_price
@@ -774,10 +1296,23 @@ def admin_order_status(order_id):
     status = request.form.get("status")
     if not order or status not in STATUSES:
         abort(404)
-    if not transition_order(order, status):
-        flash(gettext("That order status transition is not allowed."), "error")
-        return redirect(url_for("admin.dashboard"))
-    db.session.commit()
+    if status in {"cancelled", "declined"}:
+        try:
+            cancel_order_with_refund(
+                order,
+                actor=current_session_user(),
+                reason="Administrator cancelled the unshipped order",
+                final_order_status=status,
+            )
+        except PaymentError as error:
+            db.session.rollback()
+            flash(gettext(str(error)), "error")
+            return redirect(url_for("admin.dashboard"))
+    else:
+        if not transition_order(order, status):
+            flash(gettext("That order status transition is not allowed."), "error")
+            return redirect(url_for("admin.dashboard"))
+        db.session.commit()
     queue_order_status(order)
     if status == "confirmed":
         queue_order_receipt(order)

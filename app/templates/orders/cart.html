@@ -68,9 +68,7 @@
       name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="variant_id"
       value="{{ row.variant_id or '' }}"></form>{% endfor %}
   {% else %}
-  <div class="empty-state"><strong>{{ _('Your cart is ready for something good') }}</strong>{{ _('Explore local listings
-    and add an item to get started.') }}<p><a class="button" href="{{ url_for('main.menu') }}">{{ _('Explore
-        marketplace') }}</a></p>
+  <div class="empty-state"><strong>{{ _('Your cart is ready for something good') }}</strong>{{ _('Explore local listings and add an item to get started.') }}<p><a class="button" href="{{ url_for('main.menu') }}">{{ _('Explore marketplace') }}</a></p>
   </div>
   {% endif %}
 </div>

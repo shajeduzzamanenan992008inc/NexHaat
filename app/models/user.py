@@ -6,6 +6,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from ..extensions import db
 
 
+VALID_USER_ROLES = {"customer", "seller", "rider", "admin", "super_admin", "support"}
+
+
 class TimestampMixin:
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(
@@ -31,12 +34,19 @@ class User(UserMixin, TimestampMixin, db.Model):
     password_reset_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
     password_reset_attempts = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     __table_args__ = (
-        db.CheckConstraint("role IN ('customer', 'seller', 'rider', 'admin')", name="ck_user_role_valid"),
+        db.CheckConstraint(
+            "role IN ('customer', 'seller', 'rider', 'admin', 'super_admin', 'support')",
+            name="ck_user_role_valid",
+        ),
         db.CheckConstraint("auth_version >= 0", name="ck_user_auth_version_nonnegative"),
         db.CheckConstraint(
             "password_reset_attempts >= 0", name="ck_user_password_reset_attempts_nonnegative"
         ),
     )
+
+    @property
+    def is_staff(self):
+        return self.role in {"admin", "super_admin", "support"}
 
     customer_profile = db.relationship(
         "CustomerProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
@@ -175,3 +185,5 @@ class AppSetting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     app_name = db.Column(db.String(120), nullable=False, default="NexHaat")
     logo_path = db.Column(db.String(255), nullable=True)
+    commission_rate_percent = db.Column(db.Numeric(5, 2), nullable=True)
+    seller_return_window_days = db.Column(db.Integer, nullable=False, default=14, server_default="14")

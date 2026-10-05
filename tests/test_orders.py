@@ -231,15 +231,31 @@ def test_signed_in_customer_checkout_is_prefilled_and_uses_account_email(client,
     assert order.email == "prefill@example.com"
 
 
-def test_only_customers_can_access_cart_and_checkout(client, app):
+def test_guest_can_use_cart_and_checkout_but_sellers_are_blocked(client, app):
     csrf_off(client)
     item = product()
     guest_add = client.post(f"/cart/add/{item.id}", data={"quantity": "1"})
     assert guest_add.status_code == 302
-    assert guest_add.headers["Location"].startswith("/auth/login?next=")
-    assert client.get("/cart").status_code == 302
-    assert client.post("/checkout").status_code == 302
-    assert db.session.query(Order).count() == 0
+    assert guest_add.headers["Location"].endswith("/cart")
+    assert client.get("/cart").status_code == 200
+    assert client.get("/checkout").status_code == 200
+    checkout = client.post(
+        "/checkout",
+        data={
+            "customer_name": "Guest Buyer",
+            "phone": "01234567890",
+            "email": "guest-buyer@example.com",
+            "address": "12 Main Street",
+            "payment_method": "cod",
+        },
+    )
+    assert checkout.status_code == 302
+    guest_order = db.session.query(Order).one()
+    assert guest_order.user_id is None
+    assert client.get(checkout.headers["Location"]).status_code == 200
+    with client.session_transaction() as session:
+        session.pop("guest_checkout_group", None)
+    assert client.get(checkout.headers["Location"]).status_code == 404
 
     seller = User(email="cart-seller@example.com", role="seller")
     seller.set_password("password123")
@@ -253,6 +269,7 @@ def test_only_customers_can_access_cart_and_checkout(client, app):
         "/auth/login", data={"email": seller.email, "password": "password123"}
     ).status_code == 302
     assert client.get("/cart").status_code == 403
+    assert client.get(checkout.headers["Location"]).status_code == 404
     assert client.post(f"/cart/add/{item.id}").status_code == 403
     assert client.post("/checkout").status_code == 403
 
@@ -321,7 +338,7 @@ def test_seller_can_manage_only_own_orders_and_dashboard_shows_metrics(client, a
 def test_admin_page_is_protected_and_invalid_quantity_is_safe(client):
     csrf_off(client)
     assert client.get("/admin").status_code == 403
-    assert client.get("/cart").status_code == 302
+    assert client.get("/cart").status_code == 200
     login_customer(client, client.application)
     client.post("/cart/update", data={"quantity_invalid": "not-a-number"})
     assert client.get("/cart").status_code == 200

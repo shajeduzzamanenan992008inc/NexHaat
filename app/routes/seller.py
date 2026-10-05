@@ -4,19 +4,24 @@ import re
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 from flask_babel import gettext
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from ..extensions import db
 from ..i18n import SUPPORTED_LOCALES
-from ..models import Category, Order, Product, ProductTranslation, ProductVariant, User
+from ..models import Category, Order, OrderReturn, Payment, Product, ProductTranslation, ProductVariant, PromotionCode, SellerPayout, User
 from ..services.catalog_media import CatalogMediaError, store_catalog_image
 from ..services.profiles import apply_password_change, password_change_error
 from ..services.audit import record_audit
 from ..services.mail import queue_order_status
 from ..services.notifications import notify
 from ..services.orders import transition_order
+from ..services.payments import (
+    PaymentError, cancel_order_with_refund, mark_order_return_received,
+    review_order_return, seller_settlement_balance,
+)
+from ..services.promotions import PromotionError, promotion_values_from_form
 from ..security import (
     approved_seller_required,
     current_approved_seller,
@@ -106,6 +111,7 @@ def _parse_product_form(seller, product=None):
     candidate = Product(
         seller_id=seller.id,
         category_id=category.id,
+        brand_name=request.form.get("brand_name", "").strip() or None,
         name=name,
         slug=slug,
         description=description,
@@ -148,6 +154,7 @@ def _parse_product_form(seller, product=None):
     else:
         target = product
         target.category_id = candidate.category_id
+        target.brand_name = candidate.brand_name
         target.name = candidate.name
         target.slug = candidate.slug
         target.description = candidate.description
@@ -250,7 +257,12 @@ def dashboard():
             ) or 0,
             "pending_orders": db.session.scalar(
                 select(func.count(Order.id)).where(
-                    Order.seller_id == user.id, Order.status == "pending"
+                    Order.seller_id == user.id,
+                    Order.status == "pending",
+                    or_(
+                        Order.payment_method == "cod",
+                        Order.payment.has(Payment.status.in_({"paid", "partially_refunded"})),
+                    ),
                 )
             ) or 0,
             "completed_orders": db.session.scalar(
@@ -275,12 +287,50 @@ def orders():
     seller = _approved_seller()
     seller_orders = db.session.scalars(
         select(Order)
-        .options(selectinload(Order.items))
-        .where(Order.seller_id == seller.id)
+        .options(selectinload(Order.items), selectinload(Order.return_request))
+        .where(
+            Order.seller_id == seller.id,
+            or_(
+                Order.payment_method == "cod",
+                Order.payment.has(Payment.status.in_({"paid", "partially_refunded"})),
+            ),
+        )
         .order_by(Order.created_at.desc())
         .limit(100)
     ).all()
     return render_template("seller/orders.html", orders=seller_orders, seller=seller)
+
+
+@seller_bp.post("/seller/orders/<int:order_id>/returns/<int:return_id>")
+@approved_seller_required
+def update_return(order_id, return_id):
+    seller = _approved_seller()
+    return_request = db.session.scalar(
+        select(OrderReturn)
+        .join(Order, OrderReturn.order_id == Order.id)
+        .where(Order.id == order_id, Order.seller_id == seller.id, OrderReturn.id == return_id)
+    )
+    if return_request is None:
+        abort(404)
+    action = request.form.get("action", "").strip().lower()
+    try:
+        if action in {"approved", "rejected"}:
+            review_order_return(
+                return_request,
+                decision=action,
+                actor=seller,
+                note=request.form.get("note", "").strip(),
+            )
+        elif action == "received":
+            mark_order_return_received(return_request, actor=seller)
+        else:
+            abort(400)
+    except PaymentError as error:
+        db.session.rollback()
+        flash(gettext(str(error)), "error")
+        return redirect(url_for("seller.orders"))
+    flash(gettext("Return request updated."), "success")
+    return redirect(url_for("seller.orders"))
 
 
 @seller_bp.post("/seller/orders/<int:order_id>/status")
@@ -295,7 +345,22 @@ def update_order_status(order_id):
     if not order:
         abort(404)
     target = request.form.get("status", "")
-    if target not in {"confirmed", "preparing", "declined"} or not transition_order(order, target):
+    if target not in {"confirmed", "preparing", "declined"}:
+        flash(gettext("That order status transition is not allowed."), "error")
+        return redirect(url_for("seller.orders"))
+    if target == "declined":
+        try:
+            cancel_order_with_refund(
+                order,
+                actor=seller,
+                reason="Seller declined the unshipped order",
+                final_order_status="declined",
+            )
+        except PaymentError as error:
+            db.session.rollback()
+            flash(gettext(str(error)), "error")
+            return redirect(url_for("seller.orders"))
+    elif not transition_order(order, target):
         flash(gettext("That order status transition is not allowed."), "error")
         return redirect(url_for("seller.orders"))
     db.session.commit()
@@ -310,6 +375,22 @@ def update_order_status(order_id):
         )
     flash(gettext("Order status updated."), "success")
     return redirect(url_for("seller.orders"))
+
+
+@seller_bp.get("/seller/payouts")
+@approved_seller_required
+def payouts():
+    seller = _approved_seller()
+    balance = seller_settlement_balance(seller.id)
+    history = db.session.scalars(
+        select(SellerPayout)
+        .where(SellerPayout.seller_id == seller.id)
+        .order_by(SellerPayout.created_at.desc(), SellerPayout.id.desc())
+        .limit(100)
+    ).all()
+    return render_template(
+        "seller/payouts.html", seller=seller, balance=balance, payouts=history
+    )
 
 
 @seller_bp.get("/seller/catalog")
@@ -449,3 +530,54 @@ def product_variant_stock(product_id, variant_id):
     db.session.commit()
     flash(gettext("Variant stock updated."), "success")
     return redirect(url_for("seller.product_variants", product_id=product.id))
+
+
+@seller_bp.route("/seller/deals", methods=["GET", "POST"])
+@approved_seller_required
+def deals():
+    seller = _approved_seller()
+    if request.method == "POST":
+        try:
+            values = promotion_values_from_form(request.form, seller_id=seller.id)
+            deal = PromotionCode(**values)
+            db.session.add(deal)
+            db.session.commit()
+        except (PromotionError, ValueError, IntegrityError) as error:
+            db.session.rollback()
+            message = str(error) if not isinstance(error, IntegrityError) else gettext("That deal code is already in use.")
+            flash(gettext(message), "error")
+            return redirect(url_for("seller.deals"))
+        record_audit(
+            "seller_deal.create", actor=current_session_user("seller"),
+            target_type="promotion", target_id=deal.id, detail=deal.code,
+        )
+        flash(gettext("Seller deal created."), "success")
+        return redirect(url_for("seller.deals"))
+    deals = db.session.scalars(
+        select(PromotionCode).where(PromotionCode.seller_id == seller.id)
+        .order_by(PromotionCode.created_at.desc(), PromotionCode.id.desc())
+    ).all()
+    return render_template("seller/deals.html", deals=deals, profile=seller)
+
+
+@seller_bp.post("/seller/deals/<int:deal_id>/toggle")
+@approved_seller_required
+def deal_toggle(deal_id):
+    seller = _approved_seller()
+    deal = db.session.scalar(
+        select(PromotionCode).where(
+            PromotionCode.id == deal_id,
+            PromotionCode.seller_id == seller.id,
+        )
+    )
+    if deal is None:
+        abort(404)
+    deal.is_active = not deal.is_active
+    db.session.commit()
+    record_audit(
+        "seller_deal.activate" if deal.is_active else "seller_deal.deactivate",
+        actor=current_session_user("seller"), target_type="promotion",
+        target_id=deal.id, detail=deal.code,
+    )
+    flash(gettext("Seller deal status updated."), "success")
+    return redirect(url_for("seller.deals"))

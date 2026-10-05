@@ -1,6 +1,6 @@
 # Database
 
-The app uses Flask-Migrate/Alembic for schema changes. Apply revisions with `flask db upgrade` before deploying application code. The initial adoption revision creates missing tables on a new database and safely recognizes tables created by earlier app versions. Production startup does not issue schema-changing DDL. Take a database backup before deploying a migration.
+The app uses Flask-Migrate/Alembic for schema changes. Apply revisions with `flask db upgrade` before deploying application code. The initial adoption revision creates missing tables on a new database and safely recognizes tables created by earlier app versions. Production startup does not issue schema-changing DDL. Production PostgreSQL connections require TLS (`sslmode=require` or stronger); set `APP_ENV=production` to have the app enforce this when parsing its connection URL. Take a database backup before deploying a migration.
 
 The `users` table stores normalized email addresses and Werkzeug password hashes. Customer and admin profiles are linked with foreign keys and one-to-one constraints. `auth_version` invalidates existing sessions after password changes and account activation changes. Password reset digests, expiry times, delivery cooldowns, and a five-attempt limit are stored server-side; raw reset codes are never stored in the database. `auth_throttles` stores keyed hashes of client addresses and applies a shared limit of 10 failed logins per 15-minute window, followed by a five-minute block. Raw addresses are not retained.
 
@@ -10,6 +10,8 @@ Beyond the core `users`, `customers`, `admins`, `addresses`, and `app_settings` 
 
 - `seller_profiles`, `rider_profiles`, and `account_invitations` for role onboarding, approval state, and single-use staff setup links.
 - `categories`, `products`, `product_translations`, and `product_variants` for the catalog, seller-authored multilingual text, and SKU stock.
+- `products.brand_name` for optional, seller/Admin-authored brand discovery.
+- `promotion_codes` for Admin coupons and seller-owned deal codes, including discount rules, schedule windows, usage limits, and status; `promotion_redemptions` records each applied checkout group and discount amount. Orders snapshot `promotion_code` and `discount_amount`, and online `payments.amount` uses the same server-calculated total.
 - `orders` and `order_items`. Each order may belong to a `seller` and a `rider`, carries a `checkout_group` and `delivery_fee`, and tracks the delivery workflow through `delivery_status` with per-stage timestamps, proof of delivery, and a note. Order items snapshot product name, selected variant label, SKU, price, quantity, and subtotal so later catalog edits do not change historical orders.
 - `admin_login_challenges` for passwordless Admin email-OTP challenges (hashed code, expiry, attempts, single use).
 - `registration_challenges` for customer and seller signup OTPs. Challenges keep only a hashed code and password hash plus pending profile details, expire after 10 minutes, allow five verification attempts, and are consumed when the account is created.
@@ -19,11 +21,19 @@ Beyond the core `users`, `customers`, `admins`, `addresses`, and `app_settings` 
 - `fdc_*` and `foodon_categories` for the imported reference vocabulary.
 - `reviews` for purchase-verified product reviews: a 1–5 rating, an optional comment, an author-name snapshot, the delivered `order_id` that proves the purchase, and an Admin moderation `status` (`pending`/`approved`/`rejected`) with `moderated_at`/`moderated_by_id`. A unique constraint on (`product_id`, `user_id`, `order_id`) stops duplicate reviews of the same purchase. Only `approved` reviews are shown on the storefront.
 - `notifications` for the in-app inbox: a `type` (`order`/`delivery`/`account`/`system`), a message, an optional in-app `link`, and an `is_read` flag. Rows cascade-delete with the owning account.
+- `order_returns` for a one-per-order return request, seller/Admin review, received/refunded/failed status, provider or manual refund reference, reason, amount snapshot, and lifecycle timestamps. The audit trail records review actors; provider-in-progress state is held in `payment_refunds`. Open requests hold eligible seller-ledger entries until the request is rejected or resolved.
 - `wishlist_items` for the customer wishlist: one row per saved product with a `created_at` timestamp and a unique (`user_id`, `product_id`) pair so a product can only be saved once per customer. Rows cascade-delete with the owning account and product.
+- `recently_viewed_products` for customer-scoped product history: one row per customer/product pair, ordered by `viewed_at`, with indexes for customer, product, timestamp, and customer/timestamp lookups. The application trims history to the eight most recent products and 30 days; the homepage only shows currently available and approved products.
 
-Cart state remains in the signed Flask session; no persistent cart table is needed. Only authenticated customer accounts can add items or place orders. Checkout locks and revalidates current product/variant stock and price, reserves inventory in the order transaction, and restores stock for eligible cancellation/decline. The starter taxonomy includes food, clothing, electronics, and household categories; it does not invent products, prices, or stock. Sellers create real listings, which remain unavailable until Admin moderation. Cancelled, declined, and completed orders remain in the database for customer history and audit; removal is only available through the explicit admin action.
+Cart state remains in the signed Flask session; no persistent cart table is needed. Guest checkout is supported, and signed-in customers can also place orders from their account. A guest can view a COD order confirmation only in the signed session that completed checkout; seller and Admin sessions cannot use customer cart, checkout, or guest order confirmations. Checkout locks and revalidates current product/variant stock and price, reserves inventory in the order transaction, and restores stock for eligible cancellation/decline. The starter taxonomy includes food, clothing, electronics, and household categories; it does not invent products, prices, or stock. Sellers create real listings, which remain unavailable until Admin moderation. Cancelled, declined, and completed orders remain in the database for customer history and audit; removal is only available through the explicit admin action.
 
 Revision `20261008_15` adds nullable `variant_id`, `variant_label`, and `sku_snapshot` fields to `order_items`; apply it with `flask --app run.py db upgrade` before deploying the corresponding application code.
+
+Revision `20261011_18` adds optional product brands, promotion campaign/redemption tables, and per-order discount snapshots. Apply it with `flask --app run.py db upgrade` before deploying Stage 9.
+
+Revision `20261005_19` adds manual COD refund references. Apply it with `flask --app run.py db upgrade` before deploying the complete Stage 8 return flow.
+
+Revision `20261005_20` adds customer recently viewed products. Revision `20261005_21` merges it with the Stage 8 COD refund-reference revision so the database has one Alembic head. Apply both with `flask --app run.py db upgrade` before deploying the corresponding code.
 
 ## Food reference data
 
