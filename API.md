@@ -117,6 +117,20 @@ API clients authenticate with the existing session cookie. Signup challenges are
 - `POST /admin/accounts/<id>/remove` — delete a Seller, Rider, or sub-Admin (primary Admin only)
 - `POST /admin/customers/<id>/toggle-active`
 
+## AI and human support
+
+- `GET /ai/` — customer Shopping Assistant page (guest product discovery or signed-in cart/order help)
+- `POST /ai/chat` — bounded customer question; scope comes from the session, and products/cart/orders come from existing services
+- `POST /ai/image-search`, `POST /ai/voice-search` — validated in-memory product image or short audio search; uploads are not persisted
+- `POST /ai/cart/proposal`, `POST /ai/cart/confirm` — create a one-use, customer-owned proposal and separately confirm after server-side price/stock checks; these endpoints never place an order
+- `GET /ai/review-summary/<slug>` — summarize approved reviews only
+- `GET|POST /ai/preferences` — opt into or disable rate-capped in-app shopping alerts
+- `GET /seller/ai`, `POST /seller/ai/suggest`, `/seller/ai/query`, `/seller/ai/price` — approved Seller's own drafts and read-only analytics; generated content is not saved automatically
+- `GET /admin/ai`, `POST /admin/ai/query` — Admin/Super-Admin read-only operational copilot; support-role accounts are not authorized
+- `GET|POST /support`, `GET /support/<id>`, `POST /support/<id>/reply`, `GET /admin/support` — customer-owned human support cases and staff replies; AI chat is not stored as a support transcript
+
+AI is disabled unless explicitly configured. When the provider is missing, deterministic catalog and account services remain available where applicable; no provider call is made for ordinary catalog page loads. The separate Security AI is available only through the numeric Telegram allowlist and private chat.
+
 ## CLI
 
 - `flask --app run.py db upgrade` — apply migrations

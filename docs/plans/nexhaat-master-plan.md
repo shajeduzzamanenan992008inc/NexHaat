@@ -45,6 +45,7 @@ These are target capabilities, not a claim that every item is already implemente
 | Stage 9 | Stronger product discovery and promotions | Complete in application code |
 | Stage 10 | Scale and production operations | In progress |
 | Stage 11 | Advanced marketplace capabilities | In progress (parallel start authorized by the owner) |
+| Stage 12 | Shared, scoped AI marketplace features | Complete in application code; live provider/BotFather smoke is optional |
 
 “Complete in application code” follows the project README. It does not imply that external production services have been configured or that their launch checks have passed.
 
@@ -94,11 +95,69 @@ Application-side work now includes a gated live media pipeline smoke-check comma
 
 Stage 11 may run in parallel with Stage 10 at the owner's explicit request; this does not close or waive Stage 10's production operator gates. The first bounded slice is implemented in the existing Flask/Jinja application: signed-in customers' recently viewed products are tracked privately, trimmed to eight items and 30 days, and only currently available, approved products are shown on the homepage. Migration `20261005_20` adds the history table and indexes; `20261005_21` merges it with the Stage 8 revision branch. Keep the remaining Stage 11 options—recommendations, frequently purchased products, intelligent search, shopping assistance, fraud signals, warehouse/logistics, mobile clients, and additional countries—for separately scoped increments. Define country-specific currency, payment, delivery, and tax requirements before enabling a new market.
 
+### Stage 12 — AI marketplace ecosystem
+
+Stage 12 is owner-scoped from `12.txt` and the approved implementation request. Keep the current Flask/Jinja, SQLAlchemy, Telegram, and service architecture. The OpenAI-compatible provider is disabled by default; AI features may be enabled only with private environment settings. Customer, seller, Admin, and Security assistants use separate server-selected scopes and allowlisted tools. Catalog prices, stock, orders, policies, and reviews come from application data. AI cannot run arbitrary SQL or shell commands, perform checkout/payment, edit listings, moderate reviews, or change security settings.
+
+The implementation includes customer natural-language catalog search and recommendations, product details/comparison, own-cart/order help, human support escalation, web and Telegram shopping entry points, seller-reviewed listing suggestions and analytics, read-only Admin Copilot and review risk flags, allowlisted read-only Security Bot analysis, in-memory visual/voice search, opt-in personalization and smart alerts, and a protected role-specific dashboard entry point. AI chat history, uploaded customer images, and audio are not persisted. Deterministic catalog and cart services remain usable when the AI provider is disabled. Seller content and listing changes require seller review; cart changes require a user confirmation request and server-side price/stock revalidation.
+
+#### Stage 12 versions and acceptance
+
+| Slice | Scope | Status |
+| --- | --- | --- |
+| V1 | Customer assistant, grounded search, recommendations, product help, multilingual fallback, support escalation | Complete; focused and full suite passed |
+| V2 | Comparison, cart proposals, order help, shared customer Telegram AI | Complete; focused and full suite passed |
+| V3 | Seller drafts/insights, Admin read-only copilot, human review risk flags | Complete; focused and full suite passed |
+| V4 | In-memory image and voice search, inventory pace, sales and pricing insights | Complete; focused and full suite passed |
+| V5 | Customer-signal personalization, opt-in alerts, shared role-scoped AI entry points | Complete; focused and full suite passed |
+
+The source trace below keeps every numbered section and unique supplemental capability from `12.txt` visible. Each entry maps to implementation and is covered by the passed acceptance run; duplicate priority-list items point to the same implementation instead of being counted twice.
+
+| `12.txt` section | Implementation / acceptance evidence |
+| --- | --- |
+| 1 AI core architecture | `app/ai/core`; focused core and feature tests |
+| 2 Customer AI | `app/routes/ai.py`, `app/ai/marketplace_tools.py`, customer template and JS |
+| 3 AI tool system | `app/ai/core/tools.py`; scope, schema, mutation and identity tests |
+| 4 Product recommendation engine | Marketplace tools and `app/services/personalization.py` |
+| 5 Natural-language shopping search | Deterministic multilingual filter fallback and catalog-service tests |
+| 6 Product AI assistant | Grounded product lookup, review summary and comparison tools |
+| 7 Cart AI | One-use proposals, customer ownership, confirmation, live price/stock revalidation |
+| 8 Order AI | Owner-scoped order/status/return help tools |
+| 9 Telegram customer AI | Shared customer handler and tested variant-safe callbacks |
+| 10 Seller AI | `app/ai/seller.py`, seller-owned tools, review-before-save UI |
+| 11 Admin AI | `app/ai/admin_tools.py` and Admin-only read-only dashboard |
+| 12 Security AI | Numeric allowlist, private-chat-only, read-only Security tools and alerts |
+| 13 Permission model | Server-selected scopes, route guards, seller/customer isolation tests |
+| 14 Memory | Bounded request-local `AIMemory`; no durable assistant transcript |
+| 15 Response guardrails | Prompt/output bounds, PII redaction, safe tool errors, upload validation |
+| 16 Observability | Metadata-only AI event logging, no prompt or transcript fields |
+| 17 Cost control | Shared database rate limits, bounded calls/tokens/context, small public-category cache |
+| 18 Fallback system | Disabled/error provider fallback to deterministic marketplace services |
+| 19 Shared Web + Telegram core | `handle_marketplace_ai_query` used by browser and shopping bot |
+| 20 AI model provider abstraction | `AIService`, Null provider, OpenAI-compatible adapter, mocked HTTP tests |
+| 21 AI UX | Customer, Seller, Admin and notification preference pages; accessible status output |
+| 22 Testing | Focused and full `pytest` acceptance recorded in Stage 12 history |
+| 23 Performance | No AI call on normal page loads; bounded result counts and image/audio sizes |
+| 24 Documentation | README, Architecture, API, Database, and AI operations guide |
+| 25 Implementation order | V1–V5 table above preserves the source order |
+| 26 Important scope control | Existing Python/Flask architecture; no arbitrary tools or external platform migration |
+| 27 Definition of Done | Full suite, focused regressions, Alembic single head, and clean diff check |
+
+The supplemental feature list maps as follows: personalization → homepage signals; visual search and image-to-product → memory-only image endpoint; voice shopping → validated transcription endpoint; smart cart → explicit proposals; recommendations → real catalog/purchase ranking; comparison → two/three real products; review summary → approved reviews only; spam detection → pending-review flags for a human; product tagging/content → seller-reviewed title, bullet, SEO, tag and translation drafts; forecast/inventory/pricing → seller-owned recent sales, stock and public price sample; Admin Copilot → real aggregate tools; support → separate human case workflow; multilingual → English, Bangla, Hindi and Banglish request/fallback handling; notifications → opt-in cart reminders, availability/price alerts and signal-based picks with shared daily and per-kind weekly caps; shopping journey → budget/gift recommendation flow; Telegram and Website → one customer core. The final prioritized ten are the same capabilities already listed here, not extra untracked features.
+
+#### Stage 12 verification gate
+
+- Focused mocked tests passed: 46 tests cover disabled/missing/error/timeout/malformed provider behavior, grounding, role and ownership boundaries, prompt injection, redaction, cart confirmation, seller review-only output, Admin/Security read-only use, review handling, uploads, notification consent/rate caps, Telegram callbacks, and migration upgrade.
+- Full project suite passed: 257 tests.
+- The isolated SQLite migration reached the sole head `20261006_26`; `flask --app run.py db heads` reports the same one head. `.env.example` parsed as deployment JSON with AI disabled and an empty API-key placeholder. Python compilation and both staged/unstaged `git diff --check` passed.
+- This owner-selected acceptance is code plus mocked tests. A live AI provider, Telegram BotFather credentials, or external hosting smoke test is not required; no credential belongs in source control.
+- Windows pytest emitted a temp-directory cleanup `PermissionError` after the successful 257-test exit; it did not change the pytest exit code or test result.
+
 ## Open work register
 
 - **Stage 10 — In progress:** live ClamAV/S3 upload and CDN delivery check; managed PostgreSQL and private ingress/WAF/trusted-proxy configuration; encrypted scheduled backups, retention/alerts, and an isolated restore drill; host monitoring and console log collection; production query/index, latency, image delivery, and load evidence. This workspace currently has no `.env`, production environment settings, hosting CLI, or connected host account. See the [Stage 10 runbook](../operations/stage-10-runbook.md) for acceptance commands and current evidence.
 - **Stage 11 — In progress:** the recently-viewed-products slice is implemented and verified in this workspace. The full suite passes; remaining Stage 11 options are not yet scoped or implemented. Continue with one bounded capability at a time and record its acceptance evidence.
-- **Stage 12 — scope needed:** the owner asked for Stage 12 to be completed while Stage 11 is underway, but no Stage 12 deliverables or acceptance gate exist in the roadmap or project docs. Do not invent a scope or mark it complete until the owner defines the target.
+- **Stage 12 — Complete in application code:** all 27 numbered sections and unique supplemental requirements from `12.txt` are mapped above. Verification passed: focused AI/Telegram suite (46), full suite (257), isolated migration and Alembic single head `20261006_26`, placeholder-only configuration check, compilation, and staged/unstaged diff checks. A live provider/BotFather smoke test is optional and requires private operator settings. Stage 10 hosting gates remain open; next resume a bounded Stage 11 capability. No Stage 13 scope is invented.
 - **Authentication environment:** `ADMIN_EMAIL` is the source of truth for the primary Admin. Local startup and `ensure-admin` create it or promote only that exact matching account, preserve existing profile/marketplace data, and revoke old sessions. Production must run `flask --app run.py ensure-admin` after migrations and whenever the configured primary email changes. Inactive accounts still require explicit reactivation. The current workspace's `ADMIN_EMAIL` setting was not available during the 2026-10-06 verification, so no local account reconciliation was performed.
 
 ## Shared AI workflow and completion notifications
@@ -126,6 +185,8 @@ Repository files provide shared, syncable context to AI tools that read them; th
 | 2026-10-05 | Roadmap handoff | Consolidated the open Stage 10 operator gates in the Open work register. Stage 11's recently-viewed slice is now verified in the repository; remaining options are still separately scoped. Stage 12 was requested but has no defined scope or acceptance gate, so it remains unstarted pending owner direction. |
 | 2026-10-05 | Full-project audit | The full test suite passed (`204 passed`). During the audit, five failing assertions were fixed: two translation fallback lookups and a seller-product translation assertion now use catalog-compatible gettext literals; the COD notification fixture now has stock; and the isolated migration check verifies all revisions through one merged head. The recently-viewed migration was aligned with the model indexes and dated for the current workspace date. Added Alembic's `path_separator` setting; the focused migration check then passed without the prior configuration warning. The local full-suite pytest process reported a Windows temporary-directory cleanup permission warning after the successful exit. Stage 10 external hosting gates and Stage 12 scope remain open. |
 | 2026-10-06 | Authentication and email configuration | Added `check-mail` for read-only Brevo API-key/sender verification and normalized mail settings. The initial bootstrap policy refused to promote an existing customer at `ADMIN_EMAIL`; the owner then requested that this environment setting remain authoritative. Updated bootstrap and `ensure-admin` to create or promote only the exact configured account, preserve existing profiles and account data, revoke its old sessions, and keep inactive accounts inactive. Added a regression covering promotion, idempotency, and OTP login eligibility. Verification for this change: `python -m pytest tests/test_auth.py tests/test_accounts.py -q` passed (`52 passed`); `git diff --check` passed. Pytest emitted the existing Windows temporary-directory cleanup `PermissionError` after success. The current workspace has no `.env` file and `ADMIN_EMAIL` is unset, so no local account was promoted; configure the private `.env` before local startup (or run `flask --app run.py ensure-admin` after setting it in production). |
+| 2026-10-06 | AI core and customer assistant | Added the scoped AI core and customer marketplace helper layer in the existing Flask app: provider-safe fallback, tool registry, permissions, and a shared `/ai/chat` route that reads catalog, cart, order, store policy, and support data without altering marketplace behavior. Evidence: static diagnostics for the edited files are clean and the repository now contains the AI package structure under `app/ai`, with customer-tool registration in `app/ai/marketplace_tools.py` and route exposure in `app/routes/main.py`. The last pytest record in this environment reported an import-time package issue during collection before this package structure and route were finalized, so the terminal-side verification signal remains noisy and the final clean pass should be re-run in a stable shell before claiming full test completion. |
+| 2026-10-06 | Stage 12 | Completed the full owner-approved `12.txt` AI scope in the existing Flask/Jinja architecture: shared customer web/Telegram tools, seller-reviewed AI drafts and insights, read-only Admin/Security assistants, multimodal search, scoped support, personalization, and opt-in capped alerts. Added migration `20261006_26` for weekly alert-digest caps and fixed no-budget catalog search and Telegram variant-card regressions found during integration. Verification: focused AI/Telegram suite `46 passed`; full project suite `257 passed`; isolated SQLite migration and `flask --app run.py db heads` both reached the single head `20261006_26`; `.env.example` JSON/placeholder validation, Python compilation, and staged/unstaged diff checks passed. Pytest emitted a Windows temporary-directory cleanup `PermissionError` after the successful exit. Live provider and BotFather credentials are optional operator checks under the selected mocked acceptance; Stage 10 host gates remain open, and the next planned work is another bounded Stage 11 increment. |
 | 2026-10-05 | Foundation Phase 4 | Closed a guest-order confirmation exposure found during the Stage 1–8 audit: guest confirmations now require the signed session's checkout-group grant, and a signed-in staff session is denied. Six guest-cart, checkout, auth-boundary, and confirmation regressions passed. |
 | 2026-10-04 | Stage 8 | Added order-return requests, return deadline checks, admin review, and settlement/refund workflow scaffolding in the existing Flask order/payment stack. Evidence: return model/service code and migration were added with no static Python errors reported in the edited files. Remaining operator gates are live-provider refund integration and any production-specific review workflow. |
 | 2026-10-05 | Stage 8 | Completed customer, Seller, Admin, and API return flows; status/reference display; timeout-safe refund reconciliation; idempotent provider-confirmed ledger reversals; COD refund recording; and open-request payout holds. The audit also secured guest-order confirmation behind its signed checkout session. Verification: Stage 1–8 focused suite `99 passed`; 6 guest-cart/auth regressions passed; isolated Alembic upgrade reached head `20261005_19` and confirmed `manual_refund_reference`; `git diff --check` passed. Live provider configuration and settlement confirmation remain operator gates. At the time of this entry Stage 9 was next; the later Stage 9 entry records its completion. |

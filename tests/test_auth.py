@@ -1076,6 +1076,38 @@ def test_env_admin_is_bootstrapped_from_email_without_password(tmp_path):
         assert admin.password_hash == password_hash
 
 
+def test_ensure_admin_matches_mixed_case_email_and_preserves_account_data(client, app):
+    from app.models import CustomerProfile
+
+    email = "Mixed.Case.Admin@example.com"
+    customer = User(email=email, role="customer")
+    customer.set_password("password123")
+    customer.customer_profile = CustomerProfile(
+        full_name="Mixed Case Admin", phone="01234567890"
+    )
+    with app.app_context():
+        db.session.add(customer)
+        db.session.commit()
+        customer_id = customer.id
+
+    client.application.config.update(
+        ADMIN_EMAIL="mixed.case.admin@example.com",
+        BREVO_API_KEY="test-key",
+        MAIL_DEFAULT_SENDER="noreply@example.com",
+        WTF_CSRF_ENABLED=False,
+    )
+    result = client.application.test_cli_runner().invoke(args=["ensure-admin"])
+
+    assert result.exit_code == 0
+    assert "promoted to primary Admin" in result.output
+    with app.app_context():
+        promoted = db.session.get(User, customer_id)
+        assert promoted.role == "admin"
+        assert promoted.email == "mixed.case.admin@example.com"
+        assert promoted.customer_profile.full_name == "Mixed Case Admin"
+        assert promoted.admin_profile.full_name == "Mixed Case Admin"
+
+
 def test_ensure_admin_promotes_configured_customer_and_allows_otp_login(client, app):
     from app.models import CustomerProfile
 

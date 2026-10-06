@@ -19,7 +19,8 @@ def _resolve_item(product_id, variant_id=None):
         .options(selectinload(Product.category), selectinload(Product.variants))
         .where(Product.id == product_id)
     )
-    if not product or not product.is_available or not product.category.is_active:
+    if (not product or not product.is_available or product.moderation_status != "approved"
+            or not product.category.is_active):
         raise CartError("Product is unavailable.")
 
     active_variants = [item for item in product.variants if item.is_active]

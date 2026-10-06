@@ -3,6 +3,8 @@ from .user import (
     CustomerProfile, RiderProfile, SellerProfile, User,
 )
 from .audit import AuditEvent
+from .ai import AIRequestWindow, AIPreferences
+from .support import SupportConversation, SupportMessage
 from .catalog import Category, Product, ProductTranslation, ProductVariant, PromotionCode, PromotionRedemption, RecentViewedProduct
 from .order import (
     DELIVERY_STATUSES, DELIVERY_TRANSITIONS, Order, OrderItem, OrderReturn, ReturnRequest,
@@ -22,6 +24,8 @@ from .telegram import (
 
 __all__ = [
     "AccountInvitation", "AdminLoginChallenge", "AdminProfile", "AuditEvent", "AuthThrottle", "Category", "CustomerAddress", "CustomerProfile",
+    "AIRequestWindow", "AIPreferences",
+    "SupportConversation", "SupportMessage",
     "DELIVERY_STATUSES", "DELIVERY_TRANSITIONS", "delivery_transition_valid",
     "FdcCategory", "FdcFood", "FdcFoodNutrient", "FdcFoodPortion", "FdcNutrient",
     "FoodOnCategory", "NOTIFICATION_TYPES", "Notification", "Order", "OrderItem", "OrderReturn", "OutboundEmail", "Product", "ProductTranslation", "ProductVariant", "PromotionCode", "PromotionRedemption", "RecentViewedProduct",

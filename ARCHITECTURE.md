@@ -11,6 +11,11 @@ Cross-cutting behavior lives in `app/services`:
 - `invoice.py` builds a seller-specific, localized PDF invoice with ReportLab.
 - `audit.py` appends security-relevant events to `audit_events` and never breaks a request if auditing fails.
 - `backup.py` and `review.py` back the backup/restore, database-size, and production-readiness CLI commands.
+- `ai_rate_limit.py`, `personalization.py`, and `ai_notifications.py` provide shared AI request limits, deterministic customer-signal ranking, and opt-in in-app alert hooks/digests.
+
+Stage 12 assistants live under `app/ai` and use a provider adapter plus a closed tool registry. Each route chooses its scope from the authenticated role or the Security Bot numeric allowlist; a request cannot select a different scope or user. Tool functions call existing catalog, cart, order, seller, and aggregate services. Mutation tools are refused unless a separate confirmation path authorizes the operation. The AI layer has no general SQL, shell, or file access. Customer cart proposals are one-use and revalidate current product, variant, price, and stock through the cart service. Seller drafts are returned for manual review. Admin and Security analytics are read-only.
+
+AI requests have bounded input, context, provider timeouts, tokens, tool calls, uploads, and database-backed per-scope rate limits. Logs keep metadata only. AI chat history and customer voice/image uploads are handled in memory; only explicitly submitted human support cases are stored. Normal catalog/homepage requests do not call an AI provider.
 
 Checkout groups a customer's cart by seller and creates one sub-order per seller inside a shared `checkout_group`, so each seller gets an independent order, invoice, delivery record, and status.
 

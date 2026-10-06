@@ -22,6 +22,7 @@ from ..services.catalog import (
     search_suggestions,
 )
 from ..services.recent_views import recent_products_for_user, record_recent_view
+from ..services.personalization import personalized_products_for_user, frequently_bought_with_for_user
 from ..services.reviews import (
     ReviewError,
     create_review,
@@ -110,6 +111,8 @@ def index():
         products=get_home_products(),
         current_user_id=session.get("user_id"),
         recent_products=recent_products_for_user(user) if user and user.role == "customer" else [],
+        personalized_products=personalized_products_for_user(user) if user and user.role == "customer" else [],
+        frequently_bought_products=frequently_bought_with_for_user(user) if user and user.role == "customer" else [],
     )
 
 

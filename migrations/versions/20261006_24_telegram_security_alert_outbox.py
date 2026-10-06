@@ -7,6 +7,7 @@ Create Date: 2026-10-06
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision = "20261006_24"
@@ -15,8 +16,15 @@ branch_labels = None
 depends_on = None
 
 
+def _create_index_if_missing(name, table, columns):
+    existing = {item["name"] for item in inspect(op.get_bind()).get_indexes(table)}
+    if name not in existing:
+        op.create_index(name, table, columns)
+
+
 def upgrade():
-    op.create_table(
+    if not inspect(op.get_bind()).has_table("telegram_security_alerts"):
+        op.create_table(
         "telegram_security_alerts",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("audit_event_id", sa.Integer(), nullable=False),
@@ -32,7 +40,7 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("audit_event_id"),
     )
-    op.create_index(
+    _create_index_if_missing(
         "ix_telegram_security_alerts_status",
         "telegram_security_alerts",
         ["status"],

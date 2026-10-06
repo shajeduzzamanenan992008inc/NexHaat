@@ -55,6 +55,21 @@
   </section>
   {% endif %}
 
+  {% if personalized_products %}
+  <section class="section-block" aria-labelledby="for-you-heading">
+    <div class="section-title"><div><p class="eyebrow">{{ _('Based on your saved and viewed categories') }}</p>
+      <h2 id="for-you-heading">{{ _('Picked for you') }}</h2></div></div>
+    <div class="product-grid">{% for product in personalized_products %}{% include "_product_card.html" %}{% endfor %}</div>
+  </section>
+  {% endif %}
+  {% if frequently_bought_products %}
+  <section class="section-block" aria-labelledby="bought-together-heading">
+    <div class="section-title"><div><p class="eyebrow">{{ _('Based on real order combinations') }}</p>
+      <h2 id="bought-together-heading">{{ _('Frequently bought together') }}</h2></div></div>
+    <div class="product-grid">{% for product in frequently_bought_products %}{% include "_product_card.html" %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
   <section class="section-block" aria-labelledby="featured-heading">
     <div class="section-title">
       <div>

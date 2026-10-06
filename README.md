@@ -1,8 +1,8 @@
 # NexHaat Marketplace
 
-NexHaat is being developed in reviewed phases as a multilingual marketplace for customers, sellers, delivery riders, and administrators. **Foundation Phases 1–6 and Stages 7–9 are complete in application code. Stages 10 and 11 are in progress in parallel.** Phase 3 delivered the seller catalog, variants, moderation, and the fail-closed image pipeline; Phase 4 added multi-seller checkout, seller-specific invoices, a durable email outbox, and localized order email; Phase 5 added Rider delivery assignment and a validated delivery workflow with proof of delivery; Phase 6 added the audit trail, backup/restore and database-size tooling, and the production readiness review. Enabling live WAF/ingress, media storage, scheduled backups, and live payment callbacks remains an operator step in the hosting account.
+NexHaat is being developed in reviewed phases as a multilingual marketplace for customers, sellers, delivery riders, and administrators. **Foundation Phases 1–6 and Stages 7–9 are complete in application code. Stages 10 and 11 remain in progress; Stage 12's full AI marketplace scope is complete in code and mocked tests.** Phase 3 delivered the seller catalog, variants, moderation, and the fail-closed image pipeline; Phase 4 added multi-seller checkout, seller-specific invoices, a durable email outbox, and localized order email; Phase 5 added Rider delivery assignment and a validated delivery workflow with proof of delivery; Phase 6 added the audit trail, backup/restore and database-size tooling, and the production readiness review. Enabling live WAF/ingress, media storage, scheduled backups, and live payment callbacks remains an operator step in the hosting account.
 
-The canonical marketplace roadmap, stage status, acceptance gates, and AI handoff instructions are in [docs/plans/nexhaat-master-plan.md](docs/plans/nexhaat-master-plan.md). **Stage 9 — stronger product discovery and promotions — is complete in application code. Stage 10 — production readiness — and Stage 11 — advanced marketplace capabilities — are active in parallel.**
+The canonical marketplace roadmap, stage status, acceptance gates, and AI handoff instructions are in [docs/plans/nexhaat-master-plan.md](docs/plans/nexhaat-master-plan.md). **Stage 9 — stronger product discovery and promotions — and Stage 12 — AI marketplace ecosystem — are complete in application code. Stages 10 and 11 remain active.**
 
 ## Phase plan
 
@@ -121,6 +121,10 @@ The existing catalog supports typo-tolerant search and suggestions, category/pri
 ## Stage 10 in progress — production readiness
 
 The focused security/operations/media/configuration suite passes 29 tests, covering health probes, opt-in timing, readiness configuration, media failure handling, PostgreSQL TLS enforcement, restore target confirmation, and CLI safety. The full project suite passed 204 tests in the 2026-10-05 audit. Live ClamAV/S3 upload, managed PostgreSQL, WAF/ingress, scheduled backups and isolated restore, monitoring, CDN delivery, and workload review still need hosting access and recorded operator evidence. Stage 11 has a verified recently-viewed-products slice; its other capabilities remain for separately scoped increments. Follow [the Stage 10 operations runbook](docs/operations/stage-10-runbook.md).
+
+## Stage 12 complete — AI marketplace ecosystem
+
+The shared AI Core connects the customer Shopping Assistant and Telegram bot with catalog, comparison, own-cart/order, and support tools; it also provides seller-reviewed listing help, read-only Admin and Security analysis, and bounded visual/voice search. The provider is disabled by default. Verification passed: 46 focused AI/Telegram tests and 257 full-suite tests; the isolated migration and CLI report the single head `20261006_26`. Apply migrations before deployment and keep `AI_API_KEY` plus Telegram credentials in private environment settings. Conversation history and customer image/audio uploads are not persisted. See [the AI marketplace operations guide](docs/operations/ai-marketplace.md) and the Stage 12 scope/acceptance trace in the [master plan](docs/plans/nexhaat-master-plan.md).
 
 ## Account management
 

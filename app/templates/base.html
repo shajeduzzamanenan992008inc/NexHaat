@@ -36,9 +36,10 @@
           , 'main.food' ) %}aria-current="page" {% endif %}>{{ _('Explore') }}</a>
         <a href="{{ url_for('main.deals') }}" {% if request.endpoint=='main.deals' %}aria-current="page" {% endif %}>{{
           _('Deals') }}</a>
+        <a href="{{ url_for('ai.index') }}" {% if request.endpoint=='ai.index' %}aria-current="page" {% endif %}>{{ _('Shopping AI') }}</a>
         {% if g.current_user %}
         {% if g.current_user.role == 'customer' %}<a href="{{ url_for('orders.my_orders') }}">{{ _('My orders') }}</a><a
-          href="{{ url_for('wishlist.index') }}">{{ _('Wishlist') }}</a>{% endif %}
+          href="{{ url_for('wishlist.index') }}">{{ _('Wishlist') }}</a><a href="{{ url_for('support.customer_cases') }}">{{ _('Support') }}</a>{% endif %}
         {% if g.current_user.role == 'admin' %}<a href="{{ url_for('admin.dashboard') }}">{{ _('Operations') }}</a>{%
         endif %}
         {% if g.current_user.role == 'seller' %}<a href="{{ url_for('seller.dashboard') }}">{{ _('Seller space')

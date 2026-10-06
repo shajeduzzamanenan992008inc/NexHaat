@@ -35,6 +35,8 @@ Revision `20261005_19` adds manual COD refund references. Apply it with `flask -
 
 Revision `20261005_20` adds customer recently viewed products. Revision `20261005_21` merges it with the Stage 8 COD refund-reference revision so the database has one Alembic head. Apply both with `flask --app run.py db upgrade` before deploying the corresponding code.
 
+Stage 12 revisions `20261006_25` and `20261006_26` add hashed shared AI rate-limit windows, opt-in customer smart-notification preferences and caps, and explicit human support cases/messages. They do not store AI chat transcripts, audio, or customer image uploads. Revision `20261006_26` adds per-kind weekly digest timestamps. Apply with `flask --app run.py db upgrade` before deploying Stage 12 code; the migration is additive and preserves existing rows.
+
 ## Food reference data
 
 USDA FoodData Central reference records are stored separately from `products`: reference foods have no invented menu price and cannot be ordered. The `fdc_foods`, `fdc_categories`, `fdc_nutrients`, `fdc_food_nutrients`, and `fdc_food_portions` tables keep source IDs, survey category assignments, nutrient measurements, and portion data. FoodOn product vocabulary is stored in `foodon_categories`, separately from the shop's customer-facing menu categories.

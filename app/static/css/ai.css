@@ -1,0 +1,25 @@
+.ai-page { --ai-accent: #0866c6; }
+.ai-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, .8fr); gap: 22px; align-items: start; }
+.ai-chat, .ai-tools > .surface { padding: clamp(18px, 3vw, 28px); }
+.ai-chat__messages { display: flex; flex-direction: column; gap: 12px; min-height: 220px; max-height: 55vh; overflow: auto; padding: 16px 4px; }
+.ai-message { max-width: min(92%, 680px); margin: 0; padding: 12px 16px; border-radius: 18px; line-height: 1.55; background: #edf2f8; color: #28384b; box-shadow: 5px 5px 12px #cbd4df, -5px -5px 12px #fff; }
+.ai-message--customer { align-self: flex-end; color: #fff; background: #146dcb; box-shadow: 5px 5px 12px #cbd4df, -5px -5px 12px #fff; }
+.ai-chat__form, .ai-tools form { display: grid; gap: 10px; }
+.ai-chat__input { display: flex; gap: 10px; }
+.ai-chat__input input { flex: 1; min-width: 0; }
+.ai-tools { display: grid; gap: 18px; }
+.ai-tools input[type=file] { max-width: 100%; }
+.ai-product-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.ai-product-card { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: #eaf0f7; box-shadow: inset 3px 3px 7px #d0d7e0, inset -3px -3px 7px #fff; }
+.ai-product-card p { margin: 0; color: #526276; }
+.ai-confirm-button { align-self: start; }
+.ai-preferences { max-width: 720px; padding: 24px; }
+.ai-verified-details { max-width: min(92%, 680px); padding: 10px 14px; border-radius: 14px; background: #edf2f8; color: #28384b; }
+.ai-verified-details summary { cursor: pointer; font-weight: 650; }
+.ai-verified-details pre { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 500 .86rem/1.5 ui-monospace, Consolas, monospace; }
+.ai-support-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.ai-checkbox { display: flex; gap: 12px; align-items: start; margin-bottom: 20px; }
+.ai-checkbox span { display: grid; gap: 6px; }
+.ai-checkbox small { color: #607184; line-height: 1.5; }
+@media (max-width: 760px) { .ai-layout { grid-template-columns: 1fr; } .ai-chat__input { flex-direction: column; } }
+@media (prefers-reduced-motion: reduce) { .ai-page *, .ai-page *::before, .ai-page *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -14,7 +14,7 @@ from ...services.cart import (
     CartError, add_customer_cart_item, customer_cart_rows,
     update_customer_cart_item,
 )
-from ...services.catalog import get_active_categories, get_catalog_products, search_products
+from ...services.catalog import get_active_categories, get_catalog_products, get_product_by_slug, search_products
 from ..common import (
     answer_callback, credentials_ready, receive_update, send_message,
     valid_webhook_secret,
@@ -81,10 +81,37 @@ def _send_categories(chat_id):
 
 
 def _send_products(chat_id, query=""):
+    from ...ai.marketplace_tools import handle_marketplace_ai_query
+
+    telegram_user_id = getattr(g, "telegram_user_id", None)
+    user = _linked_customer(telegram_user_id) if telegram_user_id else None
     if query:
-        products, _pagination = search_products(query, page=1, per_page=5)
+        result = handle_marketplace_ai_query(
+            query, user=user, channel="telegram",
+            context={"principal": f"telegram:{telegram_user_id}"} if telegram_user_id else None,
+        )
+        products = result.get("products") or []
+        if not products:
+            text = result.get("answer") or result.get("fallback") or "I could not find matching catalog products."
+            return send_message("customer", chat_id, text[:3500])
+        rows = []
+        for item in products[:5]:
+            slug = item.get("slug")
+            if not slug:
+                continue
+            product = get_product_by_slug(slug)
+            if product and product.is_available and product.moderation_status == "approved" and product.available_stock > 0:
+                rows.append(product)
     else:
         products, _pagination = get_catalog_products(page=1, per_page=5, in_stock=True)
+        rows = products
+    if not rows:
+        return send_message("customer", chat_id, "No available products matched that search.")
+
+    return _send_product_cards(chat_id, rows)
+
+
+def _send_product_cards(chat_id, products):
     if not products:
         return send_message("customer", chat_id, "No available products matched that search.")
 
@@ -96,10 +123,19 @@ def _send_products(chat_id, query=""):
         url = _site_url(f"food/{product.slug}")
         if url:
             buttons = [{"text": f"View {product.name[:35]}", "url": url}]
-            active_variants = [variant for variant in product.variants if variant.is_active]
-            if product.stock_quantity > 0 or any(variant.stock_quantity > 0 for variant in active_variants):
-                if len(active_variants) <= 1:
-                    buttons.append({"text": "Add", "callback_data": f"product-add|{product.id}"})
+            active_variants = [variant for variant in product.variants if variant.is_active and variant.stock_quantity > 0]
+            if active_variants:
+                if len(active_variants) == 1:
+                    buttons.append({"text": "Add", "callback_data": f"product-add|{product.id}|{active_variants[0].id}"})
+                else:
+                    rows.append(buttons)
+                    for variant in active_variants[:5]:
+                        option = f"{variant.option_name}: {variant.option_value}"[:25]
+                        rows.append([{"text": f"Add {option}",
+                                      "callback_data": f"product-add|{product.id}|{variant.id}"}])
+                    continue
+            elif product.stock_quantity > 0:
+                buttons.append({"text": "Add", "callback_data": f"product-add|{product.id}"})
             rows.append(buttons)
     return send_message(
         "customer", chat_id, "\n".join(lines), _keyboard(rows) if rows else None
@@ -259,8 +295,12 @@ def _handle_callback(payload, telegram_user_id, chat_id):
         return send_message("customer", chat_id, "Link your NexHaat account first with /link.")
     try:
         if data.startswith("product-add|"):
-            product_id = int(data.split("|", 1)[1])
-            add_customer_cart_item(user.id, product_id, quantity=1)
+            parts = data.split("|")
+            if len(parts) not in {2, 3}:
+                raise CartError("Unavailable action.")
+            product_id = int(parts[1])
+            variant_id = int(parts[2]) if len(parts) == 3 else None
+            add_customer_cart_item(user.id, product_id, quantity=1, variant_id=variant_id)
             answer_callback("customer", callback_id, "Added to your cart.")
         elif data.startswith("cart|"):
             _prefix, action, key = data.split("|", 2)
@@ -296,6 +336,9 @@ def _send_support(chat_id):
 
 
 def handle_customer_update(payload, telegram_user_id, chat_id):
+    from flask import g
+
+    g.telegram_user_id = telegram_user_id
     if isinstance(payload.get("callback_query"), dict):
         if chat_id != telegram_user_id:
             answer_callback(

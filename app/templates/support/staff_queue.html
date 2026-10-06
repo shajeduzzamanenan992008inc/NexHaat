@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Support queue') }} · {{ app_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261006_ai1') }}">{% endblock %}
+{% block page_content %}
+<div class="page-shell ai-page"><header class="page-heading"><div><p class="eyebrow">{{ _('Human support') }}</p><h1>{{ _('Open support queue') }}</h1><p>{{ _('Review customer requests and reply. Admin Copilot can summarize these cases with contact details redacted.') }}</p></div></header>
+  <section class="surface surface-card">{% if cases %}<ul class="support-list">{% for case in cases %}<li><a href="{{ url_for('support.staff_case', case_id=case.id) }}">{{ case.subject }}</a><span>{{ _(case.category|capitalize) }} · {{ _(case.status|capitalize) }} · {{ case.updated_at.strftime('%Y-%m-%d %H:%M') }}</span></li>{% endfor %}</ul>{% else %}<p class="muted">{{ _('No open support requests.') }}</p>{% endif %}</section></div>
+{% endblock %}

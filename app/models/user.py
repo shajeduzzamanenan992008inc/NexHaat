@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from flask_login import UserMixin
+from sqlalchemy.orm import validates
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
@@ -47,6 +48,13 @@ class User(UserMixin, TimestampMixin, db.Model):
     @property
     def is_staff(self):
         return self.role in {"admin", "super_admin", "support"}
+
+    @validates("email")
+    def validate_email(self, key, value):
+        email = (value or "").strip().lower()
+        if not email or "@" not in email:
+            raise ValueError("Email address must be provided and valid.")
+        return email
 
     customer_profile = db.relationship(
         "CustomerProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"

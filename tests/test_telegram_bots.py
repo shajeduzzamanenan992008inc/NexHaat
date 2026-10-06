@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 from app.extensions import db
 from app.models import (
-    AuditEvent, CustomerProfile, Order, ProcessedTelegramUpdate,
-    TelegramAccountLinkChallenge, TelegramIdentity, TelegramRateLimit,
-    TelegramSecurityAlert, User,
+    AuditEvent, Category, CustomerCartItem, CustomerProfile, Order, Product,
+    ProductVariant, ProcessedTelegramUpdate, TelegramAccountLinkChallenge,
+    TelegramIdentity, TelegramRateLimit, TelegramSecurityAlert, User,
 )
 from app.services.audit import record_audit
 from app.services.telegram_alerts import deliver_telegram_security_alerts
@@ -61,6 +61,64 @@ def test_customer_webhook_requires_secret_and_deduplicates_updates(client, app):
         assert update.bot_name == "customer"
         assert update.state == "processed"
         assert db.session.query(TelegramRateLimit).count() == 1
+
+
+def test_customer_telegram_ai_uses_shared_catalog_and_validates_variant_callback(client, app, caplog):
+    configure_bots(app)
+    telegram_id = 7711
+    with app.app_context():
+        customer = User(email="telegram-ai@example.test", role="customer")
+        customer.set_password("password123")
+        category = Category(name="Electronics", slug="electronics", is_active=True)
+        db.session.add_all([customer, category])
+        db.session.flush()
+        product = Product(category_id=category.id, name="Wireless Headphone",
+                          slug="wireless-headphone", description="Wireless headset for music.",
+                          price=1800, stock_quantity=0, is_available=True,
+                          moderation_status="approved")
+        db.session.add(product)
+        db.session.flush()
+        variants = [
+            ProductVariant(product_id=product.id, sku="HEADPHONE-BLACK", option_name="Color",
+                           option_value="Black", price=1800, stock_quantity=3, is_active=True),
+            ProductVariant(product_id=product.id, sku="HEADPHONE-WHITE", option_name="Color",
+                           option_value="White", price=1850, stock_quantity=2, is_active=True),
+        ]
+        db.session.add_all(variants)
+        db.session.add(TelegramIdentity(user_id=customer.id, telegram_user_id=telegram_id))
+        db.session.commit()
+        product_id, variant_id = product.id, variants[0].id
+
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        searched = client.post("/telegram/customer/webhook",
+                               json=telegram_payload(1011, telegram_id, "/search wireless headphone"),
+                               headers=headers)
+    assert searched.status_code == 200, caplog.text
+    markup = send.call_args.kwargs.get("reply_markup") or send.call_args.args[3]
+    callback_values = [button["callback_data"] for row in markup["inline_keyboard"]
+                       for button in row if "callback_data" in button]
+    assert f"product-add|{product_id}|{variant_id}" in callback_values
+    assert any(value.startswith(f"product-add|{product_id}|") for value in callback_values)
+
+    callback = {
+        "update_id": 1012,
+        "callback_query": {
+            "id": "callback-1012", "from": {"id": telegram_id},
+            "message": {"message_id": 1012,
+                        "chat": {"id": telegram_id, "type": "private"}},
+            "data": f"product-add|{product_id}|{variant_id}",
+        },
+    }
+    with patch("app.telegram.customer.answer_callback", return_value=True), \
+            patch("app.telegram.customer.send_message", return_value=True):
+        added = client.post("/telegram/customer/webhook", json=callback, headers=headers)
+    assert added.status_code == 200
+    with app.app_context():
+        cart_item = db.session.query(CustomerCartItem).one()
+        assert cart_item.variant_id == variant_id
+        assert cart_item.product_id == product_id
+        assert cart_item.quantity == 1
 
 
 def test_security_bot_denies_username_spoof_and_records_only_hashed_id(client, app):

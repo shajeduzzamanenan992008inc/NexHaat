@@ -89,6 +89,11 @@ endblock %}
           'floor')|int) %}★{% endfor %}</span> <strong>{{ '%.1f'|format(rating.average) }}</strong> · {{ _('%(count)s reviews', count=rating.count) }}
         {% else %}{{ _('No reviews yet.') }}{% endif %}
       </p>
+      {% if rating.count %}<div class="review-ai-summary">
+        <button class="button button--secondary" type="button" id="review-ai-summary-button">{{ _('Summarize approved reviews') }}</button>
+        <p id="review-ai-summary-output" class="source-caption" aria-live="polite"></p>
+        <input id="review-ai-summary-endpoint" type="hidden" value="{{ url_for('ai.review_summary', slug=product.slug) }}">
+      </div>{% endif %}
     </header>
 
     {% if can_review %}
@@ -130,4 +135,5 @@ endblock %}
     {% endif %}
   </section>
 </div>
+{% if rating.count %}<script src="{{ url_for('static', filename='js/review-summary.js', v='20261006_ai1') }}" defer></script>{% endif %}
 {% endblock %}

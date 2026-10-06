@@ -97,6 +97,12 @@ class Config:
         if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", _mail_sender)
         else None
     )
+    _support_email = os.getenv("SUPPORT_EMAIL", "").strip()
+    SUPPORT_EMAIL = (
+        _support_email
+        if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", _support_email)
+        else None
+    )
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower() or None
     PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
     SSLCOMMERZ_STORE_ID = os.getenv("SSLCOMMERZ_STORE_ID", "").strip()
@@ -131,6 +137,17 @@ class Config:
     MAX_EMAIL_ATTEMPTS = int(os.getenv("MAX_EMAIL_ATTEMPTS", "5"))
     INVOICE_FONT_PATH = os.getenv("INVOICE_FONT_PATH", "").strip()
     MAX_DATABASE_BYTES = int(os.getenv("MAX_DATABASE_BYTES", str(400 * 1024 * 1024)))
+    AI_ENABLED = _env_bool("AI_ENABLED", False)
+    AI_PROVIDER = os.getenv("AI_PROVIDER", "").strip() or "disabled"
+    AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
+    AI_MODEL = os.getenv("AI_MODEL", "").strip()
+    AI_BASE_URL = os.getenv("AI_BASE_URL", "").strip()
+    AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "15"))
+    AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "1024"))
+    AI_RATE_LIMIT = int(os.getenv("AI_RATE_LIMIT", "60"))
+    AI_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("AI_RATE_LIMIT_WINDOW_SECONDS", "60"))
+    AI_MAX_TOOL_CALLS = int(os.getenv("AI_MAX_TOOL_CALLS", "5"))
+    AI_MAX_CONTEXT_SIZE = int(os.getenv("AI_MAX_CONTEXT_SIZE", "12000"))
     PREFERRED_URL_SCHEME = "https" if ENVIRONMENT == "production" else "http"
 
 
@@ -142,6 +159,11 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
     ASYNC_ORDER_EMAILS = False
+    AI_ENABLED = False
+    AI_PROVIDER = "disabled"
+    AI_API_KEY = ""
+    AI_MODEL = ""
+    AI_BASE_URL = ""
 
 
 def get_config():

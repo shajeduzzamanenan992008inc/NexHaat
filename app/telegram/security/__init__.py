@@ -109,6 +109,7 @@ def _dashboard_markup():
 
 
 def handle_security_update(payload, telegram_user_id, chat_id):
+    raw_text = ""
     callback = payload.get("callback_query")
     if isinstance(callback, dict):
         text_value = callback.get("data", "")
@@ -116,7 +117,8 @@ def handle_security_update(payload, telegram_user_id, chat_id):
     else:
         message = payload.get("message") or payload.get("edited_message") or {}
         text_value = message.get("text", "")
-        command = text_value.strip().split(maxsplit=1)[0].split("@", 1)[0].lower() if isinstance(text_value, str) and text_value.strip() else "/start"
+        raw_text = text_value.strip() if isinstance(text_value, str) else ""
+        command = raw_text.split(maxsplit=1)[0].split("@", 1)[0].lower() if raw_text else "/start"
     if telegram_user_id not in _allowed_admin_ids():
         record_audit(
             "telegram.security_access_denied",
@@ -157,6 +159,12 @@ def handle_security_update(payload, telegram_user_id, chat_id):
             .limit(10)
         ).all()
         text = _event_lines(admin_events)
+    elif raw_text and not command.startswith("/"):
+        from ...ai.security_tools import handle_security_ai_query
+
+        result = handle_security_ai_query(raw_text[:2000], telegram_user_id=telegram_user_id, private_chat=True)
+        text = result.get("answer", "Security assistant data is temporarily unavailable.")
+        command = "/ai-query"  # Never put a security question or its contents in the audit log.
     else:
         text = "Unknown command. Use /help."
 

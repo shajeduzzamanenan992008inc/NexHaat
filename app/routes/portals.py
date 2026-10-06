@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from math import ceil
 
 from flask import (
-    Blueprint, abort, current_app, flash, redirect, render_template, request, url_for,
+    Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for,
 )
 from flask_babel import gettext
 from sqlalchemy import func, select
@@ -276,3 +276,27 @@ def dashboard():
             select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(50)
         ).all(),
     )
+
+
+@admin_bp.get("/admin/ai")
+@admin_required
+def ai_workspace():
+    user = current_session_user()
+    if user.role not in {"admin", "super_admin"}:
+        abort(403)
+    return render_template("ai/admin.html", user=user)
+
+
+@admin_bp.post("/admin/ai/query")
+@admin_required
+def ai_query():
+    user = current_session_user()
+    if user.role not in {"admin", "super_admin"}:
+        abort(403)
+    payload = request.get_json(silent=True)
+    prompt = payload.get("prompt") if isinstance(payload, dict) else None
+    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 2000:
+        return jsonify(ok=False, answer="Send an Admin analytics question under 2,000 characters."), 400
+    from ..ai.admin_tools import handle_admin_ai_query
+    result = handle_admin_ai_query(prompt, user=user)
+    return jsonify(result), 200 if result.get("ok") else 503

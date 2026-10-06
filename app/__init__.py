@@ -10,7 +10,7 @@ import click
 from flask import Flask, g, render_template, session
 from flask_babel import get_locale
 from werkzeug.middleware.proxy_fix import ProxyFix
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 
 from .api import register_api
 from .api.responses import error_response, is_api_request
@@ -38,20 +38,25 @@ def create_app(config_object=None):
     babel.init_app(app, locale_selector=get_request_locale)
 
     from .models import AdminProfile, AppSetting, CustomerProfile, User  # noqa: F401
+    from .services import ai_notifications  # noqa: F401 - register opt-in product alert hooks
     from .routes.auth import admin_login, auth_bp
+    from .routes.ai import ai_bp
     from .routes.main import main_bp
     from .routes.notifications import notifications_bp
     from .routes.orders import orders_bp
     from .routes.portals import admin_bp, customer_bp, rider_bp
     from .routes.seller import seller_bp
+    from .routes.support import support_bp
     from .routes.wishlist import wishlist_bp
     from .telegram.customer import telegram_customer_bp
     from .telegram.security import telegram_security_bp
     from .security import current_session_user
 
     app.register_blueprint(main_bp)
+    app.register_blueprint(ai_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(seller_bp)
+    app.register_blueprint(support_bp)
     app.register_blueprint(customer_bp)
     app.register_blueprint(rider_bp)
     app.register_blueprint(admin_bp)
@@ -117,7 +122,7 @@ def create_app(config_object=None):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(self), geolocation=()")
         image_sources = ["'self'", "data:", "https://images.unsplash.com"]
         media_origin = urlsplit(app.config.get("CATALOG_MEDIA_PUBLIC_BASE_URL", ""))
         if (
@@ -239,6 +244,18 @@ def create_app(config_object=None):
 
         delivered = deliver_telegram_security_alerts(limit=limit)
         click.echo(f"Telegram security alerts delivered: {delivered}.")
+
+    @app.cli.command("smart-ai-notification-digest")
+    @click.option("--limit", default=200, show_default=True, type=click.IntRange(min=1, max=1000))
+    def smart_ai_notification_digest(limit):
+        """Create rate-capped, opt-in in-app cart and product recommendation alerts."""
+        from .services.ai_notifications import send_smart_notification_digest
+
+        result = send_smart_notification_digest(limit=limit)
+        click.echo(
+            "Created {cart_reminders} cart reminder(s) and {recommendations} recommendation(s); "
+            "skipped {skipped}.".format(**result)
+        )
 
     @app.cli.command("expire-payments")
     @click.option("--batch-size", default=200, show_default=True, type=click.IntRange(min=1, max=2000))
@@ -463,7 +480,7 @@ def _bootstrap_admin(app):
 
     from .models import AdminProfile, User
 
-    existing = User.query.filter_by(email=email).first()
+    existing = db.session.query(User).filter(func.lower(User.email) == email).first()
     if existing:
         promoted = existing.role != "admin"
         if promoted:

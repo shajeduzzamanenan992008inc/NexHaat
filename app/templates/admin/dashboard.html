@@ -2,6 +2,11 @@
 {% block title %}{{ _('Admin dashboard') }} · {{ app_name }}{% endblock %}
 {% block page_content %}
 <div class="page-shell">
+  <section class="surface surface-card" style="margin-bottom:22px">
+    <p class="eyebrow">{{ _('Read-only operations') }}</p><h2>{{ _('Admin AI Copilot') }}</h2>
+    <p>{{ _('Ask questions about real marketplace sales, inventory, catalog quality, reviews, and support.') }}</p>
+    <a class="button button--secondary" href="{{ url_for('admin.ai_workspace') }}">{{ _('Open Admin Copilot') }}</a>
+  </section>
   <section class="admin-dashboard" aria-labelledby="admin-dashboard-title">
     <header class="admin-dashboard__header">
       <div>
@@ -13,6 +18,7 @@
     </header>
 
     <nav class="toolbar" aria-label="{{ _('Operations shortcuts') }}">
+      <a class="button button-small" href="{{ url_for('support.staff_queue') }}">{{ _('Support queue') }}</a>
       <a class="button button-small" href="{{ url_for('orders.admin_product_new') }}">＋ {{ _('Add product') }}</a>
       <a class="button-secondary button-small" href="{{ url_for('orders.admin_category_new') }}">{{ _('New category')
         }}</a>

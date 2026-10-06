@@ -7,6 +7,7 @@ Create Date: 2026-10-06
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision = "20261006_23"
@@ -15,8 +16,19 @@ branch_labels = None
 depends_on = None
 
 
+def _create_table_if_missing(name, *columns, **kwargs):
+    if not inspect(op.get_bind()).has_table(name):
+        op.create_table(name, *columns, **kwargs)
+
+
+def _create_index_if_missing(name, table, columns):
+    existing = {item["name"] for item in inspect(op.get_bind()).get_indexes(table)}
+    if name not in existing:
+        op.create_index(name, table, columns)
+
+
 def upgrade():
-    op.create_table(
+    _create_table_if_missing(
         "telegram_identities",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
@@ -27,7 +39,7 @@ def upgrade():
         sa.UniqueConstraint("telegram_user_id"),
         sa.UniqueConstraint("user_id"),
     )
-    op.create_table(
+    _create_table_if_missing(
         "telegram_account_link_challenges",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("telegram_user_id", sa.BigInteger(), nullable=False),
@@ -43,12 +55,12 @@ def upgrade():
         sa.UniqueConstraint("code_digest"),
         sa.UniqueConstraint("telegram_user_id"),
     )
-    op.create_index(
+    _create_index_if_missing(
         "ix_telegram_account_link_challenges_expires_at",
         "telegram_account_link_challenges",
         ["expires_at"],
     )
-    op.create_table(
+    _create_table_if_missing(
         "customer_cart_items",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
@@ -69,8 +81,8 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("user_id", "item_key", name="uq_customer_cart_user_item"),
     )
-    op.create_index("ix_customer_cart_items_product_id", "customer_cart_items", ["product_id"])
-    op.create_index("ix_customer_cart_items_user_id", "customer_cart_items", ["user_id"])
+    _create_index_if_missing("ix_customer_cart_items_product_id", "customer_cart_items", ["product_id"])
+    _create_index_if_missing("ix_customer_cart_items_user_id", "customer_cart_items", ["user_id"])
 
 
 def downgrade():

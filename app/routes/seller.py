@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import re
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, session, url_for
 from flask_babel import gettext
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -279,6 +279,87 @@ def dashboard():
     return render_template(
         "seller/dashboard.html", user=user, profile=user.seller_profile, metrics=metrics
     )
+
+
+@seller_bp.get("/seller/ai")
+@approved_seller_required
+def ai_workspace():
+    seller = _approved_seller()
+    products = db.session.scalars(
+        select(Product).where(Product.seller_id == seller.id).order_by(Product.name.asc())
+    ).all()
+    return render_template("ai/seller.html", seller=seller, products=products)
+
+
+@seller_bp.post("/seller/ai/suggest")
+@approved_seller_required
+def ai_listing_suggest():
+    seller = _approved_seller()
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or set(payload) - {"title", "description", "product_id"}:
+        return jsonify(ok=False, answer="Send a valid listing draft."), 400
+    title, description = payload.get("title", ""), payload.get("description", "")
+    if (not isinstance(title, str) or not isinstance(description, str)
+            or len(title) > 160 or len(description) > 3000):
+        return jsonify(ok=False, answer="Keep the title under 160 characters and description under 3,000."), 400
+    product_id = payload.get("product_id")
+    if product_id is not None and (not isinstance(product_id, int) or isinstance(product_id, bool) or product_id < 1):
+        return jsonify(ok=False, answer="Choose one of your own listings."), 400
+    from ..services.ai_rate_limit import consume_ai_request
+    try:
+        if not consume_ai_request("seller_ai", user=seller):
+            return jsonify(ok=False, answer="Seller assistant request limit reached. Try again shortly."), 429
+    except Exception:
+        db.session.rollback()
+        return jsonify(ok=False, answer="Seller assistant is temporarily unavailable."), 503
+    from ..ai.seller import generate_listing_suggestion
+    result = generate_listing_suggestion(seller, title=title, description=description, product_id=product_id)
+    return jsonify(result), 200 if result.get("ok") else 503
+
+
+@seller_bp.post("/seller/ai/query")
+@approved_seller_required
+def ai_analytics_query():
+    seller = _approved_seller()
+    payload = request.get_json(silent=True)
+    prompt = payload.get("prompt") if isinstance(payload, dict) else None
+    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 2000:
+        return jsonify(ok=False, answer="Send a question under 2,000 characters."), 400
+    from ..services.ai_rate_limit import consume_ai_request
+    try:
+        if not consume_ai_request("seller_ai", user=seller):
+            return jsonify(ok=False, answer="Seller assistant request limit reached. Try again shortly."), 429
+    except Exception:
+        db.session.rollback()
+        return jsonify(ok=False, answer="Seller assistant is temporarily unavailable."), 503
+    from ..ai.seller import run_seller_query
+    result = run_seller_query(seller, prompt)
+    return jsonify(result), 200 if result.get("ok") else 503
+
+
+@seller_bp.post("/seller/ai/price")
+@approved_seller_required
+def ai_price_suggestion():
+    seller = _approved_seller()
+    payload = request.get_json(silent=True)
+    if (not isinstance(payload, dict) or set(payload) - {"product_id", "competitor_price"}
+            or not isinstance(payload.get("product_id"), int) or isinstance(payload.get("product_id"), bool)):
+        return jsonify(ok=False, answer="Choose one of your products and an optional competitor price you supplied."), 400
+    competitor = payload.get("competitor_price")
+    if competitor is not None and (isinstance(competitor, bool) or not isinstance(competitor, (int, float))):
+        return jsonify(ok=False, answer="Enter a valid competitor price or leave it blank."), 400
+    from ..services.ai_rate_limit import consume_ai_request
+    try:
+        if not consume_ai_request("seller_ai", user=seller):
+            return jsonify(ok=False, answer="Seller assistant request limit reached. Try again shortly."), 429
+        from ..ai.seller import get_seller_price_suggestion
+        result = get_seller_price_suggestion(seller, product_id=payload["product_id"], competitor_price=competitor)
+    except ValueError:
+        return jsonify(ok=False, answer="That product or price could not be used."), 400
+    except Exception:
+        db.session.rollback()
+        return jsonify(ok=False, answer="Seller price analysis is temporarily unavailable."), 503
+    return jsonify(result)
 
 
 @seller_bp.get("/seller/orders")

@@ -7,6 +7,7 @@ Create Date: 2026-10-06
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision = "20261006_22"
@@ -16,7 +17,8 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
+    if not inspect(op.get_bind()).has_table("processed_telegram_updates"):
+        op.create_table(
         "processed_telegram_updates",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("bot_name", sa.String(length=20), nullable=False),
@@ -32,7 +34,8 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("bot_name", "update_id", name="uq_telegram_update_bot_id"),
     )
-    op.create_table(
+    if not inspect(op.get_bind()).has_table("telegram_rate_limits"):
+        op.create_table(
         "telegram_rate_limits",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("bot_name", sa.String(length=20), nullable=False),
