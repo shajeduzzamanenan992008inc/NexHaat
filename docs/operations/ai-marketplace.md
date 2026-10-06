@@ -2,6 +2,8 @@
 
 The shared AI Core is optional application functionality. Its provider is disabled by default; all secrets belong in private local or hosting environment settings. Do not paste API keys or Telegram tokens into source files, issue text, or the shared roadmap.
 
+The local loader accepts the repository's Azure Advanced Edit JSON only when it declares `APP_ENV=development` and a SQLite `DATABASE_URL`. A production/PostgreSQL JSON settings file is deliberately ignored on a developer machine; Azure App Service supplies its Application Settings as environment variables. This avoids a local run accidentally using a production database or production bot credentials.
+
 ## Configuration
 
 Set these settings only in a private environment when enabling the provider:
@@ -11,6 +13,8 @@ Set these settings only in a private environment when enabling the provider:
 - `AI_API_KEY=<private provider key>`
 - `AI_MODEL=<provider model that supports the requested capability>`
 - `AI_BASE_URL=https://<provider-host>/v1`
+
+`AI_ENABLED=false`, an empty key, or missing model/base URL means broad natural-language answers are unavailable. Catalog search still uses the marketplace database; the assistant explains when it falls back. For local development, use a development/SQLite settings file and configure the provider settings there. For production, configure all five values in the hosting provider's private Application Settings and restart the app.
 
 Bound resource use with `AI_TIMEOUT`, `AI_MAX_TOKENS`, `AI_MAX_TOOL_CALLS`, `AI_MAX_CONTEXT_SIZE`, `AI_RATE_LIMIT`, and `AI_RATE_LIMIT_WINDOW_SECONDS`. The application clamps request limits. A provider may not support vision or transcription; those functions then show a safe fallback to catalog search. `AI_ENABLED=false` keeps ordinary catalog, cart, orders, and support services available without a provider request.
 

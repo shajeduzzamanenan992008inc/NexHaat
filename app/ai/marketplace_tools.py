@@ -611,8 +611,30 @@ def _deterministic_fallback(prompt, *, user=None):
             f"{row['name']} (BDT {row['price']})" for row in products[:3]
         )
         return _tool_result(answer, products, "search_products", products=products)
-    answer = "No available catalog products matched. Try changing the keywords or filters."
+    answer = (
+        "I couldn't find a matching product. I can search products, prices, stock, and categories, "
+        "or help with your cart, orders, and store policies. "
+        f"{_customer_ai_unavailable_reason()}"
+    )
     return _tool_result(answer, [], "search_products", products=[])
+
+
+def _customer_ai_unavailable_reason():
+    """Explain why broad questions fall back to catalog-only help, without exposing settings."""
+    if not has_app_context():
+        return "Please use the marketplace search or contact support."
+    config = current_app.config
+    provider = str(config.get("AI_PROVIDER") or "").strip().lower()
+    if not config.get("AI_ENABLED") or provider in {"", "disabled", "none"}:
+        return "The AI text assistant is disabled right now."
+    if not (
+        provider in {"openai_compatible", "openai-compatible", "openai"}
+        and config.get("AI_API_KEY")
+        and config.get("AI_MODEL")
+        and config.get("AI_BASE_URL")
+    ):
+        return "The AI text assistant is not fully configured right now."
+    return "The AI text assistant could not be reached right now."
 
 
 def _tool_result(answer, data, tool, *, products=None):

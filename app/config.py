@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 import re
 from pathlib import Path
 
@@ -8,9 +9,73 @@ from sqlalchemy.engine import make_url
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
 logger = logging.getLogger(__name__)
 POSTGRES_TLS_MODES = frozenset({"require", "verify-ca", "verify-full"})
+
+
+def _load_local_environment(path):
+    """Load dotenv files or safe development App Service JSON settings.
+
+    The checked-in example uses Azure's Advanced Edit JSON format. A production
+    settings export must never silently redirect a local app to its database,
+    mail provider, or Telegram bots, so JSON is accepted locally only when the
+    file itself declares development and SQLite.
+    """
+    try:
+        content = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return
+
+    try:
+        document = json.loads(content)
+    except (TypeError, ValueError):
+        load_dotenv(path)
+        return
+
+    if not isinstance(document, list) or not all(
+        isinstance(item, dict) and isinstance(item.get("name"), str)
+        for item in document
+    ):
+        load_dotenv(path)
+        return
+
+    values = {
+        item["name"]: item.get("value")
+        for item in document
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", item["name"])
+    }
+    file_environment = str(values.get("APP_ENV") or "").strip().lower()
+    file_database_url = str(values.get("DATABASE_URL") or "").strip()
+    try:
+        file_database_backend = make_url(file_database_url).get_backend_name()
+    except Exception:  # noqa: BLE001 - invalid settings are not loaded locally
+        file_database_backend = ""
+
+    active_environment = str(os.environ.get("APP_ENV") or file_environment).strip().lower()
+    active_database_url = str(os.environ.get("DATABASE_URL") or file_database_url).strip()
+    try:
+        active_database_backend = make_url(active_database_url).get_backend_name()
+    except Exception:  # noqa: BLE001 - invalid settings are not loaded locally
+        active_database_backend = ""
+
+    if not (
+        file_environment == "development"
+        and file_database_backend == "sqlite"
+        and active_environment == "development"
+        and active_database_backend == "sqlite"
+    ):
+        logger.warning(
+            "Ignored JSON .env settings: local JSON settings must declare development and SQLite; configure production settings in the hosting environment."
+        )
+        return
+
+    for name, value in values.items():
+        if isinstance(value, (dict, list)):
+            continue
+        os.environ.setdefault(name, "" if value is None else str(value))
+
+
+_load_local_environment(BASE_DIR / ".env")
 
 
 def enforce_production_database_tls(database_url, environment):

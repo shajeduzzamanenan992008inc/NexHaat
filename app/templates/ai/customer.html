@@ -12,6 +12,7 @@
     <section class="surface surface-card ai-chat" aria-labelledby="ai-chat-title">
       <h2 id="ai-chat-title">{{ _('Ask NexHaat') }}</h2>
       <p class="muted">{{ _('Bangla, English, Hindi, and Banglish are supported. Product, price, and stock details come from the live catalog.') }}</p>
+      {% if not ai_provider_configured %}<p class="muted" role="status">{{ _('AI text answers are currently unavailable. Product and category search can still use the live marketplace catalog.') }}</p>{% endif %}
       <div class="ai-chat__messages" id="ai-messages" aria-live="polite" aria-relevant="additions text">
         <p class="ai-message ai-message--assistant">{{ _('Tell me what you are looking for, or ask about your cart, orders, or store policies.') }}</p>
       </div>

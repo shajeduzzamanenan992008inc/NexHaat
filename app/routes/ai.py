@@ -33,6 +33,18 @@ def _customer_user():
     return user
 
 
+def _customer_provider_configured():
+    config = current_app.config
+    provider = str(config.get("AI_PROVIDER") or "").strip().lower()
+    return bool(
+        config.get("AI_ENABLED")
+        and provider in {"openai_compatible", "openai-compatible", "openai"}
+        and config.get("AI_API_KEY")
+        and config.get("AI_MODEL")
+        and config.get("AI_BASE_URL")
+    )
+
+
 def _consume(user):
     try:
         return consume_ai_request(AI_SCOPE_CUSTOMER, user=user)
@@ -64,7 +76,10 @@ def _audio_signature_matches(content_type, data):
 @customer_or_guest_required
 def index():
     user = _customer_user()
-    return render_template("ai/customer.html", user=user, csrf_value=None)
+    return render_template(
+        "ai/customer.html", user=user, csrf_value=None,
+        ai_provider_configured=_customer_provider_configured(),
+    )
 
 
 @ai_bp.post("/chat")
