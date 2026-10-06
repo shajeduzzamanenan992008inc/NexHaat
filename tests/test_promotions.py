@@ -249,6 +249,14 @@ def test_migrations_apply_to_isolated_sqlite():
                 column["name"] for column in inspector.get_columns("products")
             }
             assert "recently_viewed_products" in inspector.get_table_names()
+            assert {
+                "processed_telegram_updates",
+                "telegram_rate_limits",
+                "telegram_identities",
+                "telegram_account_link_challenges",
+                "customer_cart_items",
+                "telegram_security_alerts",
+            } <= set(inspector.get_table_names())
             recent_view_indexes = {
                 index["name"] for index in inspector.get_indexes("recently_viewed_products")
             }

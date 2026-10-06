@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import secrets
 import time
 import zipfile
@@ -44,6 +45,8 @@ def create_app(config_object=None):
     from .routes.portals import admin_bp, customer_bp, rider_bp
     from .routes.seller import seller_bp
     from .routes.wishlist import wishlist_bp
+    from .telegram.customer import telegram_customer_bp
+    from .telegram.security import telegram_security_bp
     from .security import current_session_user
 
     app.register_blueprint(main_bp)
@@ -57,6 +60,8 @@ def create_app(config_object=None):
     app.register_blueprint(orders_bp)
     app.register_blueprint(notifications_bp)
     app.register_blueprint(wishlist_bp)
+    app.register_blueprint(telegram_customer_bp)
+    app.register_blueprint(telegram_security_bp)
 
     # Versioned, frontend-independent JSON API under /api/v1.
     register_api(app)
@@ -226,6 +231,15 @@ def create_app(config_object=None):
         delivered = retry_pending_emails()
         click.echo(f"Queued emails retried: {delivered} delivered.")
 
+    @app.cli.command("retry-telegram-alerts")
+    @click.option("--limit", default=50, show_default=True, type=click.IntRange(min=1, max=200))
+    def retry_telegram_alerts(limit):
+        """Deliver pending, privacy-minimized Telegram security alerts."""
+        from .services.telegram_alerts import deliver_telegram_security_alerts
+
+        delivered = deliver_telegram_security_alerts(limit=limit)
+        click.echo(f"Telegram security alerts delivered: {delivered}.")
+
     @app.cli.command("expire-payments")
     @click.option("--batch-size", default=200, show_default=True, type=click.IntRange(min=1, max=2000))
     def expire_payments_command(batch_size):
@@ -300,6 +314,60 @@ def create_app(config_object=None):
         for issue in issues:
             click.echo(f"  - {issue}")
         raise SystemExit(1)
+
+    @app.cli.command("set-telegram-webhooks")
+    def set_telegram_webhooks():
+        """Register configured Telegram bots against the canonical HTTPS URL."""
+        import requests
+
+        base_url = (app.config.get("PUBLIC_BASE_URL") or "").strip().rstrip("/")
+        parsed = urlsplit(base_url)
+        if (
+            parsed.scheme not in {"http", "https"} or not parsed.hostname
+            or parsed.username or parsed.password or parsed.query or parsed.fragment
+            or (app.config.get("ENVIRONMENT") == "production" and parsed.scheme != "https")
+        ):
+            raise click.ClickException("Set a valid PUBLIC_BASE_URL before registering webhooks.")
+
+        configured = 0
+        for bot_name, update_types in (
+            ("customer", ["message", "callback_query"]),
+            ("security", ["message"]),
+        ):
+            prefix = f"TELEGRAM_{bot_name.upper()}"
+            token = app.config.get(f"{prefix}_BOT_TOKEN") or ""
+            secret = app.config.get(f"{prefix}_WEBHOOK_SECRET") or ""
+            if not token and not secret:
+                click.echo(f"{bot_name.title()} bot skipped; credentials are not configured.")
+                continue
+            if (
+                not token or not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", secret)
+                or (bot_name == "security" and not app.config.get("TELEGRAM_SECURITY_ADMIN_IDS", "").strip())
+            ):
+                raise click.ClickException(f"{bot_name.title()} bot configuration is incomplete or invalid.")
+            endpoint = f"{base_url}/telegram/{bot_name}/webhook"
+            try:
+                response = requests.post(
+                    f"https://api.telegram.org/bot{token}/setWebhook",
+                    json={
+                        "url": endpoint,
+                        "secret_token": secret,
+                        "allowed_updates": update_types,
+                        "drop_pending_updates": False,
+                    },
+                    timeout=max(1, int(app.config.get("TELEGRAM_API_TIMEOUT", 10))),
+                )
+                payload = response.json()
+            except (requests.RequestException, ValueError) as error:
+                raise click.ClickException(
+                    f"{bot_name.title()} webhook registration failed ({type(error).__name__})."
+                ) from error
+            if response.status_code != 200 or not isinstance(payload, dict) or payload.get("ok") is not True:
+                raise click.ClickException(f"{bot_name.title()} webhook registration was rejected.")
+            click.echo(f"{bot_name.title()} webhook registered: {endpoint}")
+            configured += 1
+        if not configured:
+            raise click.ClickException("No Telegram bot credentials are configured.")
 
     @app.cli.command("catalog-media-smoke-check")
     @click.option(

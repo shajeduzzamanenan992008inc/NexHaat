@@ -11,12 +11,13 @@ from flask import Blueprint, abort, current_app, flash, jsonify, make_response, 
 from flask_babel import get_locale, gettext
 from flask_login import login_user, logout_user
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 from ..extensions import db
 from ..i18n import SUPPORTED_LOCALES
 from ..models import (
     AccountInvitation, AdminLoginChallenge, AdminProfile, CustomerAddress, CustomerProfile,
-    RegistrationChallenge,
+    RegistrationChallenge, TelegramAccountLinkChallenge, TelegramIdentity,
     RiderProfile, SellerProfile, User,
 )
 from ..services.profiles import customer_profile_image_url, ensure_customer_profile
@@ -51,7 +52,10 @@ def _capture_request_locale():
 
 def _start_authenticated_session(user, permanent=True):
     locale = user.preferred_locale if user.preferred_locale in SUPPORTED_LOCALES else session.get("locale")
+    guest_cart = session.get("cart") if user.role == "customer" else None
     session.clear()
+    if isinstance(guest_cart, dict) and guest_cart:
+        session["cart"] = guest_cart
     if locale in SUPPORTED_LOCALES:
         session["locale"] = locale
     session.permanent = permanent
@@ -339,6 +343,92 @@ def _password_length_error(password):
     if len(password) > maximum:
         return gettext("Password must contain no more than %(maximum)s characters.", maximum=maximum)
     return None
+
+
+def _telegram_link_code_digest(code):
+    secret = current_app.secret_key
+    if isinstance(secret, str):
+        secret = secret.encode("utf-8")
+    return hmac.new(secret, b"telegram-link:" + code.encode("ascii"), hashlib.sha256).hexdigest()
+
+
+@auth_bp.post("/account/telegram/link")
+@customer_required
+def link_telegram_account():
+    user = current_session_user("customer")
+    code = request.form.get("code", "").strip()
+    remote_addr = request.remote_addr
+    if login_is_throttled(remote_addr):
+        flash(gettext("Too many attempts. Please wait before trying again."), "error")
+        return redirect(url_for("auth.account"))
+    challenge = None
+    if re.fullmatch(r"[0-9]{10}", code):
+        challenge = db.session.scalar(
+            select(TelegramAccountLinkChallenge)
+            .where(TelegramAccountLinkChallenge.code_digest == _telegram_link_code_digest(code))
+            .with_for_update()
+        )
+    now = datetime.now(timezone.utc)
+    expires = _as_utc(challenge.expires_at) if challenge else None
+    if (
+        not challenge or challenge.consumed_at is not None or not expires or expires < now
+        or challenge.failed_attempts >= 5
+    ):
+        record_login_failure(remote_addr)
+        flash(gettext("That Telegram link code is invalid or expired."), "error")
+        return redirect(url_for("auth.account"))
+
+    current_identity = db.session.scalar(
+        select(TelegramIdentity).where(TelegramIdentity.user_id == user.id)
+    )
+    telegram_identity = db.session.scalar(
+        select(TelegramIdentity).where(
+            TelegramIdentity.telegram_user_id == challenge.telegram_user_id
+        )
+    )
+    if current_identity and current_identity.telegram_user_id != challenge.telegram_user_id:
+        flash(gettext("Unlink the existing Telegram account before linking another one."), "error")
+        return redirect(url_for("auth.account"))
+    if telegram_identity and telegram_identity.user_id != user.id:
+        challenge.consumed_at = now
+        db.session.commit()
+        record_login_failure(remote_addr)
+        flash(gettext("That Telegram account is already linked to another NexHaat account."), "error")
+        return redirect(url_for("auth.account"))
+
+    try:
+        if current_identity is None:
+            db.session.add(TelegramIdentity(
+                user_id=user.id,
+                telegram_user_id=challenge.telegram_user_id,
+            ))
+        challenge.consumed_at = now
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash(gettext("That Telegram account could not be linked. Request a new code and try again."), "error")
+        return redirect(url_for("auth.account"))
+    clear_login_failures(remote_addr)
+    record_audit("account.telegram_link", actor=user, target_type="telegram_identity", target_id=user.id)
+    flash(gettext("Your Telegram account is now linked."), "success")
+    return redirect(url_for("auth.account"))
+
+
+@auth_bp.post("/account/telegram/unlink")
+@customer_required
+def unlink_telegram_account():
+    user = current_session_user("customer")
+    identity = db.session.scalar(
+        select(TelegramIdentity).where(TelegramIdentity.user_id == user.id).with_for_update()
+    )
+    if identity is None:
+        flash(gettext("No Telegram account is linked."), "error")
+        return redirect(url_for("auth.account"))
+    db.session.delete(identity)
+    db.session.commit()
+    record_audit("account.telegram_unlink", actor=user, target_type="telegram_identity", target_id=user.id)
+    flash(gettext("Your Telegram account was unlinked."), "success")
+    return redirect(url_for("auth.account"))
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -899,6 +989,9 @@ def reset_password():
 def account():
     user = db.session.get(User, session["user_id"])
     profile = ensure_customer_profile(user)
+    telegram_identity = db.session.scalar(
+        select(TelegramIdentity).where(TelegramIdentity.user_id == user.id)
+    )
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
         phone = request.form.get("phone", "").strip()
@@ -923,6 +1016,7 @@ def account():
                     return render_template(
                         "auth/account.html", user=user, profile=profile, address=profile.address,
                         profile_image_url=customer_profile_image_url(profile),
+                        telegram_identity=telegram_identity,
                     )
                 profile.profile_image = filename
             if address_line and city:
@@ -939,6 +1033,7 @@ def account():
     return render_template(
         "auth/account.html", user=user, profile=profile, address=profile.address,
         profile_image_url=customer_profile_image_url(profile),
+        telegram_identity=telegram_identity,
     )
 
 

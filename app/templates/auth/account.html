@@ -5,18 +5,23 @@
   <p class="eyebrow">{{ _('Customer') }}</p>
   <h1>{{ _('Account settings') }}</h1>
   <div class="customer-profile-summary">
-    <span class="customer-profile-avatar" id="customer-profile-avatar" data-profile-avatar data-initial="{{ (profile.full_name[:1] if profile.full_name else user.email[:1])|upper }}">
-      {% if profile_image_url %}<img data-profile-avatar-image src="{{ profile_image_url }}" alt="{{ _('Profile image for %(name)s', name=profile.full_name or _('Customer')) }}">
-      {% else %}<span data-avatar-initial aria-hidden="true">{{ (profile.full_name[:1] if profile.full_name else user.email[:1])|upper }}</span>{% endif %}
+    <span class="customer-profile-avatar" id="customer-profile-avatar" data-profile-avatar
+      data-initial="{{ (profile.full_name[:1] if profile.full_name else user.email[:1])|upper }}">
+      {% if profile_image_url %}<img data-profile-avatar-image src="{{ profile_image_url }}"
+        alt="{{ _('Profile image for %(name)s', name=profile.full_name or _('Customer')) }}">
+      {% else %}<span data-avatar-initial aria-hidden="true">{{ (profile.full_name[:1] if profile.full_name else
+        user.email[:1])|upper }}</span>{% endif %}
     </span>
     <span><strong>{{ profile.full_name or _('Customer') }}</strong><small>{{ user.email }}</small></span>
   </div>
-  <form class="auth-form" method="post" enctype="multipart/form-data" action="{{ url_for('auth.account') }}" data-validate-form>
+  <form class="auth-form" method="post" enctype="multipart/form-data" action="{{ url_for('auth.account') }}"
+    data-validate-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-field">
       <label for="account-name">{{ _('Full name') }}</label>
-      <input id="account-name" name="full_name" type="text" value="{{ profile.full_name }}" minlength="2" maxlength="120" required data-validate
-             data-required-message="{{ _('This field is required.') }}" aria-describedby="account-name-error">
+      <input id="account-name" name="full_name" type="text" value="{{ profile.full_name }}" minlength="2"
+        maxlength="120" required data-validate data-required-message="{{ _('This field is required.') }}"
+        aria-describedby="account-name-error">
       <span class="field-error" id="account-name-error" data-field-error aria-live="polite"></span>
     </div>
     <div class="form-field">
@@ -25,13 +30,15 @@
     </div>
     <div class="form-field">
       <label for="account-phone">{{ _('Phone number') }}</label>
-      <input id="account-phone" name="phone" type="tel" value="{{ profile.phone }}" minlength="7" maxlength="30" required data-validate
-             data-required-message="{{ _('This field is required.') }}" aria-describedby="account-phone-error">
+      <input id="account-phone" name="phone" type="tel" value="{{ profile.phone }}" minlength="7" maxlength="30"
+        required data-validate data-required-message="{{ _('This field is required.') }}"
+        aria-describedby="account-phone-error">
       <span class="field-error" id="account-phone-error" data-field-error aria-live="polite"></span>
     </div>
     <div class="form-field">
       <label for="account-address">{{ _('Street address') }}</label>
-      <textarea id="account-address" name="address_line" rows="3" maxlength="1000">{{ address.address_line if address else '' }}</textarea>
+      <textarea id="account-address" name="address_line" rows="3"
+        maxlength="1000">{{ address.address_line if address else '' }}</textarea>
     </div>
     <div class="form-field">
       <label for="account-city">{{ _('City') }}</label>
@@ -40,8 +47,8 @@
     <div class="form-field">
       <label for="account-image">{{ _('Profile image') }}</label>
       <input id="account-image" name="profile_image" type="file" accept="image/png,image/jpeg,image/webp"
-             data-profile-image-input data-preview-target="customer-profile-avatar"
-             data-preview-alt="{{ _('Profile image for %(name)s', name=profile.full_name or _('Customer')) }}">
+        data-profile-image-input data-preview-target="customer-profile-avatar"
+        data-preview-alt="{{ _('Profile image for %(name)s', name=profile.full_name or _('Customer')) }}">
     </div>
     <button class="auth-submit" type="submit"><span data-submit-label>{{ _('Save') }}</span></button>
   </form>
@@ -50,17 +57,48 @@
   <form class="auth-form" method="post" action="{{ url_for('auth.change_password') }}" data-validate-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-field"><label for="account-current-password">{{ _('Current password') }}</label>
-      <input id="account-current-password" name="current_password" type="password" autocomplete="current-password" required data-validate data-required-message="{{ _('This field is required.') }}"></div>
+      <input id="account-current-password" name="current_password" type="password" autocomplete="current-password"
+        required data-validate data-required-message="{{ _('This field is required.') }}">
+    </div>
     <div class="form-field"><label for="account-new-password">{{ _('New password') }}</label>
-      <input id="account-new-password" name="password" type="password" autocomplete="new-password" minlength="{{ min_password_length }}" maxlength="{{ max_password_length }}" required data-validate data-required-message="{{ _('This field is required.') }}"></div>
+      <input id="account-new-password" name="password" type="password" autocomplete="new-password"
+        minlength="{{ min_password_length }}" maxlength="{{ max_password_length }}" required data-validate
+        data-required-message="{{ _('This field is required.') }}">
+    </div>
     <div class="form-field"><label for="account-confirm-password">{{ _('Confirm password') }}</label>
-      <input id="account-confirm-password" name="password_confirmation" type="password" autocomplete="new-password" required data-validate data-confirm-for="account-new-password" data-required-message="{{ _('This field is required.') }}" data-mismatch-message="{{ _('Passwords do not match.') }}"></div>
+      <input id="account-confirm-password" name="password_confirmation" type="password" autocomplete="new-password"
+        required data-validate data-confirm-for="account-new-password"
+        data-required-message="{{ _('This field is required.') }}"
+        data-mismatch-message="{{ _('Passwords do not match.') }}">
+    </div>
     <button class="auth-submit" type="submit"><span data-submit-label>{{ _('Update password') }}</span></button>
   </form>
   <hr class="auth-divider">
+  <h2>{{ _('Telegram account') }}</h2>
+  {% if telegram_identity %}
+  <p class="form-hint">{{ _('A Telegram account is linked to your NexHaat account.') }}</p>
+  <form class="auth-form" method="post" action="{{ url_for('auth.unlink_telegram_account') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="button-danger" type="submit">{{ _('Unlink Telegram account') }}</button>
+  </form>
+  {% else %}
+  <p class="form-hint">{{ _('Request a one-time code in the NexHaat Telegram bot, then enter it here. Never share the
+    code.') }}</p>
+  <form class="auth-form" method="post" action="{{ url_for('auth.link_telegram_account') }}" data-validate-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-field">
+      <label for="telegram-link-code">{{ _('Telegram link code') }}</label>
+      <input id="telegram-link-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+        pattern="[0-9]{10}" minlength="10" maxlength="10" required>
+    </div>
+    <button class="auth-submit" type="submit">{{ _('Link Telegram account') }}</button>
+  </form>
+  {% endif %}
+  <hr class="auth-divider">
   <h2>{{ _('Delete your account') }}</h2>
   <p class="form-hint">{{ _('This permanently removes your NexHaat account and profile. This cannot be undone.') }}</p>
-  <form class="auth-form" method="post" action="{{ url_for('auth.delete_account') }}" onsubmit="return confirm('{{ _('Delete your account permanently?') }}');">
+  <form class="auth-form" method="post" action="{{ url_for('auth.delete_account') }}"
+    onsubmit="return confirm('{{ _('Delete your account permanently?') }}');">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button class="button-danger" type="submit"><span data-submit-label>{{ _('Delete my account') }}</span></button>
   </form>

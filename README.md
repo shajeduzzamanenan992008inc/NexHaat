@@ -133,6 +133,8 @@ The focused security/operations/media/configuration suite passes 29 tests, cover
 
 The project includes a production entry point and a `Procfile` that starts Gunicorn. Configure the host's release/deploy step to install dependencies, apply database migrations before serving traffic, and provision a strong secret, managed PostgreSQL URL, Brevo API key, sender address, canonical HTTPS `PUBLIC_BASE_URL`, and Admin bootstrap values through private environment settings.
 
+Telegram customer and security bot configuration, account-linking, webhook registration, and Azure App Service deployment steps are documented in [the Telegram bots operations guide](docs/operations/telegram-bots.md). Configure the separate bot tokens and webhook secrets as private App Service settings; after applying the Telegram migrations, run `flask --app run.py set-telegram-webhooks` from the deployed environment. Schedule `flask --app run.py retry-telegram-alerts` if security alerts are enabled.
+
 The Phase 6 design proposes Cloudflare WAF and Tunnel in front of a private Render service. That external account and network configuration is not enabled by this Phase 2 code change. Security uses layered controls; no application can promise to be impossible to hack.
 
 See [the Stage 10 operations runbook](docs/operations/stage-10-runbook.md) for the production setup and acceptance checklist.

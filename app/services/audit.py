@@ -5,10 +5,15 @@ import logging
 from flask import g
 
 from ..extensions import db
-from ..models import AuditEvent
+from ..models import AuditEvent, TelegramSecurityAlert
 from ..security import client_address_hash
 
 logger = logging.getLogger(__name__)
+TELEGRAM_ALERT_ACTIONS = frozenset({
+    "auth.admin_login_denied",
+    "account.delete_self",
+    "account.remove",
+})
 
 
 def record_audit(action, target_type=None, target_id=None, detail=None, actor=None):
@@ -27,6 +32,14 @@ def record_audit(action, target_type=None, target_id=None, detail=None, actor=No
             ip_hash=client_address_hash(),
         )
         db.session.add(event)
+        db.session.flush()
+        if event.action in TELEGRAM_ALERT_ACTIONS:
+            try:
+                with db.session.begin_nested():
+                    db.session.add(TelegramSecurityAlert(audit_event_id=event.id))
+                    db.session.flush()
+            except Exception as error:  # noqa: BLE001 - alert enqueue must not block the audit record
+                logger.warning("Telegram security alert could not be queued (%s).", type(error).__name__)
         db.session.commit()
     except Exception:  # noqa: BLE001 - auditing must never break a request
         db.session.rollback()

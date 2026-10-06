@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.extensions import db
 from app.models import (
-    Category, CustomerProfile, Order, OrderItem, OutboundEmail, Product,
+    Category, CustomerCartItem, CustomerProfile, Order, OrderItem, OutboundEmail, Product,
     ProductTranslation, ProductVariant, SellerProfile, User,
 )
 from app.services.mail import send_order_confirmation, send_order_status
@@ -60,6 +60,42 @@ def test_cart_and_checkout_create_order(client, app):
         assert order.items[0].product_name == "Test Pizza"
         assert order.items[0].price == Decimal("10.00")
         assert db.session.get(Product, item.id).stock_quantity == 18
+        assert db.session.query(CustomerCartItem).count() == 0
+
+
+def test_guest_cart_merges_into_customer_cart_after_login(client, app):
+    csrf_off(client)
+    item = product()
+    client.post(f"/cart/add/{item.id}", data={"quantity": "2"})
+    login_customer(client, app)
+
+    response = client.get("/cart")
+
+    assert b"Test Pizza" in response.data
+    with app.app_context():
+        saved = db.session.query(CustomerCartItem).one()
+        assert saved.quantity == 2
+    with client.session_transaction() as browser_session:
+        assert browser_session.get("cart") is None
+
+
+def test_authenticated_cart_is_shared_across_web_sessions_and_api(client, app):
+    csrf_off(client)
+    login_customer(client, app)
+    item = product()
+    added = client.post(f"/cart/add/{item.id}", data={"quantity": "2"})
+    assert added.status_code == 302
+
+    another_session = app.test_client()
+    another_session.application.config["WTF_CSRF_ENABLED"] = False
+    login = another_session.post(
+        "/auth/login",
+        data={"email": "cart-customer@example.com", "password": "password123"},
+    )
+    assert login.status_code == 302
+    cart = another_session.get("/api/v1/cart")
+    assert cart.status_code == 200
+    assert cart.get_json()["data"]["items"][0]["quantity"] == 2
 
 
 def test_checkout_rejects_quantity_above_stock_without_creating_order(client, app):

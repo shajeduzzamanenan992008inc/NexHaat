@@ -15,6 +15,10 @@ from ...i18n import SUPPORTED_LOCALES
 from ...routes.orders import _cart_key, cart_rows, parse_quantity
 from ...security import current_session_user
 from ...services.audit import record_audit
+from ...services.cart import (
+    CartError, add_customer_cart_item, clear_customer_cart,
+    remove_customer_cart_item, update_customer_cart_item,
+)
 from ...services.checkout import CheckoutError, create_checkout_orders
 from ...services.payments import (
     PaymentError, begin_payment_attempt, cancel_order_with_refund,
@@ -89,7 +93,7 @@ def get_cart():
 
 @commerce_api.post("/cart/items")
 def add_cart_item():
-    _customer()
+    user = _customer()
     payload = request.get_json(silent=True) or {}
     product_id = payload.get("product_id")
     if isinstance(product_id, bool) or not isinstance(product_id, int):
@@ -110,56 +114,42 @@ def add_cart_item():
     quantity = payload.get("quantity", 1)
     if isinstance(quantity, bool) or not isinstance(quantity, int) or not 1 <= quantity <= 20:
         raise ApiError("quantity must be between 1 and 20.", "VALIDATION_ERROR", 422)
-    key = _cart_key(product.id, variant.id if variant else None)
-    cart = session.get("cart", {})
-    requested = parse_quantity(cart.get(key), default=0) + quantity
-    if requested > stock:
-        raise ApiError("Requested quantity exceeds available stock.", "OUT_OF_STOCK", 409)
-    cart[key] = requested
-    session["cart"] = cart
+    try:
+        add_customer_cart_item(
+            user.id, product.id, variant.id if variant else None, quantity
+        )
+    except CartError as error:
+        raise ApiError(str(error), "OUT_OF_STOCK", 409) from error
     return created_response(_cart_data(), "Cart item added.")
 
 
 @commerce_api.patch("/cart/items/<path:cart_key>")
 def update_cart_item(cart_key):
-    _customer()
+    user = _customer()
     payload = request.get_json(silent=True) or {}
     quantity = payload.get("quantity")
     if isinstance(quantity, bool) or not isinstance(quantity, int) or not 0 <= quantity <= 20:
         raise ApiError("quantity must be between 0 and 20.", "VALIDATION_ERROR", 422)
-    cart = session.get("cart", {})
-    if cart_key not in cart:
-        raise ApiError("Cart item not found.", "NOT_FOUND", 404)
-    if quantity == 0:
-        cart.pop(cart_key, None)
-    else:
-        (product_id, variant_id) = (int(part) for part in cart_key.split(":", 1)) if ":" in cart_key else (int(cart_key), None)
-        product = db.session.get(Product, product_id)
-        variant = db.session.get(ProductVariant, variant_id) if variant_id else None
-        if not product or not product.is_available or (variant_id and (not variant or not variant.is_active)):
-            raise ApiError("Cart item is unavailable.", "NOT_FOUND", 404)
-        stock = variant.stock_quantity if variant else product.stock_quantity
-        if quantity > stock:
-            raise ApiError("Requested quantity exceeds available stock.", "OUT_OF_STOCK", 409)
-        cart[cart_key] = quantity
-    session["cart"] = cart
+    try:
+        update_customer_cart_item(user.id, cart_key, quantity)
+    except CartError as error:
+        status = 404 if str(error) == "Cart item not found." else 409
+        raise ApiError(str(error), "NOT_FOUND" if status == 404 else "OUT_OF_STOCK", status) from error
     return success_response(_cart_data())
 
 
 @commerce_api.delete("/cart/items/<path:cart_key>")
 def remove_cart_item(cart_key):
-    _customer()
-    cart = session.get("cart", {})
-    if cart_key not in cart:
+    user = _customer()
+    if not remove_customer_cart_item(user.id, cart_key):
         raise ApiError("Cart item not found.", "NOT_FOUND", 404)
-    cart.pop(cart_key, None)
-    session["cart"] = cart
     return success_response(_cart_data(), "Cart item removed.")
 
 
 @commerce_api.delete("/cart")
 def clear_cart():
-    _customer()
+    user = _customer()
+    clear_customer_cart(user.id)
     session["cart"] = {}
     return success_response(_cart_data(), "Cart cleared.")
 

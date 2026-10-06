@@ -15,6 +15,10 @@ from .security import AdminLoginChallenge, AuthThrottle, RegistrationChallenge
 from .food_reference import FdcCategory, FdcFood, FdcFoodNutrient, FdcFoodPortion, FdcNutrient, FoodOnCategory
 from .wishlist import WishlistItem
 from .payment import Payment, PaymentAttempt, PaymentRefund, SellerLedgerEntry, SellerPayout
+from .telegram import (
+    CustomerCartItem, ProcessedTelegramUpdate, TelegramAccountLinkChallenge,
+    TelegramIdentity, TelegramRateLimit, TelegramSecurityAlert,
+)
 
 __all__ = [
     "AccountInvitation", "AdminLoginChallenge", "AdminProfile", "AuditEvent", "AuthThrottle", "Category", "CustomerAddress", "CustomerProfile",
@@ -24,4 +28,7 @@ __all__ = [
     "REVIEW_STATUSES", "Review", "ReturnRequest",
     "RegistrationChallenge", "RiderProfile", "SellerProfile", "User", "WishlistItem",
     "Payment", "PaymentAttempt", "PaymentRefund", "SellerLedgerEntry", "SellerPayout",
+    "ProcessedTelegramUpdate", "TelegramRateLimit",
+    "CustomerCartItem", "TelegramAccountLinkChallenge", "TelegramIdentity",
+    "TelegramSecurityAlert",
 ]

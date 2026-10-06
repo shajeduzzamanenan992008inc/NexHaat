@@ -6,12 +6,12 @@ from uuid import uuid4
 
 from flask import current_app, url_for
 from flask_babel import gettext
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import selectinload
 
 from ..extensions import db
 from ..models import (
-    AppSetting, Order, OrderItem, Payment, Product, ProductVariant,
+    AppSetting, CustomerCartItem, Order, OrderItem, Payment, Product, ProductVariant,
     PromotionCode, PromotionRedemption,
 )
 from .mail import enqueue_order_emails
@@ -237,6 +237,10 @@ def create_checkout_orders(
             checkout_group=checkout_group,
             discount_amount=promotion_discount,
         ))
+    if user is not None:
+        db.session.execute(
+            delete(CustomerCartItem).where(CustomerCartItem.user_id == user.id)
+        )
     db.session.commit()
 
     if payment_method == "cod":

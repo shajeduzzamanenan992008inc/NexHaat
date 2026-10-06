@@ -17,6 +17,10 @@ from ..security import (
     admin_required, customer_or_guest_required, current_session_user,
     is_primary_admin, primary_admin_required, save_raster_upload,
 )
+from ..services.cart import (
+    CartError, add_customer_cart_item, customer_cart_items, merge_guest_cart,
+    remove_customer_cart_item, update_customer_cart_item,
+)
 from ..services.audit import record_audit
 from ..services.mail import (
     enqueue_order_emails,
@@ -67,7 +71,21 @@ def _parse_cart_key(value):
 
 
 def cart_rows():
-    raw_cart = session.get("cart", {})
+    user = current_session_user("customer")
+    persistent_items = {}
+    if user:
+        guest_cart = session.get("cart", {})
+        if guest_cart:
+            merge_guest_cart(user.id, guest_cart)
+        session.pop("cart", None)
+        persistent_items = {
+            item.item_key: item for item in customer_cart_items(user.id)
+        }
+        raw_cart = {key: item.quantity for key, item in persistent_items.items()}
+    else:
+        raw_cart = session.get("cart", {})
+    if not isinstance(raw_cart, dict):
+        raw_cart = {}
     parsed_rows = [(_parse_cart_key(key), key, quantity) for key, quantity in raw_cart.items()]
     product_ids = {parsed[0] for parsed, _key, _quantity in parsed_rows if parsed[0] is not None}
     products = db.session.scalars(
@@ -115,7 +133,19 @@ def cart_rows():
         })
         total += subtotal
         valid_cart[key] = quantity
-    session["cart"] = valid_cart
+    if user:
+        changed = False
+        for key, item in persistent_items.items():
+            if key not in valid_cart:
+                db.session.delete(item)
+                changed = True
+            elif item.quantity != valid_cart[key]:
+                item.quantity = valid_cart[key]
+                changed = True
+        if changed:
+            db.session.commit()
+    else:
+        session["cart"] = valid_cart
     return rows, total
 
 
@@ -142,14 +172,30 @@ def add_to_cart(product_id):
     if stock <= 0:
         flash(gettext("This item is out of stock."), "error")
         return redirect(url_for("main.food", slug=product.slug))
-    cart = session.get("cart", {})
+    user = current_session_user("customer")
+    if user:
+        try:
+            add_customer_cart_item(
+                user.id,
+                product_id,
+                variant.id if variant else None,
+                parse_quantity(request.form.get("quantity")),
+                clamp=True,
+            )
+        except CartError as error:
+            flash(gettext(str(error)), "error")
+            return redirect(url_for("main.food", slug=product.slug))
+        cart = None
+    else:
+        cart = session.get("cart", {})
     key = _cart_key(product_id, variant.id if variant else None)
-    cart[key] = min(
-        parse_quantity(cart.get(key), default=0) + parse_quantity(request.form.get("quantity")),
-        stock,
-        20,
-    )
-    session["cart"] = cart
+    if cart is not None:
+        cart[key] = min(
+            parse_quantity(cart.get(key), default=0) + parse_quantity(request.form.get("quantity")),
+            stock,
+            20,
+        )
+        session["cart"] = cart
     flash(f"{product.name} added to your cart.", "success")
     next_url = request.form.get("next", "")
     parsed_next = urlsplit(next_url)
@@ -166,6 +212,7 @@ def add_to_cart(product_id):
 @orders_bp.post("/cart/update")
 @customer_or_guest_required
 def update_cart():
+    user = current_session_user("customer")
     cart = session.get("cart", {})
     for key, value in request.form.items():
         if key.startswith("quantity_"):
@@ -174,11 +221,17 @@ def update_cart():
                 quantity = int(value)
             except (TypeError, ValueError):
                 quantity = 0
-            if quantity > 0:
+            if user:
+                try:
+                    update_customer_cart_item(user.id, cart_key, min(max(quantity, 0), 20))
+                except CartError as error:
+                    flash(gettext(str(error)), "error")
+            elif quantity > 0:
                 cart[cart_key] = min(quantity, 20)
             else:
                 cart.pop(cart_key, None)
-    session["cart"] = cart
+    if not user:
+        session["cart"] = cart
     cart_rows()
     return redirect(url_for("orders.cart"))
 
@@ -186,10 +239,15 @@ def update_cart():
 @orders_bp.post("/cart/remove/<int:product_id>")
 @customer_or_guest_required
 def remove_from_cart(product_id):
-    cart = session.get("cart", {})
     variant_id = request.form.get("variant_id", type=int)
-    cart.pop(_cart_key(product_id, variant_id), None)
-    session["cart"] = cart
+    user = current_session_user("customer")
+    key = _cart_key(product_id, variant_id)
+    if user:
+        remove_customer_cart_item(user.id, key)
+    else:
+        cart = session.get("cart", {})
+        cart.pop(key, None)
+        session["cart"] = cart
     return redirect(url_for("orders.cart"))
 
 
