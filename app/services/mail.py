@@ -130,6 +130,9 @@ def _render_message(template, subject, locale, attachments, context):
 
 
 def _post_brevo(subject, recipients, html_content, attachments, api_key, sender_email):
+    if not api_key or not sender_email:
+        logger.warning("Email delivery skipped: Brevo key or sender is not configured.")
+        return False
     payload = {
         "sender": {"email": sender_email, "name": "NexHaat"},
         "to": [{"email": address} for address in recipients],
@@ -151,9 +154,65 @@ def _post_brevo(subject, recipients, html_content, attachments, api_key, sender_
         )
         response.raise_for_status()
         return True
-    except Exception as error:  # noqa: BLE001 - never surface provider or credential details
-        logger.warning("Email delivery attempt failed (%s).", error.__class__.__name__)
+    except requests.HTTPError as error:
+        status = error.response.status_code if error.response is not None else "unknown"
+        logger.warning("Brevo rejected the email request (HTTP %s).", status)
         return False
+    except requests.RequestException as error:
+        logger.warning("Email delivery request failed (%s).", type(error).__name__)
+        return False
+    except Exception as error:  # noqa: BLE001 - never surface provider or credential details
+        logger.warning("Email delivery attempt failed (%s).", type(error).__name__)
+        return False
+
+
+def check_brevo_configuration(api_key, sender_email, timeout=10):
+    """Check Brevo API access and sender activation without sending an email.
+
+    Only booleans are returned so callers can report useful status without
+    printing credentials, sender addresses, or provider response bodies.
+    """
+    result = {
+        "api_key_configured": bool(api_key),
+        "api_key_valid": False,
+        "sender_configured": bool(sender_email),
+        "sender_active": False,
+    }
+    if not api_key:
+        return result
+
+    headers = {"accept": "application/json", "api-key": api_key}
+    try:
+        account_response = requests.get(
+            "https://api.brevo.com/v3/account", headers=headers, timeout=timeout
+        )
+    except requests.RequestException:
+        return result
+    if account_response.status_code != 200:
+        return result
+    result["api_key_valid"] = True
+    if not sender_email:
+        return result
+
+    try:
+        senders_response = requests.get(
+            "https://api.brevo.com/v3/senders", headers=headers, timeout=timeout
+        )
+        if senders_response.status_code != 200:
+            return result
+        payload = senders_response.json()
+    except (requests.RequestException, ValueError):
+        return result
+
+    senders = payload.get("senders", []) if isinstance(payload, dict) else []
+    normalized_sender = sender_email.strip().lower()
+    result["sender_active"] = any(
+        isinstance(sender, dict)
+        and str(sender.get("email", "")).strip().lower() == normalized_sender
+        and sender.get("active") is True
+        for sender in senders
+    )
+    return result
 def deliver_outbound_email(record):
     """Attempt one queued email and record the outcome (safe to retry)."""
     recipients = json.loads(record.recipients) if record.recipients else []

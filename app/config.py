@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -82,9 +83,13 @@ class Config:
     WTF_CSRF_TIME_LIMIT = 3600
     MAIL_TIMEOUT = int(os.getenv("MAIL_TIMEOUT", "15"))
     BREVO_API_KEY = os.getenv("BREVO_API_KEY")
-    _mail_sender = os.getenv("MAIL_DEFAULT_SENDER")
-    MAIL_DEFAULT_SENDER = _mail_sender if _mail_sender and "@" in _mail_sender else None
-    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+    _mail_sender = os.getenv("MAIL_DEFAULT_SENDER", "").strip()
+    MAIL_DEFAULT_SENDER = (
+        _mail_sender
+        if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", _mail_sender)
+        else None
+    )
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower() or None
     PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
     SSLCOMMERZ_STORE_ID = os.getenv("SSLCOMMERZ_STORE_ID", "").strip()
     SSLCOMMERZ_STORE_PASSWORD = os.getenv("SSLCOMMERZ_STORE_PASSWORD", "").strip()

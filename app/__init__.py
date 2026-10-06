@@ -192,9 +192,31 @@ def create_app(config_object=None):
     def ensure_admin():
         """Create the configured bootstrap admin once, after migrations."""
         before = db.session.scalar(text("SELECT COUNT(*) FROM users")) if inspect(db.engine).has_table("users") else 0
-        _bootstrap_admin(app)
+        bootstrap_result = _bootstrap_admin(app)
+        if bootstrap_result == "role_conflict":
+            raise click.ClickException(
+                "The configured ADMIN_EMAIL belongs to a non-admin account. "
+                "Choose a dedicated Admin email; the existing account was left unchanged."
+            )
         after = db.session.scalar(text("SELECT COUNT(*) FROM users")) if inspect(db.engine).has_table("users") else 0
         click.echo("Configured admin ensured." if after > before else "No new admin was needed.")
+
+    @app.cli.command("check-mail")
+    def check_mail():
+        """Check Brevo credentials and sender status without sending an email."""
+        from .services.mail import check_brevo_configuration
+
+        status = check_brevo_configuration(
+            app.config.get("BREVO_API_KEY"),
+            app.config.get("MAIL_DEFAULT_SENDER"),
+            timeout=app.config.get("MAIL_TIMEOUT", 15),
+        )
+        click.echo(f"Brevo API key configured: {'yes' if status['api_key_configured'] else 'no'}")
+        click.echo(f"Brevo API key accepted: {'yes' if status['api_key_valid'] else 'no'}")
+        click.echo(f"Mail sender configured: {'yes' if status['sender_configured'] else 'no'}")
+        click.echo(f"Mail sender active in Brevo: {'yes' if status['sender_active'] else 'no'}")
+        if not status["api_key_valid"] or not status["sender_active"]:
+            raise click.ClickException("Brevo mail configuration check failed; no email was sent.")
 
     @app.cli.command("retry-emails")
     def retry_emails():
@@ -366,18 +388,22 @@ def _ensure_legacy_local_columns():
 
 
 def _bootstrap_admin(app):
-    """Create the configured OTP-only admin without changing existing accounts."""
+    """Create the configured OTP-only admin without changing existing account roles."""
     email = (app.config.get("ADMIN_EMAIL") or "").strip().lower()
     if not email or "@" not in email:
-        return
+        return "not_configured"
 
     from .models import AdminProfile, User
 
     existing = User.query.filter_by(email=email).first()
     if existing:
         if existing.role != "admin":
-            logging.getLogger(__name__).warning("Configured admin email belongs to a non-admin account; skipping bootstrap.")
-        return
+            logging.getLogger(__name__).warning(
+                "Configured ADMIN_EMAIL belongs to a non-admin account; "
+                "admin bootstrap was skipped and the existing account was left unchanged."
+            )
+            return "role_conflict"
+        return "exists"
 
     admin = User(email=email, role="admin")
     # Keep the required shared-schema field populated with an unusable secret.
@@ -385,6 +411,7 @@ def _bootstrap_admin(app):
     admin.admin_profile = AdminProfile(full_name="NexHaat Admin")
     db.session.add(admin)
     db.session.commit()
+    return "created"
 
 
 def request_is_secure():

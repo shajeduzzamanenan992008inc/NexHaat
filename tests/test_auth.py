@@ -1074,3 +1074,101 @@ def test_env_admin_is_bootstrapped_from_email_without_password(tmp_path):
     with app.app_context():
         admin = db.session.query(User).filter_by(email="env-admin@example.com").one()
         assert admin.password_hash == password_hash
+
+
+def test_ensure_admin_reports_role_collision_without_promoting_customer(client, app):
+    from app.models import CustomerProfile
+
+    email = "existing-customer-admin@example.com"
+    customer = User(email=email, role="customer")
+    customer.set_password("password123")
+    customer.customer_profile = CustomerProfile(
+        full_name="Existing Customer", phone="01234567890"
+    )
+    with app.app_context():
+        db.session.add(customer)
+        db.session.commit()
+        customer_id = customer.id
+
+    client.application.config["ADMIN_EMAIL"] = email
+    result = client.application.test_cli_runner().invoke(args=["ensure-admin"])
+
+    assert result.exit_code != 0
+    assert "belongs to a non-admin account" in result.output
+    with app.app_context():
+        unchanged = db.session.get(User, customer_id)
+        assert unchanged.role == "customer"
+        assert unchanged.customer_profile.full_name == "Existing Customer"
+        assert db.session.query(User).filter_by(email=email, role="admin").count() == 0
+
+
+def test_brevo_configuration_check_is_read_only_and_hides_sender(app):
+    from app.services.mail import check_brevo_configuration
+    from unittest.mock import Mock, patch
+
+    account = Mock(status_code=200)
+    senders = Mock(status_code=200)
+    senders.json.return_value = {
+        "senders": [{"email": "verified@example.com", "active": True}]
+    }
+    with patch("app.services.mail.requests.get", side_effect=[account, senders]) as get:
+        status = check_brevo_configuration("test-secret-key", "VERIFIED@example.com")
+
+    assert status == {
+        "api_key_configured": True,
+        "api_key_valid": True,
+        "sender_configured": True,
+        "sender_active": True,
+    }
+    assert get.call_count == 2
+    assert all(call.args[0].endswith(("/account", "/senders")) for call in get.call_args_list)
+    assert all(call.kwargs["headers"]["api-key"] == "test-secret-key" for call in get.call_args_list)
+
+
+def test_brevo_configuration_check_rejects_invalid_key_without_sender_request(app):
+    from app.services.mail import check_brevo_configuration
+    from unittest.mock import Mock, patch
+
+    response = Mock(status_code=401)
+    with patch("app.services.mail.requests.get", return_value=response) as get:
+        status = check_brevo_configuration("bad-key", "verified@example.com")
+
+    assert status["api_key_configured"] is True
+    assert status["api_key_valid"] is False
+    assert status["sender_active"] is False
+    assert get.call_count == 1
+
+
+def test_brevo_configuration_check_tests_key_when_sender_is_missing(app):
+    from app.services.mail import check_brevo_configuration
+    from unittest.mock import Mock, patch
+
+    response = Mock(status_code=200)
+    with patch("app.services.mail.requests.get", return_value=response) as get:
+        status = check_brevo_configuration("valid-test-key", None)
+
+    assert status["api_key_valid"] is True
+    assert status["sender_configured"] is False
+    assert status["sender_active"] is False
+    get.assert_called_once()
+
+
+def test_check_mail_cli_reports_status_without_printing_credentials(client):
+    from unittest.mock import patch
+
+    with patch(
+        "app.services.mail.check_brevo_configuration",
+        return_value={
+            "api_key_configured": True,
+            "api_key_valid": True,
+            "sender_configured": True,
+            "sender_active": True,
+        },
+    ) as check:
+        result = client.application.test_cli_runner().invoke(args=["check-mail"])
+
+    assert result.exit_code == 0
+    assert "Brevo API key accepted: yes" in result.output
+    assert "Mail sender active in Brevo: yes" in result.output
+    assert "test-key" not in result.output
+    check.assert_called_once()

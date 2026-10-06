@@ -62,6 +62,7 @@ Run the automated checks with `python -m pytest`. SQLite is the local default; d
 - Admin can invite Riders and additional Admins. Setup links expire after 24 hours, are one-use, and store only a keyed token digest. Riders choose a password; invited Admins activate their account and use email OTP for sign-in.
 - Admin OTP and staff invitations require BREVO_API_KEY and MAIL_DEFAULT_SENDER; invitations also require a canonical HTTPS PUBLIC_BASE_URL in production. Admin codes expire after 10 minutes, allow five attempts, and can be resent once per minute.
 - Set `ADMIN_EMAIL` to bootstrap the primary Admin. Local development creates it automatically; after production database migrations, run `flask --app run.py ensure-admin` once.
+- If `ADMIN_EMAIL` already belongs to a customer, seller, or other non-admin account, the app deliberately leaves that account unchanged. Choose a dedicated Admin email; run `flask --app run.py check-mail` to verify Brevo key/sender configuration without sending a message.
 - Forgot Password works for active non-Admin accounts with the same non-enumerating response and single-use verification-code protections.
 - Marketplace customer cart and account actions reject signed-in Seller, Rider, and Admin roles. Admin review routes are protected by role and CSRF checks.
 - The portal and operations screens follow the supplied neumorphic login reference with responsive cards, focus states, floating shapes, and reduced-motion handling. Arabic uses the same RTL direction as the shared layout.
