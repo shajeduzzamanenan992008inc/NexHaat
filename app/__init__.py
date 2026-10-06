@@ -333,8 +333,15 @@ def create_app(config_object=None):
         raise SystemExit(1)
 
     @app.cli.command("set-telegram-webhooks")
-    def set_telegram_webhooks():
-        """Register configured Telegram bots against the canonical HTTPS URL."""
+    @click.option(
+        "--bot",
+        "selected_bot",
+        type=click.Choice(["customer", "security"]),
+        default=None,
+        help="Register only this bot. By default, every configured bot is registered.",
+    )
+    def set_telegram_webhooks(selected_bot):
+        """Register configured Telegram bots after the public app passes liveness."""
         import requests
 
         base_url = (app.config.get("PUBLIC_BASE_URL") or "").strip().rstrip("/")
@@ -346,11 +353,33 @@ def create_app(config_object=None):
         ):
             raise click.ClickException("Set a valid PUBLIC_BASE_URL before registering webhooks.")
 
+        timeout = max(1, int(app.config.get("TELEGRAM_API_TIMEOUT", 10)))
+        try:
+            health_response = requests.get(
+                f"{base_url}/health/live", timeout=timeout, allow_redirects=False
+            )
+            health_payload = health_response.json()
+        except (requests.RequestException, ValueError) as error:
+            raise click.ClickException(
+                f"Public application health check failed ({type(error).__name__}); no webhook was changed."
+            ) from error
+        if (
+            health_response.status_code != 200
+            or not isinstance(health_payload, dict)
+            or health_payload.get("status") != "ok"
+        ):
+            raise click.ClickException(
+                "Public application health check failed; no webhook was changed."
+            )
+
         configured = 0
-        for bot_name, update_types in (
+        bot_configs = (
             ("customer", ["message", "callback_query"]),
             ("security", ["message"]),
-        ):
+        )
+        if selected_bot:
+            bot_configs = tuple(item for item in bot_configs if item[0] == selected_bot)
+        for bot_name, update_types in bot_configs:
             prefix = f"TELEGRAM_{bot_name.upper()}"
             token = app.config.get(f"{prefix}_BOT_TOKEN") or ""
             secret = app.config.get(f"{prefix}_WEBHOOK_SECRET") or ""
@@ -372,7 +401,7 @@ def create_app(config_object=None):
                         "allowed_updates": update_types,
                         "drop_pending_updates": False,
                     },
-                    timeout=max(1, int(app.config.get("TELEGRAM_API_TIMEOUT", 10))),
+                    timeout=timeout,
                 )
                 payload = response.json()
             except (requests.RequestException, ValueError) as error:

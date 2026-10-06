@@ -14,6 +14,8 @@ The application serves server-rendered HTML routes and a versioned JSON API. Sta
 - `GET /api/search-suggestions?q=` — up to eight bounded catalog suggestions (JSON)
 - `GET /health` — database readiness status without exposing connection details
 - `GET /health/db` — dedicated database readiness probe for deployment checks
+- `GET /health/live` — process liveness without a database query
+- `GET /health/ready` — database-backed readiness probe
 - `POST /language` — persist a supported locale (session or account)
 
 ## Notifications
@@ -71,6 +73,17 @@ cents are lost, and error responses never include stack traces or internal paths
 - `DELETE /api/v1/wishlist/items/{product_id}` — remove a saved product
 
 API clients authenticate with the existing session cookie. Signup challenges are stored server-side; raw OTP codes and passwords are never stored. Admin OTPs, signup OTPs, and API state-changing requests retain their expiry, throttling, and CSRF protections.
+
+## AI and Telegram integrations
+
+- `GET /ai/` — customer/guest shopping assistant page; natural-language answers require an enabled, configured provider
+- `POST /ai/chat` — customer catalog, policy, cart, and order assistance; scope and account identity are selected by the server
+- `POST /ai/voice-search`, `POST /ai/image-search` — bounded in-memory voice and image search; uploads are not persisted
+- `POST /ai/cart/proposal`, `POST /ai/cart/confirm` — signed-in customer cart suggestions and explicit one-use confirmation
+- `POST /telegram/customer/webhook` — Telegram customer bot update endpoint; requires `X-Telegram-Bot-Api-Secret-Token`
+- `POST /telegram/security/webhook` — allowlisted private-chat security bot endpoint; requires its separate `X-Telegram-Bot-Api-Secret-Token`
+
+Provider and Telegram credentials are configured in private runtime settings. The Telegram webhook registration command first checks the public `/health/live` endpoint; use `flask --app run.py set-telegram-webhooks --bot customer` or `--bot security` to register one bot at a time after deployment is reachable. See [AI operations](docs/operations/ai-marketplace.md) and [Telegram operations](docs/operations/telegram-bots.md).
 
 ## Cart, checkout, and orders
 

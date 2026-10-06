@@ -247,15 +247,30 @@ def test_webhook_registration_uses_private_settings_without_printing_secrets(app
         TELEGRAM_SECURITY_WEBHOOK_SECRET="",
     )
     response = type("Response", (), {"status_code": 200, "json": lambda self: {"ok": True}})()
-    with patch("requests.post", return_value=response) as post:
-        result = app.test_cli_runner().invoke(args=["set-telegram-webhooks"])
+    health = type("HealthResponse", (), {"status_code": 200, "json": lambda self: {"status": "ok"}})()
+    with patch("requests.get", return_value=health) as get, \
+            patch("requests.post", return_value=response) as post:
+        result = app.test_cli_runner().invoke(args=["set-telegram-webhooks", "--bot", "customer"])
 
     assert result.exit_code == 0
     assert customer_token not in result.output
     assert webhook_secret not in result.output
     assert "https://shop.example.test/telegram/customer/webhook" in result.output
+    assert "Security bot" not in result.output
+    get.assert_called_once_with("https://shop.example.test/health/live", timeout=10, allow_redirects=False)
     assert post.call_args.kwargs["json"]["secret_token"] == webhook_secret
     assert post.call_args.kwargs["json"]["drop_pending_updates"] is False
+
+
+def test_webhook_registration_refuses_unhealthy_public_app_without_changing_webhooks(app):
+    configure_bots(app)
+    health = type("HealthResponse", (), {"status_code": 503, "json": lambda self: {"status": "unavailable"}})()
+    with patch("requests.get", return_value=health), patch("requests.post") as post:
+        result = app.test_cli_runner().invoke(args=["set-telegram-webhooks", "--bot", "customer"])
+
+    assert result.exit_code != 0
+    assert "no webhook was changed" in result.output.lower()
+    post.assert_not_called()
 
 
 def test_security_audit_queues_and_delivers_redacted_alert(app):

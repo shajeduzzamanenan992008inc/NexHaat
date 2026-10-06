@@ -4,6 +4,8 @@ The shared AI Core is optional application functionality. Its provider is disabl
 
 The local loader accepts the repository's Azure Advanced Edit JSON only when it declares `APP_ENV=development` and a SQLite `DATABASE_URL`. A production/PostgreSQL JSON settings file is deliberately ignored on a developer machine; Azure App Service supplies its Application Settings as environment variables. This avoids a local run accidentally using a production database or production bot credentials.
 
+When AI appears unavailable, check `AI_ENABLED`, provider, model, key, and base URL in the **active runtime settings**, then restart the web workers. Reading an Azure settings export from a local `.env` file does not make those settings active locally or prove which values the hosted process currently has. A successful direct provider check also does not imply that a separate deployment has received the setting.
+
 ## Configuration
 
 Set these settings only in a private environment when enabling the provider:
@@ -58,3 +60,5 @@ python -m pytest -q
 ```
 
 The test suite uses mocked provider/Telegram transport; no live provider key or bot token is required. Also run `flask --app run.py db heads` and confirm one head, validate `.env.example` as JSON, and run `git diff --check`. A live provider request is optional operator verification after private settings are configured; do not record secret values or customer prompt content in the shared plan.
+
+The live provider may be tested safely with an isolated database and a short non-customer prompt. This verifies the configured provider endpoint and key but does not verify a deployed worker's environment. Do not print the answer, key, or provider response body into shared logs.

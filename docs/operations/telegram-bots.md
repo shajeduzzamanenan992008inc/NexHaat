@@ -39,17 +39,17 @@ Authenticated web, API, and Telegram actions use the same database-backed cart. 
 1. Configure the App Service settings and use a public HTTPS `PUBLIC_BASE_URL`.
 2. Back up the deployment database and apply migrations before serving the new application: `flask --app run.py db upgrade` (Telegram schema revisions `20261006_22`, `20261006_23`, and `20261006_24`).
 3. Deploy the Flask application using the existing `Procfile`/App Service startup configuration.
-4. In the deployed environment run `flask --app run.py set-telegram-webhooks`. It registers only configured bots, uses Telegram's secret-token header, preserves pending updates, and prints no token or webhook secret. Verify the CLI reports the expected endpoint for each bot.
+4. Confirm the canonical HTTPS host resolves publicly and `GET /health/live` returns `200` with `{"status":"ok"}`. Then register bots individually with `flask --app run.py set-telegram-webhooks --bot customer` and `flask --app run.py set-telegram-webhooks --bot security`. The command refuses to change webhooks when the public app fails its liveness check. It uses Telegram's secret-token header, preserves pending updates, and prints no token or webhook secret. Register Security only after confirming its allowlist and pending updates should be handled by the deployed bot.
 5. Smoke-test customer `/start`, `/search`, account linking, shared cart and order-owner isolation. Verify an unallowlisted Telegram ID receives only `Access denied.` from the security bot.
 6. Schedule `flask --app run.py retry-telegram-alerts` from the existing deployment scheduler/WebJob or another authorized scheduler. It retries queued alerts up to five attempts. Delivery is at-least-once; a transient failure after a partial multi-admin send can result in a duplicate alert.
 
-The webhook endpoints are `/telegram/customer/webhook` and `/telegram/security/webhook`. Missing bot credentials fail closed with `503`; an invalid Telegram secret header returns a generic `403`. Local development needs a public HTTPS tunnel before Telegram can reach it. Do not use polling in production.
+The webhook endpoints are `/telegram/customer/webhook` and `/telegram/security/webhook`. Missing bot credentials fail closed with `503`; an invalid Telegram secret header returns a generic `403`. A bot API token can work for outbound messages while no webhook is registered for inbound updates; inspect `getWebhookInfo` when users receive no reply. Local development needs a public HTTPS tunnel before Telegram can reach it. Do not use polling in production.
 
 ## Security Scope
 
 The security bot reads health, existing audit events and existing login-throttle aggregates only. It does not execute commands, arbitrary queries, or account/firewall actions. Alerts are generated only from recorded admin-login denials and account-removal audit actions; payloads exclude emails, addresses, raw IPs, event details, tokens and secrets. The customer and security handlers, bot tokens, webhook routes and authorization rules are separate.
 
-AI assistants are not part of this initial release. Product search and security summaries use deterministic server-side code; no AI provider or customer data is sent externally.
+The customer Shopping Assistant and Customer Telegram bot share the customer AI service. The Security Telegram bot has a separate allowlisted security scope and read-only tools. When AI is disabled or unavailable, handlers fall back to deterministic catalog or security summaries; provider calls are made only when the active runtime has AI enabled and complete settings.
 
 ## Rollback
 
