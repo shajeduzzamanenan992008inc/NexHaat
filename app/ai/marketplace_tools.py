@@ -612,7 +612,7 @@ def _deterministic_fallback(prompt, *, user=None):
         )
         return _tool_result(answer, products, "search_products", products=products)
     answer = (
-        "I couldn't find a matching product. I can search products, prices, stock, and categories, "
+        "No available catalog products matched. I can search products, prices, stock, and categories, "
         "or help with your cart, orders, and store policies. "
         f"{_customer_ai_unavailable_reason()}"
     )
