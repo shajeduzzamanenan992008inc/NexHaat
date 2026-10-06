@@ -1,5 +1,4 @@
 from pathlib import Path
-import logging
 import secrets
 import time
 import zipfile
@@ -190,16 +189,17 @@ def create_app(config_object=None):
 
     @app.cli.command("ensure-admin")
     def ensure_admin():
-        """Create the configured bootstrap admin once, after migrations."""
-        before = db.session.scalar(text("SELECT COUNT(*) FROM users")) if inspect(db.engine).has_table("users") else 0
+        """Create or reconcile the configured primary Admin after migrations."""
         bootstrap_result = _bootstrap_admin(app)
-        if bootstrap_result == "role_conflict":
-            raise click.ClickException(
-                "The configured ADMIN_EMAIL belongs to a non-admin account. "
-                "Choose a dedicated Admin email; the existing account was left unchanged."
-            )
-        after = db.session.scalar(text("SELECT COUNT(*) FROM users")) if inspect(db.engine).has_table("users") else 0
-        click.echo("Configured admin ensured." if after > before else "No new admin was needed.")
+        if bootstrap_result == "not_configured":
+            raise click.ClickException("Set ADMIN_EMAIL in the environment before ensuring the primary Admin.")
+        messages = {
+            "created": "Configured primary Admin account created.",
+            "promoted": "Configured account promoted to primary Admin; existing account data was preserved.",
+            "profile_created": "Configured primary Admin profile created.",
+            "exists": "Configured primary Admin account is ready.",
+        }
+        click.echo(messages[bootstrap_result])
 
     @app.cli.command("check-mail")
     def check_mail():
@@ -388,7 +388,7 @@ def _ensure_legacy_local_columns():
 
 
 def _bootstrap_admin(app):
-    """Create the configured OTP-only admin without changing existing account roles."""
+    """Make ADMIN_EMAIL the primary OTP-only Admin, preserving existing account data."""
     email = (app.config.get("ADMIN_EMAIL") or "").strip().lower()
     if not email or "@" not in email:
         return "not_configured"
@@ -397,12 +397,27 @@ def _bootstrap_admin(app):
 
     existing = User.query.filter_by(email=email).first()
     if existing:
-        if existing.role != "admin":
-            logging.getLogger(__name__).warning(
-                "Configured ADMIN_EMAIL belongs to a non-admin account; "
-                "admin bootstrap was skipped and the existing account was left unchanged."
+        promoted = existing.role != "admin"
+        if promoted:
+            existing.role = "admin"
+            existing.auth_version += 1
+
+        profile_created = existing.admin_profile is None
+        if profile_created:
+            full_name = (
+                (existing.customer_profile.full_name if existing.customer_profile else None)
+                or (existing.seller_profile.contact_name if existing.seller_profile else None)
+                or (existing.rider_profile.full_name if existing.rider_profile else None)
+                or "NexHaat Admin"
             )
-            return "role_conflict"
+            existing.admin_profile = AdminProfile(full_name=full_name)
+
+        if promoted or profile_created:
+            db.session.commit()
+        if promoted:
+            return "promoted"
+        if profile_created:
+            return "profile_created"
         return "exists"
 
     admin = User(email=email, role="admin")

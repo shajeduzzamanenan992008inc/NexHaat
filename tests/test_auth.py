@@ -1076,7 +1076,7 @@ def test_env_admin_is_bootstrapped_from_email_without_password(tmp_path):
         assert admin.password_hash == password_hash
 
 
-def test_ensure_admin_reports_role_collision_without_promoting_customer(client, app):
+def test_ensure_admin_promotes_configured_customer_and_allows_otp_login(client, app):
     from app.models import CustomerProfile
 
     email = "existing-customer-admin@example.com"
@@ -1089,17 +1089,37 @@ def test_ensure_admin_reports_role_collision_without_promoting_customer(client, 
         db.session.add(customer)
         db.session.commit()
         customer_id = customer.id
+        original_password_hash = customer.password_hash
 
-    client.application.config["ADMIN_EMAIL"] = email
+    client.application.config.update(
+        ADMIN_EMAIL=email,
+        BREVO_API_KEY="test-key",
+        MAIL_DEFAULT_SENDER="noreply@example.com",
+        WTF_CSRF_ENABLED=False,
+    )
     result = client.application.test_cli_runner().invoke(args=["ensure-admin"])
 
-    assert result.exit_code != 0
-    assert "belongs to a non-admin account" in result.output
+    assert result.exit_code == 0
+    assert "promoted to primary Admin" in result.output
     with app.app_context():
-        unchanged = db.session.get(User, customer_id)
-        assert unchanged.role == "customer"
-        assert unchanged.customer_profile.full_name == "Existing Customer"
-        assert db.session.query(User).filter_by(email=email, role="admin").count() == 0
+        promoted = db.session.get(User, customer_id)
+        assert promoted.role == "admin"
+        assert promoted.auth_version == 1
+        assert promoted.password_hash == original_password_hash
+        assert promoted.customer_profile.full_name == "Existing Customer"
+        assert promoted.admin_profile.full_name == "Existing Customer"
+
+    # Reconciliation is idempotent, and the configured account can now request OTP.
+    second_result = client.application.test_cli_runner().invoke(args=["ensure-admin"])
+    assert second_result.exit_code == 0
+    assert "account is ready" in second_result.output
+    with patch("app.routes.auth.queue_admin_login_code"):
+        response = client.post("/admin/login", data={"email": email})
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/auth/verify-admin-login")
+    with app.app_context():
+        promoted = db.session.get(User, customer_id)
+        assert promoted.auth_version == 1
 
 
 def test_brevo_configuration_check_is_read_only_and_hides_sender(app):
