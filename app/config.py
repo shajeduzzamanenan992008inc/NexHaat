@@ -153,6 +153,7 @@ class Config:
     TELEGRAM_SECURITY_BOT_TOKEN = os.getenv("TELEGRAM_SECURITY_BOT_TOKEN", "").strip()
     TELEGRAM_SECURITY_WEBHOOK_SECRET = os.getenv("TELEGRAM_SECURITY_WEBHOOK_SECRET", "").strip()
     TELEGRAM_SECURITY_ADMIN_IDS = os.getenv("TELEGRAM_SECURITY_ADMIN_IDS", "")
+    TELEGRAM_SECURITY_ADMIN_USER_MAP = os.getenv("TELEGRAM_SECURITY_ADMIN_USER_MAP", "")
     TELEGRAM_SUPPORT_URL = os.getenv("TELEGRAM_SUPPORT_URL", "").strip()
     TELEGRAM_RATE_LIMIT_PER_MINUTE = int(os.getenv("TELEGRAM_RATE_LIMIT_PER_MINUTE", "30"))
     TELEGRAM_API_TIMEOUT = int(os.getenv("TELEGRAM_API_TIMEOUT", "10"))
@@ -213,6 +214,45 @@ class Config:
     AI_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("AI_RATE_LIMIT_WINDOW_SECONDS", "60"))
     AI_MAX_TOOL_CALLS = int(os.getenv("AI_MAX_TOOL_CALLS", "5"))
     AI_MAX_CONTEXT_SIZE = int(os.getenv("AI_MAX_CONTEXT_SIZE", "12000"))
+    # Local inference is private and is attempted before any specialist API.
+    AI_LOCAL_ENABLED = _env_bool("AI_LOCAL_ENABLED", True)
+    AI_LOCAL_BASE_URL = os.getenv("AI_LOCAL_BASE_URL", "").strip().rstrip("/")
+    AI_LOCAL_MODEL = os.getenv("AI_LOCAL_MODEL", "").strip()
+    AI_LOCAL_API_KEY = os.getenv("AI_LOCAL_API_KEY", "").strip()
+    AI_EMBEDDING_BASE_URL = os.getenv("AI_EMBEDDING_BASE_URL", "").strip().rstrip("/")
+    AI_EMBEDDING_MODEL = os.getenv("AI_EMBEDDING_MODEL", "").strip()
+    AI_EMBEDDING_API_KEY = os.getenv("AI_EMBEDDING_API_KEY", "").strip()
+    AI_ASR_BASE_URL = os.getenv("AI_ASR_BASE_URL", "").strip().rstrip("/")
+    AI_ASR_MODEL = os.getenv("AI_ASR_MODEL", "").strip()
+    AI_TTS_BASE_URL = os.getenv("AI_TTS_BASE_URL", "").strip().rstrip("/")
+    AI_TTS_MODEL = os.getenv("AI_TTS_MODEL", "").strip()
+    AI_TTS_VOICE = os.getenv("AI_TTS_VOICE", "default").strip() or "default"
+    AI_SEARCH_BASE_URL = os.getenv("AI_SEARCH_BASE_URL", "").strip().rstrip("/")
+    AI_EXTERNAL_ENABLED = _env_bool("AI_EXTERNAL_ENABLED", False)
+    AI_EXTERNAL_MONTHLY_BUDGET_USD = os.getenv("AI_EXTERNAL_MONTHLY_BUDGET_USD", "0").strip()
+    AI_EXTERNAL_MAX_TOKENS = int(os.getenv("AI_EXTERNAL_MAX_TOKENS", "1024"))
+    AI_SPECIALISTS = {
+        "openai": {"api_key": os.getenv("AI_OPENAI_API_KEY", "").strip(),
+                   "model": os.getenv("AI_OPENAI_MODEL", "").strip(),
+                   "base_url": os.getenv("AI_OPENAI_BASE_URL", "https://api.openai.com/v1").strip(),
+                   "input_rate": os.getenv("AI_OPENAI_INPUT_USD_PER_MILLION", "0").strip(),
+                   "output_rate": os.getenv("AI_OPENAI_OUTPUT_USD_PER_MILLION", "0").strip()},
+        "anthropic": {"api_key": os.getenv("AI_ANTHROPIC_API_KEY", "").strip(),
+                      "model": os.getenv("AI_ANTHROPIC_MODEL", "").strip(),
+                      "base_url": os.getenv("AI_ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1").strip(),
+                      "input_rate": os.getenv("AI_ANTHROPIC_INPUT_USD_PER_MILLION", "0").strip(),
+                      "output_rate": os.getenv("AI_ANTHROPIC_OUTPUT_USD_PER_MILLION", "0").strip()},
+        "gemini": {"api_key": os.getenv("AI_GEMINI_API_KEY", "").strip(),
+                   "model": os.getenv("AI_GEMINI_MODEL", "").strip(),
+                   "base_url": os.getenv("AI_GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai").strip(),
+                   "input_rate": os.getenv("AI_GEMINI_INPUT_USD_PER_MILLION", "0").strip(),
+                   "output_rate": os.getenv("AI_GEMINI_OUTPUT_USD_PER_MILLION", "0").strip()},
+        "deepseek": {"api_key": os.getenv("AI_DEEPSEEK_API_KEY", "").strip(),
+                     "model": os.getenv("AI_DEEPSEEK_MODEL", "").strip(),
+                     "base_url": os.getenv("AI_DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip(),
+                     "input_rate": os.getenv("AI_DEEPSEEK_INPUT_USD_PER_MILLION", "0").strip(),
+                     "output_rate": os.getenv("AI_DEEPSEEK_OUTPUT_USD_PER_MILLION", "0").strip()},
+    }
     PREFERRED_URL_SCHEME = "https" if ENVIRONMENT == "production" else "http"
 
 
@@ -229,6 +269,22 @@ class TestingConfig(Config):
     AI_API_KEY = ""
     AI_MODEL = ""
     AI_BASE_URL = ""
+    AI_LOCAL_ENABLED = False
+    AI_LOCAL_BASE_URL = ""
+    AI_LOCAL_MODEL = ""
+    AI_LOCAL_API_KEY = ""
+    AI_EMBEDDING_BASE_URL = ""
+    AI_EMBEDDING_MODEL = ""
+    AI_EMBEDDING_API_KEY = ""
+    AI_ASR_BASE_URL = ""
+    AI_ASR_MODEL = ""
+    AI_TTS_BASE_URL = ""
+    AI_TTS_MODEL = ""
+    AI_TTS_VOICE = "default"
+    AI_SEARCH_BASE_URL = ""
+    AI_EXTERNAL_ENABLED = False
+    AI_EXTERNAL_MONTHLY_BUDGET_USD = "0"
+    AI_SPECIALISTS = {}
 
 
 def get_config():

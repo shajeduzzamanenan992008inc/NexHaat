@@ -130,9 +130,17 @@ def run_seller_query(user, prompt):
         str(prompt or "")[:2000], scope=AI_SCOPE_SELLER, user=user,
         context={"request_kind": "seller analytics"}, tools=registry,
     )
-    if result.get("ok") and any(isinstance(item, dict) and item.get("ok") is True
-                                  for item in result.get("tool_results", [])):
+    grounded = any(isinstance(item, dict) and item.get("ok") is True
+                   for item in result.get("tool_results", []))
+    seller_data_request = any(term in lowered for term in (
+        "sales", "revenue", "inventory", "stock", "product", "listing", "price", "order",
+        "বিক্রি", "স্টক", "পণ্য", "দাম", "অর্ডার", "ইনভেন্টরি",
+    ))
+    coding_request = any(term in lowered for term in ("code", "coding", "debug", "programming", "কোড", "প্রোগ্রাম"))
+    if result.get("ok") and (grounded or not seller_data_request or coding_request):
         return {**result, "data": result.get("tool_results", [])}
+    if not seller_data_request:
+        return result
     data = registry.call(tool, scope=AI_SCOPE_SELLER, user=user)
     answer = "Seller inventory and sales data from your own account:" if tool == "get_seller_inventory_forecast" else "Sales and inventory insight from your own seller account:"
     return {"ok": True, "scope": AI_SCOPE_SELLER, "answer": answer,

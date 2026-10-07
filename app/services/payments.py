@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from ..extensions import db
+from .ai_action_notices import notify_admin_ai_action
 from ..models import (
     Order, OrderReturn, Payment, PaymentAttempt, PaymentRefund, SellerLedgerEntry, SellerPayout, User,
 )
@@ -140,12 +141,9 @@ def review_order_return(return_request, *, decision, actor=None, note=""):
     if decision == "rejected":
         return_request.resolved_at = utc_now()
     db.session.commit()
-    record_audit(
-        "order.return_reviewed",
-        actor=actor,
-        target_type="order_return",
-        target_id=return_request.id,
-        detail=f"decision={decision}; order={return_request.order_id}",
+    notify_admin_ai_action(
+        "order.return_reviewed", actor=actor, target_type="order_return",
+        target_id=return_request.id, detail=decision,
     )
     _notify_return_customer(
         return_request,
@@ -754,7 +752,10 @@ def approve_payment_review(payment, actor):
     attempt.status = "pending"
     payment.status = "pending"
     result = _confirm_paid_payment(payment, attempt, risk_level=0)
-    record_audit("payment.risk_approved", actor=actor, target_type="payment", target_id=payment.id)
+    notify_admin_ai_action(
+        "payment.risk_approved", actor=actor,
+        target_type="payment", target_id=payment.id,
+    )
     return result
 
 

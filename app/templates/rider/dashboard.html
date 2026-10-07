@@ -10,6 +10,13 @@
     </div><span class="status-pill">{{ _(profile.availability_status|capitalize) }}</span>
   </header>
 
+  <section class="surface surface-card" aria-labelledby="rider-assistant-heading">
+    <p class="eyebrow">{{ _('Local AI Core') }}</p>
+    <h2 id="rider-assistant-heading">{{ _('Need help with an assigned delivery?') }}</h2>
+    <p class="muted">{{ _('Ask about your own active delivery status and instructions. The assistant cannot update delivery status.') }}</p>
+    <a class="button button--secondary" href="{{ url_for('rider.ai_workspace') }}">{{ _('Open delivery assistant') }}</a>
+  </section>
+
   <section class="admin-section" aria-labelledby="active-deliveries-title">
     <header class="admin-section__header">
       <div>

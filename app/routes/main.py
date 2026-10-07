@@ -3,7 +3,7 @@ from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, session, url_for
 from flask_babel import gettext
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..extensions import db
@@ -129,10 +129,14 @@ def menu():
     brand_name = request.args.get("brand_name", "").strip()[:120]
     in_stock = request.args.get("in_stock") == "1"
     variant_value = request.args.get("variant_value", "").strip()[:80]
+    deals_only = request.args.get("deals_only") == "1"
     if min_price is not None and max_price is not None and min_price > max_price:
         abort(400)
-    sort = request.args.get("sort", "featured")
-    if sort not in {"featured", "relevance", "newest", "price_asc", "price_desc"}:
+    sort = request.args.get("sort", "newest" if deals_only else "featured")
+    allowed_sorts = {"featured", "relevance", "newest", "price_asc", "price_desc"}
+    if deals_only:
+        allowed_sorts = {"featured", "newest", "price_asc", "price_desc"}
+    if sort not in allowed_sorts:
         abort(400)
     products, pagination = get_catalog_products(
         page,
@@ -146,6 +150,7 @@ def menu():
         brand_name=brand_name,
         in_stock=in_stock,
         variant_value=variant_value,
+        deals_only=deals_only,
     )
     reference_categories = []
     reference_foods = []
@@ -181,6 +186,7 @@ def menu():
         reference_categories=reference_categories,
         reference_foods=reference_foods,
         reference_pagination=reference_pagination,
+        deals_only=deals_only,
     )
 
 
@@ -237,9 +243,20 @@ def food(slug):
     user = getattr(g, "current_user", None)
     if user is not None and user.role == "customer" and product.is_available:
         record_recent_view(user, product)
+    from ..models import AIProductPriceAlert
+    from ..services.ai_price_alerts import observed_price_history
+    price_history = (observed_price_history(product.id)
+                     if product.moderation_status == "approved" and product.is_available else [])
+    active_price_alert = (db.session.scalar(select(AIProductPriceAlert).where(
+        AIProductPriceAlert.user_id == user.id,
+        AIProductPriceAlert.product_id == product.id,
+        AIProductPriceAlert.active.is_(True),
+    )) if user is not None and user.role == "customer" else None)
     return render_template(
         "catalog/food.html",
         product=product,
+        price_history=price_history,
+        active_price_alert=active_price_alert,
         reviews=reviews_for_product(product.id),
         rating=rating_summary(product.id),
         is_saved=bool(user and user.role == "customer" and wishlist_has(user, product.id)),
@@ -276,90 +293,27 @@ def search():
     query = request.args.get("q", "").strip()[:current_app.config["MAX_SEARCH_LENGTH"]]
     if not query:
         return redirect(url_for("main.menu"))
-    page = max(1, request.args.get("page", 1, type=int))
-    category_id = request.args.get("category_id", type=int)
-    min_price = _price_filter("min_price")
-    max_price = _price_filter("max_price")
-    seller_id = request.args.get("seller_id", type=int)
-    brand_name = request.args.get("brand_name", "").strip()[:120]
-    in_stock = request.args.get("in_stock") == "1"
-    variant_value = request.args.get("variant_value", "").strip()[:80]
-    if min_price is not None and max_price is not None and min_price > max_price:
-        abort(400)
-    sort = request.args.get("sort", "relevance")
-    if sort not in {"featured", "relevance", "newest", "price_asc", "price_desc"}:
-        abort(400)
-    products, pagination = get_catalog_products(
-        page,
-        current_app.config["CATALOG_PAGE_SIZE"],
-        query=query,
-        category_id=category_id,
-        min_price=min_price,
-        max_price=max_price,
-        sort=sort,
-        seller_id=seller_id,
-        brand_name=brand_name,
-        in_stock=in_stock,
-        variant_value=variant_value,
-    )
-    reference_foods, reference_pagination = get_reference_foods(
-        page, min(current_app.config["CATALOG_PAGE_SIZE"], 20), query=query
-    )
-    return render_template(
-        "catalog/menu.html",
-        categories=get_active_categories(),
-        products=products,
-        pagination=pagination,
-        query=query,
-        sort=sort,
-        min_price=min_price,
-        max_price=max_price,
-        selected_category_id=category_id,
-        selected_seller_id=seller_id,
-        selected_brand_name=brand_name,
-        brands=get_active_brands(),
-        in_stock=in_stock,
-        variant_value=variant_value,
-        sellers=get_active_sellers(),
-        selected_reference_category_id=None,
-        reference_categories=[],
-        reference_foods=reference_foods,
-        reference_pagination=reference_pagination,
-    )
+    return redirect(url_for("main.menu", q=query))
 
 
 @main_bp.get("/deals")
 def deals():
-    page = max(1, request.args.get("page", 1, type=int))
-    min_price = _price_filter("min_price")
-    max_price = _price_filter("max_price")
-    if min_price is not None and max_price is not None and min_price > max_price:
-        abort(400)
-    seller_id = request.args.get("seller_id", type=int)
-    brand_name = request.args.get("brand_name", "").strip()[:120]
-    in_stock = request.args.get("in_stock") == "1"
-    variant_value = request.args.get("variant_value", "").strip()[:80]
-    sort = request.args.get("sort", "newest")
-    if sort not in {"featured", "newest", "price_asc", "price_desc"}:
-        abort(400)
-    products, pagination = get_catalog_products(
-        page, current_app.config["CATALOG_PAGE_SIZE"], min_price=min_price,
-        max_price=max_price, sort=sort, seller_id=seller_id, in_stock=in_stock,
-        brand_name=brand_name, variant_value=variant_value, deals_only=True,
-    )
-    return render_template(
-        "catalog/deals.html", products=products, pagination=pagination,
-        min_price=min_price, max_price=max_price, sort=sort,
-        sellers=get_active_sellers(), selected_seller_id=seller_id,
-        brands=get_active_brands(), selected_brand_name=brand_name,
-        in_stock=in_stock, variant_value=variant_value,
-    )
+    params = request.args.to_dict(flat=True)
+    params["deals_only"] = "1"
+    return redirect(url_for("main.menu", **params))
 
 
 @main_bp.get("/api/search-suggestions")
 def search_suggestions_api():
-    products = search_suggestions(request.args.get("q", ""))
-    return jsonify([
-        {"name": product.name, "slug": product.slug, "price": f"{product.display_price:.2f}"}
-        for product in products
-    ])
+    query = (request.args.get("q", "") or "").strip()
+    products = search_suggestions(query)
+    if products:
+        return jsonify([
+            {"name": product.name, "slug": product.slug, "price": f"{product.display_price:.2f}"}
+            for product in products
+        ])
+    if len(query) >= 2:
+        return jsonify([
+            {"name": f"Search for \"{query}\"", "slug": "", "price": "AI search", "is_ai_fallback": True}
+        ])
+    return jsonify([])

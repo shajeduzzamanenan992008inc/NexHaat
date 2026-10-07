@@ -8,7 +8,7 @@
   --line: #d6dfe7;
   --blue: #087cff;
   --blue-deep: #065cc0;
-  --green: #087cff;
+  --green: #08765b;
   --orange: #fa9f36;
   --red: #a73442;
   --shadow: 12px 12px 28px rgb(153 167 183 / 28%), -12px -12px 28px rgb(255 255 255 / 88%);
@@ -748,18 +748,113 @@ img {
 }
 
 .search-box {
+  position: relative;
   display: flex;
-  gap: 9px;
-  width: min(600px, 100%);
+  gap: 10px;
+  width: min(620px, 100%);
+  padding: 9px 9px 9px 14px;
+  border: 1px solid rgba(147, 176, 214, 0.42);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(235, 242, 251, 0.94));
+  box-shadow: 0 18px 40px rgba(110, 138, 178, 0.18), inset 1px 1px 0 rgba(255, 255, 255, 0.9), inset -1px -1px 0 rgba(158, 177, 206, 0.12);
+}
+
+.search-box::before {
+  content: "⌕";
+  position: absolute;
+  inset: 0 auto 0 18px;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: rgba(26, 112, 255, 0.8);
+  text-shadow: 0 0 12px rgba(64, 125, 255, 0.2);
+  pointer-events: none;
 }
 
 .search-box input {
   min-width: 0;
   flex: 1;
+  padding-left: 34px;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.7), inset -1px -1px 0 rgba(159, 181, 214, 0.08);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #17314d;
+}
+
+.search-box input::placeholder {
+  color: #6a7990;
+  font-weight: 600;
+  letter-spacing: 0.012em;
 }
 
 .search-box .button {
   flex: 0 0 auto;
+  min-height: 48px;
+  padding-inline: 22px;
+  border-radius: 14px;
+  border: 0;
+  background: linear-gradient(135deg, #1f6bff, #4d9bff 50%, #7d79ff 100%);
+  box-shadow: 0 10px 20px rgba(58, 107, 255, 0.28);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.search-suggestions {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(132, 160, 201, 0.32);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 26px 48px rgba(67, 90, 125, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.search-suggestions[hidden] {
+  display: none;
+}
+
+.search-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(242, 247, 255, 0.8);
+  color: #1c2c3e;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.search-suggestion:hover,
+.search-suggestion:focus-visible {
+  background: linear-gradient(135deg, rgba(230, 239, 255, 0.95), rgba(246, 248, 255, 1));
+  box-shadow: inset 0 0 0 1px rgba(64, 125, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.search-suggestion small {
+  color: #5070a3;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .catalog-filters {
@@ -793,6 +888,49 @@ img {
 
 .catalog-filters .button-secondary {
   min-height: 48px;
+}
+
+.category-pills {
+  display: none !important;
+}
+
+.catalog-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 18px;
+  padding: 6px;
+  border: 1px solid rgb(214 223 231 / 85%);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.24);
+  box-shadow: var(--shadow-soft);
+}
+
+.catalog-toggle__item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 116px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  color: #4d5d73;
+  background: transparent;
+  font-size: .9rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: transform 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.catalog-toggle__item:hover {
+  color: var(--blue-deep);
+  transform: translateY(-1px);
+}
+
+.catalog-toggle__item.is-active {
+  color: var(--blue-deep);
+  background: linear-gradient(145deg, #f7fbff, #e1ebf8);
+  box-shadow: inset 1px 1px 2px rgb(255 255 255 / 85%), inset -1px -1px 3px rgb(180 196 214 / 35%);
 }
 
 .tag-row {

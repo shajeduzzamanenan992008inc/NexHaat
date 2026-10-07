@@ -53,7 +53,9 @@ def test_product_detail_category_and_search(client, app):
     assert client.get("/food/garden-pizza").status_code == 200
     assert client.get("/category/pizza").status_code == 200
     response = client.get("/search?q=basil")
-    assert b"Garden Pizza" in response.data
+    assert response.status_code == 302
+    assert "/ai/" in response.headers["Location"]
+    assert "q=basil" in response.headers["Location"]
     assert client.get("/food/unavailable-pizza").status_code == 404
 
 

@@ -5,12 +5,15 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 
 from ..extensions import db
-from ..models import Order, OrderItem, Product, RecentViewedProduct, WishlistItem
+from ..models import AIPreferences, Order, OrderItem, Product, RecentViewedProduct, WishlistItem
 from .cart import customer_cart_rows
 
 
 def personalized_products_for_user(user, limit=8):
     if user is None or getattr(user, "role", None) != "customer":
+        return []
+    preference = db.session.get(AIPreferences, user.id)
+    if not preference or not preference.personalized_recommendations_enabled:
         return []
     limit = max(1, min(int(limit), 12))
     since = datetime.now(timezone.utc) - timedelta(days=30)

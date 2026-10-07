@@ -1,6 +1,7 @@
 import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
 from flask import Blueprint, current_app, g, jsonify, request
@@ -10,13 +11,15 @@ from sqlalchemy.orm import selectinload
 from ...extensions import csrf, db
 from ...models import Order, TelegramAccountLinkChallenge, TelegramIdentity, User
 from ...services.audit import record_audit
+from ...services.product_images import MAX_PRODUCT_IMAGE_BYTES, ProductImageError, normalize_product_image
 from ...services.cart import (
     CartError, add_customer_cart_item, customer_cart_rows,
     update_customer_cart_item,
 )
 from ...services.catalog import get_active_categories, get_catalog_products, get_product_by_slug, search_products
 from ..common import (
-    answer_callback, credentials_ready, receive_update, send_message,
+    answer_callback, credentials_ready, download_telegram_file, receive_update, send_message,
+    send_voice, synthesize_local_speech,
     valid_webhook_secret,
 )
 
@@ -64,7 +67,7 @@ def _send_start(chat_id, telegram_user_id):
     return send_message(
         "customer",
         chat_id,
-        "Welcome to NexHaat! Browse products or search the catalog here.\n\nCommands: /shop, /products, /categories, /search <query>, /link, /cart, /orders, /account, /support, /help",
+        "Welcome to NexHaat! Ask general questions or coding questions, or shop from the live catalog here.\n\nCommands: /shop, /products, /categories, /search <query>, /price-history <product>, /price-alert <target BDT> <product>, /link, /cart, /orders, /account, /support, /ai-consent, /ai-revoke, /help",
         _keyboard(rows) if rows else None,
     )
 
@@ -88,7 +91,7 @@ def _send_products(chat_id, query=""):
     if query:
         result = handle_marketplace_ai_query(
             query, user=user, channel="telegram",
-            context={"principal": f"telegram:{telegram_user_id}"} if telegram_user_id else None,
+            context={"principal": f"telegram:customer:{telegram_user_id}"} if telegram_user_id else None,
         )
         products = result.get("products") or []
         if not products:
@@ -102,20 +105,139 @@ def _send_products(chat_id, query=""):
             product = get_product_by_slug(slug)
             if product and product.is_available and product.moderation_status == "approved" and product.available_stock > 0:
                 rows.append(product)
+        answer = result.get("answer") or result.get("fallback")
     else:
         products, _pagination = get_catalog_products(page=1, per_page=5, in_stock=True)
         rows = products
+        answer = None
     if not rows:
-        return send_message("customer", chat_id, "No available products matched that search.")
+        text = answer or "No available products matched that search."
+        return send_message("customer", chat_id, text[:3500])
 
-    return _send_product_cards(chat_id, rows)
+    return _send_product_cards(chat_id, rows, answer=answer)
 
 
-def _send_product_cards(chat_id, products):
+def _resolve_price_command_product(query):
+    slug_product = get_product_by_slug(query)
+    if (slug_product and slug_product.is_available
+            and slug_product.moderation_status == "approved"
+            and getattr(slug_product.category, "is_active", True)):
+        return slug_product, [slug_product]
+
+    products, _pagination = get_catalog_products(
+        page=1, per_page=5, query=query, in_stock=False,
+    )
+    products = [
+        product for product in products
+        if product.is_available and product.moderation_status == "approved"
+        and getattr(product.category, "is_active", True)
+    ]
+    exact = [
+        product for product in products
+        if product.name.casefold() == query.casefold()
+        or product.slug.casefold() == query.casefold()
+    ]
+    if len(exact) == 1 and _pagination["total"] == len(products):
+        return exact[0], products
+    return None, products
+
+
+def _send_price_history(chat_id, query):
+    if not query:
+        return send_message("customer", chat_id, "Use /price-history followed by a product name.")
+    product, matches = _resolve_price_command_product(query)
+    if product is None:
+        if matches:
+            return _send_product_cards(
+                chat_id, matches,
+                answer="I found matching products. Use an exact product name or slug from the list.",
+            )
+        return send_message("customer", chat_id, "I could not find an available matching product.")
+
+    from ...services.ai_price_alerts import observed_price_history
+
+    history = observed_price_history(product.id)
+    if not history:
+        return send_message(
+            "customer", chat_id,
+            f"No earlier observed NexHaat price records are available for {product.name[:120]}; "
+            "I will not invent a price history.",
+        )
+    lines = [
+        f"Recorded NexHaat listing prices for {product.name[:120]} "
+        "(not a complete market history):"
+    ]
+    lines.extend(
+        f"{row['recorded_at'][:10]}: BDT {row['effective_price']}"
+        for row in history[:8]
+    )
+    url = _site_url(f"food/{product.slug}")
+    markup = _keyboard([[{"text": "View product", "url": url}]]) if url else None
+    return send_message("customer", chat_id, "\n".join(lines), markup)
+
+
+def _handle_price_alert(chat_id, telegram_user_id, query):
+    if chat_id != telegram_user_id:
+        return send_message("customer", chat_id, "Manage personal price alerts in a private chat.")
+    user = _linked_customer(telegram_user_id)
+    if user is None:
+        return send_message("customer", chat_id, "Link your NexHaat customer account first with /link.")
+
+    action = "set"
+    product_query = query
+    if query.lower().startswith("off "):
+        action, product_query = "off", query[4:].strip()
+    elif query.lower().startswith("cancel "):
+        action, product_query = "off", query[7:].strip()
+    target = None
+    if action == "set":
+        target_text, separator, product_query = query.partition(" ")
+        product_query = product_query.strip()
+        if not separator or not product_query:
+            return send_message(
+                "customer", chat_id,
+                "Use /price-alert <target BDT price> <product name>, or /price-alert off <product name>.",
+            )
+        try:
+            target = Decimal(target_text)
+        except (InvalidOperation, ValueError):
+            target = Decimal("NaN")
+        if (not target.is_finite() or target < 0 or target > Decimal("99999999.99")
+                or target != target.quantize(Decimal("0.01"))):
+            return send_message("customer", chat_id, "Enter a valid target price with up to two decimal places.")
+    if not product_query:
+        return send_message("customer", chat_id, "Include the product name after the price-alert command.")
+
+    product, matches = _resolve_price_command_product(product_query)
+    if product is None:
+        if matches:
+            return _send_product_cards(
+                chat_id, matches,
+                answer="I found matching products. Retry with an exact product name or slug.",
+            )
+        return send_message("customer", chat_id, "I could not find an available matching product.")
+
+    from ...services.ai_price_alerts import cancel_price_alert, save_price_alert
+
+    if action == "off":
+        cancelled = cancel_price_alert(user, product)
+        message = ("Your price alert is off." if cancelled
+                   else "There is no active price alert for this product.")
+    else:
+        alert = save_price_alert(user, product, target)
+        message = (f"Your target-price alert is set for {product.name[:120]} at "
+                   f"BDT {alert.target_price:.2f}. We will notify you in the NexHaat inbox "
+                   "when an observed listing price reaches the target.")
+    return send_message("customer", chat_id, message)
+
+
+def _send_product_cards(chat_id, products, *, answer=None):
     if not products:
         return send_message("customer", chat_id, "No available products matched that search.")
 
-    lines = ["Matching available products:"]
+    lines = ([answer.strip()[:1500], "", "Matching available products:"]
+             if isinstance(answer, str) and answer.strip()
+             else ["Matching available products:"])
     rows = []
     for product in products[:5]:
         price = product.discount_price or product.price
@@ -335,6 +457,76 @@ def _send_support(chat_id):
     return send_message("customer", chat_id, "Open the configured NexHaat support page.", markup)
 
 
+def _handle_customer_photo(chat_id, telegram_user_id, photos, caption=""):
+    if (chat_id != telegram_user_id and isinstance(caption, str)
+            and any(term in caption.lower() for term in (
+                "my cart", "cart", "basket", "my order", "order status", "my account", "কার্ট", "অর্ডার",
+            ))):
+        return send_message(
+            "customer", chat_id,
+            "Personal cart, account, and order questions are available in a private chat only.",
+        )
+    if not isinstance(photos, list) or not photos:
+        return send_message("customer", chat_id, "Please send a product photo in JPEG, PNG, or WebP format.")
+    photo = max(
+        (item for item in photos if isinstance(item, dict)),
+        key=lambda item: item.get("file_size", 0) if isinstance(item.get("file_size", 0), int) else 0,
+        default=None,
+    )
+    file_size = photo.get("file_size") if photo else None
+    if (not photo or not isinstance(photo.get("file_id"), str)
+            or isinstance(file_size, bool) or not isinstance(file_size, int)
+            or file_size <= 0 or file_size > MAX_PRODUCT_IMAGE_BYTES):
+        return send_message("customer", chat_id, "That photo is empty or too large. Please send one under 5 MB.")
+    raw = download_telegram_file("customer", photo["file_id"], max_bytes=MAX_PRODUCT_IMAGE_BYTES)
+    if raw is None:
+        return send_message("customer", chat_id, "I could not download that photo. Please try again.")
+    try:
+        normalized = normalize_product_image(raw)
+    except ProductImageError as error:
+        return send_message("customer", chat_id, str(error))
+
+    try:
+        from ...ai.core.provider import AIProviderError, AIService
+        description = AIService(current_app.config).describe_image(
+            normalized, content_type="image/jpeg"
+        )
+    except (AIProviderError, ValueError):
+        return send_message("customer", chat_id, "Visual search is unavailable. Please search by text instead.")
+
+    query = f"Find products matching this image: {description[:1500]}"
+    if isinstance(caption, str) and caption.strip():
+        query = f"{query}\nCustomer request: {caption.strip()[:500]}"
+    user = _linked_customer(telegram_user_id) if chat_id == telegram_user_id else None
+    from ...ai.marketplace_tools import handle_marketplace_ai_query
+    result = handle_marketplace_ai_query(
+        query, user=user, channel="telegram-image",
+        context={"input_mode": "image", "principal": f"telegram:customer:{telegram_user_id}"}
+        if user else {"input_mode": "image"},
+    )
+    return _send_products_from_result(chat_id, result)
+
+
+def _send_products_from_result(chat_id, result):
+    products = result.get("products") or []
+    rows = []
+    for item in products[:5]:
+        slug = item.get("slug")
+        if not slug:
+            continue
+        product = get_product_by_slug(slug)
+        if (product and product.is_available and product.moderation_status == "approved"
+                and product.available_stock > 0):
+            rows.append(product)
+    answer = result.get("answer") or result.get("fallback")
+    if not rows:
+        return send_message(
+            "customer", chat_id,
+            (answer or "I could not find matching catalog products.")[:3500],
+        )
+    return _send_product_cards(chat_id, rows, answer=answer)
+
+
 def handle_customer_update(payload, telegram_user_id, chat_id):
     from flask import g
 
@@ -349,9 +541,47 @@ def handle_customer_update(payload, telegram_user_id, chat_id):
         return _handle_callback(payload, telegram_user_id, chat_id)
     message = payload.get("message") or payload.get("edited_message") or {}
     text = message.get("text", "")
-    if not isinstance(text, str):
-        return send_message("customer", chat_id, "Please send a text search or use /help.")
-    text = text.strip()[:200]
+    if not isinstance(text, str) or not text.strip():
+        photos = message.get("photo")
+        if photos is not None:
+            return _handle_customer_photo(
+                chat_id, telegram_user_id, photos, message.get("caption", "")
+            )
+        voice = message.get("voice")
+        if not isinstance(voice, dict):
+            return send_message("customer", chat_id, "Please send a text question or a voice note.")
+        file_id = voice.get("file_id")
+        file_size = voice.get("file_size", 0)
+        if (isinstance(file_size, bool) or not isinstance(file_size, int)
+                or file_size <= 0 or file_size > 8 * 1024 * 1024):
+            return send_message("customer", chat_id, "That voice note is empty or too large. Please send one under 8 MB.")
+        audio = download_telegram_file("customer", file_id)
+        if not audio or not audio.startswith(b"OggS"):
+            return send_message("customer", chat_id, "I could not read that voice note. Please try again or type your question.")
+        try:
+            from ...ai.core.provider import AIProviderError, AIService
+            transcript = AIService(current_app.config).transcribe(
+                audio, filename="telegram-voice.ogg", content_type="audio/ogg"
+            )
+        except (AIProviderError, ValueError):
+            return send_message("customer", chat_id, "Local voice transcription is unavailable. Please type your question instead.")
+        if chat_id != telegram_user_id and any(term in transcript.lower() for term in (
+            "my cart", "cart", "basket", "my order", "order status", "my account", "কার্ট", "অর্ডার",
+        )):
+            return send_message("customer", chat_id, "Personal cart, account, and order questions are available in a private chat only.")
+        from ...ai.marketplace_tools import handle_marketplace_ai_query
+        user = _linked_customer(telegram_user_id) if chat_id == telegram_user_id else None
+        result = handle_marketplace_ai_query(
+            transcript, user=user, channel="telegram-voice",
+            context={"principal": f"telegram:customer:{telegram_user_id}"} if user else None,
+        )
+        answer = result.get("answer") or result.get("fallback") or "I could not answer that voice question."
+        delivered = send_message("customer", chat_id, f"Heard: {transcript[:500]}\n\n{answer[:3000]}")
+        speech = synthesize_local_speech(answer[:1200])
+        if speech:
+            delivered = send_voice("customer", chat_id, *speech) and delivered
+        return delivered
+    text = text.strip()[:2000]
     if not text:
         return send_message("customer", chat_id, "Use /search followed by a product name.")
 
@@ -363,10 +593,27 @@ def handle_customer_update(payload, telegram_user_id, chat_id):
             "customer", chat_id,
             "Account, order, and cart commands are available only in a private chat.",
         )
+    if command == "/ai-consent":
+        if chat_id != telegram_user_id:
+            return send_message("customer", chat_id, "Manage external AI consent in a private chat only.")
+        if query.lower() not in {"yes", "on", "enable"}:
+            return send_message(
+                "customer", chat_id,
+                "External specialist AI can receive only complex general questions, never your cart/order records. "
+                "Provider usage may cost money under the site's configured monthly cap. "
+                "To opt in, send /ai-consent yes. Revoke any time with /ai-revoke.",
+            )
+        from ...ai.core.consent import set_external_consent
+        set_external_consent(True, principal=f"telegram:customer:{telegram_user_id}")
+        return send_message("customer", chat_id, "External specialist help is enabled for complex general questions. Use /ai-revoke to turn it off.")
+    if command == "/ai-revoke":
+        from ...ai.core.consent import set_external_consent
+        set_external_consent(False, principal=f"telegram:customer:{telegram_user_id}")
+        return send_message("customer", chat_id, "External specialist AI consent is off. The local Core will still answer when it is available.")
     if command in {"/start", "/help"}:
         return _send_start(chat_id, telegram_user_id) if command == "/start" else send_message(
             "customer", chat_id,
-            "Commands: /shop, /products, /categories, /search <query>, /help",
+            "Send a general or coding question here, or use commands: /shop, /products, /categories, /search <query>, /price-history <product>, /price-alert <target BDT> <product>, /cart, /orders, /help, /ai-consent, /ai-revoke",
         )
     if command == "/shop":
         url = _site_url("menu")
@@ -395,12 +642,21 @@ def handle_customer_update(payload, telegram_user_id, chat_id):
         return _send_account(chat_id, telegram_user_id)
     if command == "/support":
         return _send_support(chat_id)
+    if command == "/price-history":
+        return _send_price_history(chat_id, query)
+    if command == "/price-alert":
+        return _handle_price_alert(chat_id, telegram_user_id, query)
     if command in {"/products", "/search"}:
         query = query if command == "/search" else ""
         return _send_products(chat_id, query)
     if text.startswith("/"):
         return send_message("customer", chat_id, "Unknown command. Use /help to see available commands.")
-    return _send_products(chat_id, text[:100])
+    lowered = text.lower()
+    if chat_id != telegram_user_id and any(term in lowered for term in (
+        "my cart", "cart", "basket", "my order", "order status", "my account", "কার্ট", "অর্ডার",
+    )):
+        return send_message("customer", chat_id, "Personal cart, account, and order questions are available in a private chat only.")
+    return _send_products(chat_id, text[:2000])
 
 
 @telegram_customer_bp.post("/webhook")

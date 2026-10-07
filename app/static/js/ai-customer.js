@@ -1,16 +1,46 @@
 (() => {
   const messages = document.getElementById('ai-messages');
   if (!messages) return;
+  const promptInput = document.getElementById('ai-prompt');
+  const initialPrompt = (promptInput ? promptInput.value.trim() : '').trim();
+  if (initialPrompt && promptInput && !promptInput.dataset.aiAutoSubmitted) {
+    promptInput.dataset.aiAutoSubmitted = 'true';
+    window.setTimeout(() => {
+      if (promptInput.form && promptInput.value.trim()) {
+        promptInput.form.requestSubmit();
+      }
+    }, 120);
+  }
   const token = document.getElementById('ai-csrf').value;
   const endpoints = Object.fromEntries(['endpoint', 'cart-proposal-endpoint', 'cart-confirm-endpoint', 'voice-endpoint', 'image-endpoint', 'consent-endpoint', 'speak-endpoint'].map((key) => [key, document.getElementById(`ai-${key}`).value]));
   const attachmentInput = document.getElementById('ai-attachment-input');
   const attachButton = document.getElementById('ai-attach-button');
   const attachmentList = document.getElementById('ai-attachment-list');
   const voiceToggle = document.getElementById('ai-voice-toggle');
+  const voiceMenu = document.getElementById('ai-voice-menu');
+  const voiceRecordOption = document.getElementById('ai-voice-record');
+  const voiceTalkOption = document.getElementById('ai-voice-talk');
   const history = [];
   let attachedFiles = [];
   let activeVoiceRecorder = null;
   let activeVoiceStream = null;
+
+  const closeVoiceMenu = () => {
+    if (!voiceMenu) return;
+    voiceMenu.classList.remove('is-open');
+    if (voiceToggle) voiceToggle.setAttribute('aria-expanded', 'false');
+  };
+
+  const sendPromptToAi = (promptText) => {
+    const form = document.getElementById('ai-chat-form');
+    const promptInput = form?.elements?.prompt;
+    if (!form || !promptInput) {
+      addMessage(promptText, 'customer');
+      return;
+    }
+    promptInput.value = promptText;
+    form.requestSubmit();
+  };
 
   const renderAttachments = () => {
     if (!attachmentList) return;
@@ -43,10 +73,10 @@
     const formData = new FormData();
     formData.append('csrf_token', token);
     formData.append('audio', blob, filename);
-    const responseNode = addMessage('Listening and checking marketplace data…');
+    const responseNode = addTypingIndicator();
     try {
       const response = await fetch(endpoints['voice-endpoint'], {
-        method: 'POST', headers: {'X-CSRFToken': token}, body: formData,
+        method: 'POST', headers: { 'X-CSRFToken': token }, body: formData,
       });
       const result = await response.json();
       responseNode.remove();
@@ -62,10 +92,10 @@
     const formData = new FormData();
     formData.append('csrf_token', token);
     formData.append('image', file, file.name || 'uploaded-image');
-    const responseNode = addMessage('Analyzing the image and checking the catalog…');
+    const responseNode = addTypingIndicator();
     try {
       const response = await fetch(endpoints['image-endpoint'], {
-        method: 'POST', headers: {'X-CSRFToken': token}, body: formData,
+        method: 'POST', headers: { 'X-CSRFToken': token }, body: formData,
       });
       const result = await response.json();
       responseNode.remove();
@@ -81,6 +111,15 @@
     const node = document.createElement('p');
     node.className = `ai-message ai-message--${kind}`;
     node.textContent = String(text || '');
+    messages.appendChild(node);
+    messages.scrollTop = messages.scrollHeight;
+    return node;
+  };
+
+  const addTypingIndicator = () => {
+    const node = document.createElement('div');
+    node.className = 'ai-message ai-message--assistant ai-message--typing';
+    node.innerHTML = '<span class="ai-typing-dots" aria-label="AI is writing"><span></span><span></span><span></span></span>';
     messages.appendChild(node);
     messages.scrollTop = messages.scrollHeight;
     return node;
@@ -158,15 +197,15 @@
       button.disabled = true; button.textContent = 'Preparing voice…';
       try {
         const response = await fetch(endpoints['speak-endpoint'], {
-          method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': token},
-          body: JSON.stringify({text: answer.slice(0, 1200)}),
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+          body: JSON.stringify({ text: answer.slice(0, 1200) }),
         });
         if (!response.ok) throw new Error('Local speech is unavailable.');
         const objectUrl = URL.createObjectURL(await response.blob());
         const audio = new Audio(objectUrl);
-        audio.addEventListener('ended', () => URL.revokeObjectURL(objectUrl), {once: true});
+        audio.addEventListener('ended', () => URL.revokeObjectURL(objectUrl), { once: true });
         await audio.play(); button.textContent = 'Playing';
-        audio.addEventListener('ended', () => { button.textContent = 'Listen'; button.disabled = false; }, {once: true});
+        audio.addEventListener('ended', () => { button.textContent = 'Listen'; button.disabled = false; }, { once: true });
       } catch (_) { button.textContent = 'Voice unavailable'; button.disabled = false; }
     });
     group.appendChild(button); messages.appendChild(group);
@@ -183,16 +222,18 @@
       button.disabled = true;
       try {
         const prepared = await fetch(endpoints['cart-proposal-endpoint'], {
-          method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': token},
-          body: JSON.stringify({action: proposed.action, product_slug: proposed.product_slug,
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+          body: JSON.stringify({
+            action: proposed.action, product_slug: proposed.product_slug,
             item_key: proposed.item_key,
-            variant_id: proposed.variant_id, quantity: proposed.quantity}),
+            variant_id: proposed.variant_id, quantity: proposed.quantity
+          }),
         });
         const body = await prepared.json();
         if (!prepared.ok || !body.ok) throw new Error(body.answer || 'The proposal could not be confirmed.');
         const response = await fetch(endpoints['cart-confirm-endpoint'], {
-          method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': token},
-          body: JSON.stringify({proposal_id: body.proposal_id}),
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+          body: JSON.stringify({ proposal_id: body.proposal_id }),
         });
         const confirmed = await response.json();
         addMessage(confirmed.answer || 'Cart update finished.');
@@ -220,17 +261,21 @@
 
   if (attachButton && attachmentInput) {
     attachButton.addEventListener('click', () => {
+      attachButton.classList.add('is-active');
       attachmentInput.click();
+      window.setTimeout(() => attachButton.classList.remove('is-active'), 200);
     });
     attachmentInput.addEventListener('change', async (event) => {
       const files = Array.from(event.target.files || []);
       if (!files.length) return;
+      attachButton.classList.add('is-uploading');
       const first = files[0];
       if (first.type.startsWith('image/')) {
         await runImageSearch(first);
         attachmentInput.value = '';
         attachedFiles = [];
         renderAttachments();
+        window.setTimeout(() => attachButton.classList.remove('is-uploading'), 500);
         return;
       }
       if (first.type.startsWith('audio/')) {
@@ -238,33 +283,26 @@
         attachmentInput.value = '';
         attachedFiles = [];
         renderAttachments();
+        window.setTimeout(() => attachButton.classList.remove('is-uploading'), 500);
         return;
       }
       queueAttachment(files);
       attachmentInput.value = '';
+      window.setTimeout(() => attachButton.classList.remove('is-uploading'), 500);
     });
   }
 
   const consent = document.getElementById('ai-external-consent');
-  if (consent) consent.addEventListener('change', async () => {
-    const selected = consent.checked; consent.disabled = true;
-    try {
-      const response = await fetch(endpoints['consent-endpoint'], {
-        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': token},
-        body: JSON.stringify({enabled: selected}),
-      });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error('Consent preference could not be saved.');
-      addMessage(selected ? 'External specialist consent is on for complex general questions.' : 'External specialist consent is off.');
-    } catch (_) { consent.checked = !selected; addMessage('Consent preference could not be saved.'); }
-    finally { consent.disabled = false; }
-  });
+  const shouldUseExternalAi = () => {
+    if (!consent) return true;
+    return String(consent.value).toLowerCase() !== 'false';
+  };
 
   const submitForm = async (form, endpoint, mode) => {
     const data = new FormData(form);
-    const pending = addMessage('Checking marketplace data…');
+    const pending = addTypingIndicator();
     try {
-      const response = await fetch(endpoint, {method: 'POST', headers: {'X-CSRFToken': token}, body: data});
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'X-CSRFToken': token }, body: data });
       const result = await response.json();
       pending.remove();
       if (result.transcript) addMessage(`Voice search: ${result.transcript}`, 'customer');
@@ -283,70 +321,152 @@
     if (!finalPrompt) return;
     addMessage(finalPrompt, 'customer');
     const priorHistory = history.slice(-8);
-    history.push({role: 'user', content: finalPrompt.slice(0, 1500)});
+    history.push({ role: 'user', content: finalPrompt.slice(0, 1500) });
     promptInput.value = '';
     attachedFiles = [];
     renderAttachments();
-    const responseNode = addMessage('Checking marketplace data…');
+    const responseNode = addTypingIndicator();
     try {
-      const response = await fetch(endpoints.endpoint, {method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': token},
-        body: JSON.stringify({prompt: finalPrompt, history: priorHistory, external_ai_consent: Boolean(consent?.checked)})});
+      const response = await fetch(endpoints.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+        body: JSON.stringify({ prompt: finalPrompt, history: priorHistory, external_ai_consent: shouldUseExternalAi() })
+      });
       const result = await response.json();
       responseNode.remove();
       const answer = await renderResult(result);
-      history.push({role: 'assistant', content: String(answer || '').slice(0, 1500)});
+      history.push({ role: 'assistant', content: String(answer || '').slice(0, 1500) });
       if (history.length > 8) history.splice(0, history.length - 8);
     } catch (_) { responseNode.remove(); addMessage('The assistant is unavailable. You can use the regular catalog search.'); }
   });
 
   if (voiceToggle) {
-    voiceToggle.addEventListener('click', async () => {
-      if (activeVoiceRecorder) {
-        activeVoiceRecorder.stop();
-        return;
-      }
-      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-        addMessage('Voice recording is unavailable in this browser. Please choose an audio file instead.');
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-        const recorder = new MediaRecorder(stream);
-        const chunks = [];
-        activeVoiceRecorder = recorder;
-        activeVoiceStream = stream;
-        voiceToggle.textContent = '■';
-        voiceToggle.setAttribute('aria-label', 'Stop voice recording');
-        recorder.ondataavailable = (event) => {
-          if (event.data.size) chunks.push(event.data);
-        };
-        recorder.onstop = async () => {
-          const blob = new Blob(chunks, {type: recorder.mimeType || 'audio/webm'});
-          if (activeVoiceStream) {
-            activeVoiceStream.getTracks().forEach((track) => track.stop());
-          }
-          activeVoiceRecorder = null;
-          activeVoiceStream = null;
-          voiceToggle.textContent = '🎙️';
-          voiceToggle.setAttribute('aria-label', 'Start voice chat');
-          if (!blob.size) {
-            addMessage('No voice clip was captured. Please try again.');
-            return;
-          }
-          await runVoiceSearch(blob, 'voice-message.webm');
-        };
-        recorder.start();
-        addMessage('Voice chat is recording… say your question and click the mic again to stop.', 'customer');
-        window.setTimeout(() => {
-          if (activeVoiceRecorder && activeVoiceRecorder.state === 'recording') {
-            activeVoiceRecorder.stop();
-          }
-        }, 15000);
-      } catch (_) {
-        addMessage('Microphone access was blocked. Please allow mic access or choose an audio file.');
+    voiceToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (!voiceMenu) return;
+      const shouldOpen = !voiceMenu.classList.contains('is-open');
+      closeVoiceMenu();
+      if (shouldOpen) {
+        voiceMenu.classList.add('is-open');
+        voiceToggle.setAttribute('aria-expanded', 'true');
       }
     });
+
+    document.addEventListener('click', (event) => {
+      if (!voiceMenu) return;
+      if (!voiceMenu.contains(event.target) && event.target !== voiceToggle) {
+        closeVoiceMenu();
+      }
+    });
+  }
+
+  const startVoiceRecording = async () => {
+    closeVoiceMenu();
+    if (activeVoiceRecorder) {
+      activeVoiceRecorder.stop();
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      addMessage('Voice recording is unavailable in this browser. Please choose an audio file instead.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
+      activeVoiceRecorder = recorder;
+      activeVoiceStream = stream;
+      voiceToggle.classList.add('is-recording');
+      voiceToggle.textContent = '■';
+      voiceToggle.setAttribute('aria-label', 'Stop voice recording');
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) chunks.push(event.data);
+      };
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        if (activeVoiceStream) {
+          activeVoiceStream.getTracks().forEach((track) => track.stop());
+        }
+        activeVoiceRecorder = null;
+        activeVoiceStream = null;
+        voiceToggle.classList.remove('is-recording');
+        voiceToggle.textContent = '🎙️';
+        voiceToggle.setAttribute('aria-label', 'Voice options');
+        if (!blob.size) {
+          addMessage('No voice clip was captured. Please try again.');
+          return;
+        }
+        await runVoiceSearch(blob, 'voice-message.webm');
+      };
+      recorder.start();
+      addMessage('Voice chat is recording… say your question and click the mic again to stop.', 'customer');
+      window.setTimeout(() => {
+        if (activeVoiceRecorder && activeVoiceRecorder.state === 'recording') {
+          activeVoiceRecorder.stop();
+        }
+      }, 15000);
+    } catch (_) {
+      addMessage('Microphone access was blocked. Please allow mic access or choose an audio file.');
+    }
+  };
+
+  const startDirectTalkToAi = () => {
+    closeVoiceMenu();
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      addMessage('Direct voice-to-text is not supported in this browser. Please record audio or upload a file instead.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+      voiceToggle.classList.add('is-recording');
+      voiceToggle.textContent = '🎧';
+      voiceToggle.setAttribute('aria-label', 'Listening to AI voice input');
+      addMessage('Listening… speak your question and I will send it to the assistant.', 'customer');
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript || '')
+        .join(' ')
+        .trim();
+      if (transcript) {
+        if (event.results[event.results.length - 1]?.isFinal) {
+          voiceToggle.classList.remove('is-recording');
+          voiceToggle.textContent = '🎙️';
+          voiceToggle.setAttribute('aria-label', 'Voice options');
+          sendPromptToAi(transcript);
+        }
+      }
+    };
+
+    recognition.onerror = () => {
+      voiceToggle.classList.remove('is-recording');
+      voiceToggle.textContent = '🎙️';
+      voiceToggle.setAttribute('aria-label', 'Voice options');
+      addMessage('Direct voice input was interrupted. Please try again or record your voice instead.');
+    };
+
+    recognition.onend = () => {
+      voiceToggle.classList.remove('is-recording');
+      voiceToggle.textContent = '🎙️';
+      voiceToggle.setAttribute('aria-label', 'Voice options');
+    };
+
+    recognition.start();
+  };
+
+  if (voiceRecordOption) {
+    voiceRecordOption.addEventListener('click', startVoiceRecording);
+  }
+
+  if (voiceTalkOption) {
+    voiceTalkOption.addEventListener('click', startDirectTalkToAi);
   }
   const voiceForm = document.getElementById('ai-voice-form');
   const recordButton = document.getElementById('ai-record-button');
@@ -364,38 +484,47 @@
         recordStatus.textContent = 'Voice recording is unavailable in this browser. Choose an audio file instead.'; return;
       }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const chunks = [];
         const recorder = new MediaRecorder(stream);
         recording = recorder;
         recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
         recorder.onstop = async () => {
           stream.getTracks().forEach((track) => track.stop());
-          recording = null; recordButton.textContent = 'Start voice recording'; recordButton.disabled = false;
-          const blob = new Blob(chunks, {type: recorder.mimeType || 'audio/webm'});
+          recording = null;
+          recordButton.classList.remove('is-recording');
+          recordButton.textContent = 'Start voice recording';
+          recordButton.disabled = false;
+          const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
           if (!blob.size) { recordStatus.textContent = 'No audio was captured. Try again or choose a file.'; return; }
           recordStatus.textContent = 'Transcribing your voice and searching the catalog…';
           await runVoiceSearch(blob, 'voice.webm');
           recordStatus.textContent = 'Voice recording was processed in memory and not stored.';
         };
-        recorder.start(); recordButton.textContent = 'Stop and search';
+        recorder.start();
+        recordButton.classList.add('is-recording');
+        recordButton.textContent = 'Stop and search';
         recordStatus.textContent = 'Recording… select Stop and search when ready (maximum 15 seconds).';
         window.setTimeout(() => { if (recording === recorder && recorder.state === 'recording') recorder.stop(); }, 15000);
       } catch (_) { recordStatus.textContent = 'Microphone access was unavailable. Choose an audio file instead.'; }
     });
   }
   const imageForm = document.getElementById('ai-image-form');
-  if (imageForm) {
-    imageForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const file = form.elements.image?.files?.[0];
-      if (!file) {
-        addMessage('Choose an image before searching the catalog.');
-        return;
-      }
+  const imageInput = document.getElementById('ai-image');
+  const imageTrigger = document.getElementById('ai-image-trigger');
+  if (imageForm && imageInput && imageTrigger) {
+    imageTrigger.addEventListener('click', () => {
+      imageInput.click();
+    });
+    imageInput.addEventListener('change', () => {
+      if (!imageInput.files || !imageInput.files.length) return;
+      const file = imageInput.files[0];
+      imageTrigger.textContent = file.name || 'Image selected';
+      imageTrigger.classList.add('is-selected');
       runImageSearch(file);
-      form.reset();
+      imageInput.value = '';
+      imageTrigger.textContent = 'Find similar products';
+      imageTrigger.classList.remove('is-selected');
     });
   }
 })();

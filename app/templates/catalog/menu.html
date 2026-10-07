@@ -6,22 +6,34 @@
     <div>
       <p class="eyebrow">{{ _('Find your next favorite') }}</p>
       <h1>{{ _('Explore the marketplace') }}</h1>
-      <p>{{ _('Browse active local listings, compare prices, and search the food reference library for quick discovery.') }}</p>
+      <p>{{ _('Browse active local listings, compare prices, and search the food reference library for quick
+        discovery.') }}</p>
     </div>
-    <form class="search-box" method="get" action="{{ url_for('main.search') }}" role="search">
+    <form class="search-box" method="get" action="{{ url_for('main.menu') }}" role="search">
       <label class="visually-hidden" for="market-search">{{ _('Search products') }}</label><input id="market-search"
-        name="q" value="{{ query }}" placeholder="{{ _('Search food and products') }}"
+        name="q" value="{{ query }}" placeholder="{{ _('Search food, deals, and products') }}"
         maxlength="{{ config['MAX_SEARCH_LENGTH'] }}">
       <button class="button" type="submit">{{ _('Search') }}</button>
     </form>
   </header>
 
-  {% if categories %}<nav class="tag-row" aria-label="{{ _('Product categories') }}"><a
-      class="tag {% if not selected_category_id %}tag--active{% endif %}" href="{{ url_for('main.menu') }}">{{ _('All categories') }}</a>{% for category in categories %}<a class="tag"
+  {% if categories %}<nav class="tag-row category-pills" aria-label="{{ _('Product categories') }}"><a
+      class="tag {% if not selected_category_id %}tag--active{% endif %}" href="{{ url_for('main.menu') }}">{{ _('All
+      categories') }}</a>{% for category in categories %}<a class="tag"
       href="{{ url_for('main.category', slug=category.slug) }}">{{ category.name }}</a>{% endfor %}</nav>{% endif %}
+
+  <div class="catalog-toggle" aria-label="{{ _('Explore listings or deals') }}">
+    <a class="catalog-toggle__item {% if not deals_only %}is-active{% endif %}"
+      href="{{ url_for('main.menu', q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">{{
+      _('Explore') }}</a>
+    <a class="catalog-toggle__item {% if deals_only %}is-active{% endif %}"
+      href="{{ url_for('main.menu', q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort='newest', seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value, deals_only='1') }}">{{
+      _('Deals') }}</a>
+  </div>
 
   <form class="catalog-filters" method="get" action="{{ url_for('main.menu') }}"
     aria-label="{{ _('Filter marketplace listings') }}">
+    {% if deals_only %}<input type="hidden" name="deals_only" value="1">{% endif %}
     {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
     <div class="form-field"><label for="catalog-category">{{ _('Category') }}</label><select id="catalog-category"
         name="category_id">
@@ -77,7 +89,8 @@
       %}<a
         href="{{ url_for('main.menu', page=pagination.next_num, q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">→</a>{%
       endif %}</nav>{% endif %}
-    {% else %}<div class="empty-state"><strong>{{ _('No local listings found yet') }}</strong>{{ _('Try another search, or browse the food reference library below.') }}</div>{% endif %}
+    {% else %}<div class="empty-state"><strong>{{ _('No local listings found yet') }}</strong>{{ _('Try another search,
+      or browse the food reference library below.') }}</div>{% endif %}
   </section>
 
   <section class="section-block" aria-labelledby="reference-title">
@@ -87,7 +100,8 @@
         <h2 id="reference-title">{{ _('Food reference library') }}</h2>
       </div>
     </div>
-    <p class="reference-note">{{ _('Reference records are for information only. They are not seller listings, have no marketplace price, and cannot be added to your cart.') }}</p>
+    <p class="reference-note">{{ _('Reference records are for information only. They are not seller listings, have no
+      marketplace price, and cannot be added to your cart.') }}</p>
     {% if query or selected_reference_category_id %}
     {% if reference_categories %}<div class="tag-row" style="margin-block:16px">{% for ref_category, count in
       reference_categories %}<a

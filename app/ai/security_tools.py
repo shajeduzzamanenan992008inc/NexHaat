@@ -82,7 +82,13 @@ def get_system_health_tool(user=None, **_kwargs):
     return {
         "application": "healthy" if database == "healthy" else "degraded",
         "database": database,
-        "ai_enabled": bool(current_app.config.get("AI_ENABLED")),
+        "ai_enabled": bool(
+            current_app.config.get("AI_ENABLED") or (
+                current_app.config.get("AI_LOCAL_ENABLED")
+                and current_app.config.get("AI_LOCAL_BASE_URL")
+                and current_app.config.get("AI_LOCAL_MODEL")
+            )
+        ),
         "customer_bot_configured": bool(current_app.config.get("TELEGRAM_CUSTOMER_BOT_TOKEN")),
         "security_bot_configured": bool(current_app.config.get("TELEGRAM_SECURITY_BOT_TOKEN")),
         "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -169,11 +175,19 @@ def handle_security_ai_query(prompt, *, telegram_user_id, private_chat=True):
     registry = build_security_tool_registry(service.max_tool_calls)
     result = service.respond(prompt, scope=AI_SCOPE_SECURITY, user=actor, tools=registry,
                              context={"channel": "telegram"})
-    if result.get("ok") and any(isinstance(item, dict) and item.get("ok") is True
-                                  for item in result.get("tool_results", [])):
+    if result.get("ok") and (result.get("tool_results") or
+                              current_app.config.get("AI_LOCAL_BASE_URL")):
         return result
     # Disabled-provider fallback remains deterministic and read-only.
     lowered = str(prompt or "").lower()
+    security_data_request = any(word in lowered for word in (
+        "priority", "prioritize", "alert", "health", "status", "login", "failed", "suspicious",
+        "audit", "security", "অগ্রাধিকার", "সতর্কতা", "স্বাস্থ্য", "সিস্টেম", "লগইন", "সন্দেহজনক",
+    ))
+    if not security_data_request:
+        return {"ok": False, "scope": AI_SCOPE_SECURITY,
+                "answer": "The private local AI endpoint is not connected. Read-only security commands remain available.",
+                "tools_used": []}
     if any(word in lowered for word in ("priority", "prioritize", "alert", "অগ্রাধিকার", "সতর্কতা")):
         name = "get_alert_priorities"
     elif any(word in lowered for word in ("health", "status", "স্বাস্থ্য", "সিস্টেম")):

@@ -76,14 +76,18 @@ API clients authenticate with the existing session cookie. Signup challenges are
 
 ## AI and Telegram integrations
 
-- `GET /ai/` — customer/guest shopping assistant page; natural-language answers require an enabled, configured provider
+- `GET /ai/` — customer/guest shopping assistant page; responses use the configured local-first Core and authoritative catalog services
 - `POST /ai/chat` — customer catalog, policy, cart, and order assistance; scope and account identity are selected by the server
 - `POST /ai/voice-search`, `POST /ai/image-search` — bounded in-memory voice and image search; uploads are not persisted
 - `POST /ai/cart/proposal`, `POST /ai/cart/confirm` — signed-in customer cart suggestions and explicit one-use confirmation
+- `GET /ai/price-history/{slug}` — recorded NexHaat listing-price observations only; does not synthesize or backfill history
+- `POST /ai/price-alert/{slug}` — signed-in Customer, CSRF-protected opt-in target alert; `target_price` sets/updates it and `action=cancel` turns it off; price-crossing notifications appear in the in-app inbox
+- `POST /admin/ai-builder/jobs` — Admin-only multipart ZIP project analysis (`archive`, `prompt`, optional `allow_external_code=true`); ZIP is inspected in memory and never extracted or executed. External code disclosure requires existing Admin AI consent plus the per-upload choice and the existing budget/Telegram notice gate.
+- `GET /admin/ai-builder/jobs/{id}`, `DELETE /admin/ai-builder/jobs/{id}` — retrieve or delete the requesting Admin's analysis job. Jobs store a source digest, metadata, and bounded analysis result, not source files. This first slice is synchronous; project persistence, diff/export, patching, sandbox execution, and scan queue are not implemented.
 - `POST /telegram/customer/webhook` — Telegram customer bot update endpoint; requires `X-Telegram-Bot-Api-Secret-Token`
 - `POST /telegram/security/webhook` — allowlisted private-chat security bot endpoint; requires its separate `X-Telegram-Bot-Api-Secret-Token`
 
-Provider and Telegram credentials are configured in private runtime settings. The Telegram webhook registration command first checks the public `/health/live` endpoint; use `flask --app run.py set-telegram-webhooks --bot customer` or `--bot security` to register one bot at a time after deployment is reachable. See [AI operations](docs/operations/ai-marketplace.md) and [Telegram operations](docs/operations/telegram-bots.md).
+Provider and Telegram credentials are configured in private runtime settings. The Customer Telegram bot supports the shared shopping assistant, `/price-history <product>`, and `/price-alert <target BDT> <product>`; personal alerts require a linked customer and a private chat. The Telegram webhook registration command first checks the public `/health/live` endpoint; use `flask --app run.py set-telegram-webhooks --bot customer` or `--bot security` to register one bot at a time after deployment is reachable. See [AI operations](docs/operations/ai-marketplace.md) and [Telegram operations](docs/operations/telegram-bots.md).
 
 ## Cart, checkout, and orders
 
@@ -135,14 +139,19 @@ Provider and Telegram credentials are configured in private runtime settings. Th
 - `GET /ai/` — customer Shopping Assistant page (guest product discovery or signed-in cart/order help)
 - `POST /ai/chat` — bounded customer question; scope comes from the session, and products/cart/orders come from existing services
 - `POST /ai/image-search`, `POST /ai/voice-search` — validated in-memory product image or short audio search; uploads are not persisted
+- `GET /ai/price-history/<slug>` — stored NexHaat price observations for an approved product; no missing history is fabricated or backfilled
+- `POST /ai/price-alert/<slug>` — signed-in Customer saves a BDT `target_price`, or sends `action=cancel` to turn off their own alert
 - `POST /ai/cart/proposal`, `POST /ai/cart/confirm` — create a one-use, customer-owned proposal and separately confirm after server-side price/stock checks; these endpoints never place an order
 - `GET /ai/review-summary/<slug>` — summarize approved reviews only
-- `GET|POST /ai/preferences` — opt into or disable rate-capped in-app shopping alerts
+- `GET|POST /ai/preferences` — separately control personalized recommendations, saved AI notes, external-provider consent, and rate-capped smart alerts
 - `GET /seller/ai`, `POST /seller/ai/suggest`, `/seller/ai/query`, `/seller/ai/price` — approved Seller's own drafts and read-only analytics; generated content is not saved automatically
-- `GET /admin/ai`, `POST /admin/ai/query` — Admin/Super-Admin read-only operational copilot; support-role accounts are not authorized
+- `GET /admin/ai`, `POST /admin/ai/query` — Admin/Super-Admin read-only operational copilot; activity is recorded without prompts/results and queued as a metadata-only Security Bot notice; support-role accounts are not authorized
+- `POST /admin/ai-builder/jobs`, `GET|DELETE /admin/ai-builder/jobs/{id}` — transient, owner-scoped ZIP project analysis; each run sends metadata-only start/completion notices and never executes or deploys source
 - `GET|POST /support`, `GET /support/<id>`, `POST /support/<id>/reply`, `GET /admin/support` — customer-owned human support cases and staff replies; AI chat is not stored as a support transcript
 
 AI is disabled unless explicitly configured. When the provider is missing, deterministic catalog and account services remain available where applicable; no provider call is made for ordinary catalog page loads. The separate Security AI is available only through the numeric Telegram allowlist and private chat.
+
+Admin AI remains read-only: Telegram notices link to the protected Admin AI website workspace, where a signed-in Admin can review activity and use existing protected controls. Telegram does not execute approvals, payment confirmations, deployments, or other Admin mutations. Security Bot notices exclude prompts, model answers, source files, and personal data; failed delivery remains in the retryable alert queue.
 
 ## CLI
 

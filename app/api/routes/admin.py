@@ -14,6 +14,7 @@ from ...models import (
     SellerProfile, User,
 )
 from ...services.audit import record_audit
+from ...services.ai_action_notices import notify_admin_ai_action
 from ...services.mail import queue_order_receipt, queue_order_status
 from ...services.notifications import notify
 from ...services.orders import transition_order
@@ -258,7 +259,10 @@ def moderate_review(review_id):
     review.moderated_at = datetime.now(timezone.utc)
     review.moderated_by_id = admin.id
     db.session.commit()
-    record_audit("review.moderate", actor=admin, target_type="review", target_id=review.id, detail=status)
+    notify_admin_ai_action(
+        "review.moderate", actor=admin, target_type="review",
+        target_id=review.id, detail=status,
+    )
     return success_response(review_to_dict(review), "Review moderated.")
 
 
@@ -282,7 +286,10 @@ def review_seller(profile_id):
     profile.reviewed_at = datetime.now(timezone.utc)
     profile.reviewed_by_id = admin.id
     db.session.commit()
-    record_audit("seller.review", actor=admin, target_type="seller_profile", target_id=profile.id, detail=decision)
+    notify_admin_ai_action(
+        "seller.review", actor=admin, target_type="seller_profile",
+        target_id=profile.id, detail=decision,
+    )
     if decision == "approved":
         notify(
             profile.user_id,
@@ -314,7 +321,10 @@ def moderate_product(product_id):
     product.reviewed_at = datetime.now(timezone.utc)
     product.reviewed_by_id = admin.id
     db.session.commit()
-    record_audit("catalog.product_review", actor=admin, target_type="product", target_id=product.id, detail=decision)
+    notify_admin_ai_action(
+        "catalog.product_review", actor=admin, target_type="product",
+        target_id=product.id, detail=decision,
+    )
     return success_response({"id": product.id, "moderation_status": product.moderation_status})
 
 
@@ -344,7 +354,10 @@ def update_order(order_id):
     elif not transition_order(order, target):
         raise ApiError("That order status transition is not allowed.", "INVALID_TRANSITION", 409)
     db.session.commit()
-    record_audit("order.status", actor=admin, target_type="order", target_id=order.id, detail=target)
+    notify_admin_ai_action(
+        "order.status", actor=admin, target_type="order",
+        target_id=order.id, detail=target,
+    )
     queue_order_status(order)
     if target == "confirmed":
         queue_order_receipt(order)

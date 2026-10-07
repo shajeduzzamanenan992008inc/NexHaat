@@ -285,9 +285,19 @@ def handle_admin_ai_query(prompt, *, user):
     result = service.respond(str(prompt or "")[:2000], scope=AI_SCOPE_ADMIN,
                              user=user, tools=registry,
                              context={"query_type": "read-only marketplace analytics"})
-    if result.get("ok") and any(isinstance(item, dict) and item.get("ok") is True
-                                  for item in result.get("tool_results", [])):
+    grounded = any(isinstance(item, dict) and item.get("ok") is True
+                   for item in result.get("tool_results", []))
+    analytics_request = any(item in str(prompt or "").lower() for item in (
+        "sales", "orders", "revenue", "inventory", "stock", "customer", "product",
+        "category", "review", "support", "trend", "বিক্রি", "অর্ডার", "স্টক", "গ্রাহক",
+    ))
+    coding_request = any(item in str(prompt or "").lower() for item in (
+        "code", "coding", "debug", "programming", "write a script", "implement", "কোড", "প্রোগ্রাম",
+    ))
+    if result.get("ok") and (grounded or not analytics_request or coding_request):
         return {**result, "data": result.get("tool_results", [])}
+    if not analytics_request:
+        return result
     lowered = str(prompt or "").lower()
     if any(item in lowered for item in ("review", "spam", "ফেক", "স্প্যাম")):
         tool = "get_review_spam_risk"

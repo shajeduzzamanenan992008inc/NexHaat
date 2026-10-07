@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy import select
 
@@ -14,6 +15,22 @@ def _alert_text(event):
         "auth.admin_login_denied": ("Admin sign-in was denied", "ATTENTION"),
         "account.delete_self": ("A customer deleted their account", "NOTICE"),
         "account.remove": ("An account was removed by an administrator", "NOTICE"),
+        "customer.ai.cart_change.confirmed": (
+            "A customer confirmed an AI-assisted cart change", "NOTICE"
+        ),
+        "seller.review": ("An Admin reviewed a seller application", "NOTICE"),
+        "catalog.product_review": ("An Admin moderated a product listing", "NOTICE"),
+        "review.moderate": ("An Admin moderated a customer review", "NOTICE"),
+        "order.status": ("An Admin updated an order status", "NOTICE"),
+        "order.return_reviewed": ("An order return request was reviewed", "NOTICE"),
+        "payment.risk_approved": ("An Admin approved a validated payment review", "NOTICE"),
+        "admin.ai.query.started": ("Admin AI read-only query started", "NOTICE"),
+        "admin.ai.query.completed": ("Admin AI read-only query completed", "NOTICE"),
+        "admin.ai.query.failed": ("Admin AI read-only query failed", "ATTENTION"),
+        "admin.ai_builder.job.started": ("Admin AI project analysis started", "NOTICE"),
+        "admin.ai_builder.job.completed": ("Admin AI project analysis completed", "NOTICE"),
+        "admin.ai_builder.job.failed": ("Admin AI project analysis failed", "ATTENTION"),
+        "admin.ai_builder.job.deleted": ("Admin deleted an AI analysis record", "NOTICE"),
     }
     summary, severity = messages.get(event.action, ("A recorded security event occurred", "NOTICE"))
     created_at = event.created_at
@@ -26,17 +43,39 @@ def _alert_text(event):
     )
 
 
-def deliver_telegram_security_alerts(limit=50):
+def _alert_markup(event):
+    if not event.action.startswith(("admin.ai.query.", "admin.ai_builder.job.")):
+        return None
+    from flask import current_app
+
+    base_url = str(current_app.config.get("PUBLIC_BASE_URL") or "").strip().rstrip("/")
+    parsed = urlsplit(base_url)
+    if (
+        parsed.scheme not in {"http", "https"} or not parsed.hostname
+        or parsed.username or parsed.password or parsed.query or parsed.fragment
+        or current_app.config.get("ENVIRONMENT") == "production" and parsed.scheme != "https"
+    ):
+        return None
+    path = f"{parsed.path.rstrip('/')}/admin/ai"
+    return {"inline_keyboard": [[{
+        "text": "Open Admin AI workspace",
+        "url": urlunsplit((parsed.scheme, parsed.netloc, path, "", "")),
+    }]]}
+
+
+def deliver_telegram_security_alerts(limit=50, *, alert_id=None):
     token = current_token()
     admin_ids = _admin_ids()
     if not token or not admin_ids:
         return 0
+    statement = select(TelegramSecurityAlert).where(
+        TelegramSecurityAlert.status == "pending",
+        TelegramSecurityAlert.attempts < MAX_ALERT_ATTEMPTS,
+    )
+    if alert_id is not None:
+        statement = statement.where(TelegramSecurityAlert.audit_event_id == alert_id)
     records = db.session.scalars(
-        select(TelegramSecurityAlert)
-        .where(
-            TelegramSecurityAlert.status == "pending",
-            TelegramSecurityAlert.attempts < MAX_ALERT_ATTEMPTS,
-        )
+        statement
         .order_by(TelegramSecurityAlert.id)
         .limit(max(1, min(int(limit), 200)))
     ).all()
@@ -48,7 +87,11 @@ def deliver_telegram_security_alerts(limit=50):
             db.session.commit()
             continue
         message = _alert_text(event)
-        results = [send_message("security", admin_id, message) for admin_id in admin_ids]
+        markup = _alert_markup(event)
+        results = [
+            send_message("security", admin_id, message, markup)
+            for admin_id in admin_ids
+        ]
         record.attempts += 1
         if all(results):
             record.status = "sent"

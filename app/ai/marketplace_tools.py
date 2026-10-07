@@ -30,6 +30,7 @@ _SEARCH_SCHEMA = {
         "query": {"type": "string", "maxLength": 100},
         "max_price": {"type": "number", "minimum": 0, "maximum": 100000000},
         "min_price": {"type": "number", "minimum": 0, "maximum": 100000000},
+        "sort": {"type": "string", "enum": ["featured", "price_asc", "price_desc"]},
         "category": {"type": "string", "maxLength": 100},
         "brand": {"type": "string", "maxLength": 120},
         "size": {"type": "string", "maxLength": 80},
@@ -91,7 +92,7 @@ def _valid_money(value, field):
     return amount
 
 
-def search_products_tool(query="", max_price=None, min_price=None, category="", brand="", size="", attribute="", limit=5, **_kwargs):
+def search_products_tool(query="", max_price=None, min_price=None, category="", brand="", size="", attribute="", limit=5, sort="featured", **_kwargs):
     query = str(query or "").strip()[:100]
     upper = _valid_money(max_price, "Maximum price")
     lower = _valid_money(min_price, "Minimum price")
@@ -113,6 +114,7 @@ def search_products_tool(query="", max_price=None, min_price=None, category="", 
         brand_name=str(brand or "").strip()[:120],
         in_stock=True,
         variant_value=variant_value,
+        sort=sort if sort in {"featured", "price_asc", "price_desc"} else "featured",
     )
     return [_product_summary(product) for product in products]
 
@@ -125,6 +127,18 @@ def get_product_tool(slug="", **_kwargs):
             or product.available_stock < 1 or not getattr(product.category, "is_active", True)):
         return {"error": "Product not found."}
     return _product_summary(product)
+
+
+def get_product_price_history_tool(product_slug="", **_kwargs):
+    product = get_product_by_slug(str(product_slug).strip())
+    if (not product or product.moderation_status != "approved" or not product.is_available
+            or not getattr(product.category, "is_active", True)):
+        return {"error": "Product not found."}
+    from ..services.ai_price_alerts import observed_price_history
+
+    observations = observed_price_history(product.id)
+    return {"product": product.name, "slug": product.slug,
+            "observations": observations, "observation_count": len(observations)}
 
 
 def compare_products_tool(slugs=None, **_kwargs):
@@ -170,31 +184,37 @@ def get_recommendations_tool(user=None, category="", query="", max_price=None, l
 
     signals = set()
     purchased_product_ids = set()
+    personalization_enabled = False
     if user is not None and getattr(user, "role", None) == "customer":
-        from ..models import RecentViewedProduct, WishlistItem
+        from ..models import AIPreferences, RecentViewedProduct, WishlistItem
 
-        for model in (RecentViewedProduct, WishlistItem):
-            product_id = db.session.scalar(
-                select(model.product_id).where(model.user_id == user.id)
-                .order_by(model.id.desc()).limit(1)
-            )
-            if product_id:
-                product = db.session.get(Product, product_id)
-                if product:
-                    signals.add(product.category_id)
-        for row in customer_cart_rows(user.id):
-            signals.add(row["product"].category_id)
-        recent_orders = db.session.scalars(
-            select(Order).where(Order.user_id == user.id)
-            .order_by(Order.created_at.desc()).limit(10)
-        ).all()
-        for order in recent_orders:
-            for line in order.items:
-                if line.product_id:
-                    purchased_product_ids.add(line.product_id)
-                    product = db.session.get(Product, line.product_id)
+        preference = db.session.get(AIPreferences, user.id)
+        personalization_enabled = bool(
+            preference and preference.personalized_recommendations_enabled
+        )
+        if personalization_enabled:
+            for model in (RecentViewedProduct, WishlistItem):
+                product_id = db.session.scalar(
+                    select(model.product_id).where(model.user_id == user.id)
+                    .order_by(model.id.desc()).limit(1)
+                )
+                if product_id:
+                    product = db.session.get(Product, product_id)
                     if product:
                         signals.add(product.category_id)
+            for row in customer_cart_rows(user.id):
+                signals.add(row["product"].category_id)
+            recent_orders = db.session.scalars(
+                select(Order).where(Order.user_id == user.id)
+                .order_by(Order.created_at.desc()).limit(10)
+            ).all()
+            for order in recent_orders:
+                for line in order.items:
+                    if line.product_id:
+                        purchased_product_ids.add(line.product_id)
+                        product = db.session.get(Product, line.product_id)
+                        if product:
+                            signals.add(product.category_id)
     if category_id is None and signals:
         category_id = next(iter(signals))
 
@@ -211,7 +231,8 @@ def get_recommendations_tool(user=None, category="", query="", max_price=None, l
         max_price=upper, in_stock=True,
     )
     category_counts = Counter(signals)
-    cart_ids = {row["product"].id for row in customer_cart_rows(user.id)} if user is not None and getattr(user, "role", None) == "customer" else set()
+    cart_ids = ({row["product"].id for row in customer_cart_rows(user.id)}
+                if personalization_enabled else set())
     products.sort(key=lambda item: (
         -(int(item.id in purchased_product_ids or item.id in cart_ids)),
         -int(popularity.get(item.id, 0)),
@@ -400,6 +421,12 @@ def build_customer_tool_registry(max_tool_calls=5):
     registry.register("get_product", get_product_tool, scope=AI_SCOPE_CUSTOMER,
                       description="Read one approved product by its catalog slug.",
                       parameters={"type": "object", "properties": {"slug": {"type": "string", "maxLength": 180}}, "required": ["slug"], "additionalProperties": False})
+    registry.register("get_product_price_history", get_product_price_history_tool,
+                      scope=AI_SCOPE_CUSTOMER,
+                      description="Read only recorded NexHaat listing price observations; never infer missing history.",
+                      parameters={"type": "object", "properties": {
+                          "product_slug": {"type": "string", "maxLength": 180},
+                      }, "required": ["product_slug"], "additionalProperties": False})
     registry.register("compare_products", compare_products_tool, scope=AI_SCOPE_CUSTOMER,
                       description="Compare two or three approved catalog products by slug.",
                       parameters={"type": "object", "properties": {"slugs": {"type": "array", "minItems": 2, "maxItems": 3, "items": {"type": "string", "maxLength": 180}}}, "required": ["slugs"], "additionalProperties": False})
@@ -439,7 +466,7 @@ def build_customer_tool_registry(max_tool_calls=5):
 
 def handle_marketplace_ai_query(prompt: str, *, user=None, channel="web", context=None,
                                rate_limited=False):
-    """Run Customer AI through the provider tools, with a real-catalog fallback."""
+    """Route general Q&A to the shared Core and shopping intent to verified catalog tools."""
     text = (prompt or "").strip()
     if not text:
         return {"ok": False, "answer": "Please ask about a product, cart, order, or store policy.", "scope": AI_SCOPE_CUSTOMER, "data": "", "products": []}
@@ -456,6 +483,21 @@ def handle_marketplace_ai_query(prompt: str, *, user=None, channel="web", contex
             message = "The assistant is temporarily unavailable. Please use regular catalog search."
             return {"ok": False, "scope": AI_SCOPE_CUSTOMER, "answer": message,
                     "data": "", "products": [], "fallback": message, "tools_used": []}
+    if not _has_shopping_intent(text) or _has_coding_intent(text):
+        from .core.consent import external_consent_enabled
+        service = AIService(current_app.config)
+        allowed = external_consent_enabled(user=user, principal=principal)
+        result = service.respond(
+            text, scope=AI_SCOPE_CUSTOMER, user=user,
+            context={"channel": channel,
+                     "locale": current_app.config.get("BABEL_DEFAULT_LOCALE", "en_US"),
+                     **safe_context},
+            allow_external=allowed,
+        )
+        return {**result, "data": result.get("answer") or result.get("fallback", ""),
+                "products": [], "tools_used": result.get("tools_used", [])}
+    if _is_deterministic_shopping_prompt(text):
+        return _deterministic_fallback(text, user=user)
     try:
         service = AIService(current_app.config)
         registry = build_customer_tool_registry(service.max_tool_calls)
@@ -463,6 +505,7 @@ def handle_marketplace_ai_query(prompt: str, *, user=None, channel="web", contex
             text, scope=AI_SCOPE_CUSTOMER, user=user,
             context={"channel": channel, "locale": current_app.config.get("BABEL_DEFAULT_LOCALE", "en_US"), **safe_context},
             tools=registry,
+            allow_external=False,
         )
         if result.get("ok"):
             grounded = any(isinstance(item, dict) and item.get("ok") is True
@@ -486,6 +529,55 @@ def handle_marketplace_ai_query(prompt: str, *, user=None, channel="web", contex
     except RuntimeError:
         pass
     return _deterministic_fallback(text, user=user)
+
+
+def _has_shopping_intent(prompt):
+    lowered = str(prompt or "").lower()
+    terms = (
+        "catalog", "product", "price", "stock", "in stock", "available", "buy", "purchase",
+        "contact support", "support agent", "human support",
+        "shop for", "find me", "search for", "recommend me", "under tk", "under ৳", "under bdt",
+        "cart", "basket", "my order", "order status", "return policy", "refund", "delivery policy",
+        "support contact", "categories", "category", "headphone", "laptop", "smartphone", "phone",
+        "shirt", "shoe", "food", "gift", "blender", "under 2k", "দাম", "মূল্য", "স্টক", "পণ্য",
+        "প্রোডাক্ট", "কিনতে চাই", "কিনব", "খুঁজে দাও", "কার্ট", "অর্ডার", "ডেলিভারি",
+        "রিফান্ড", "ফেরত", "ক্যাটাগরি", "পণ্যের", "দেখাও", "হেডফোন", "ল্যাপটপ", "মোবাইল",
+        "কম দামে", "কম মূল্যে", "সস্তা", "উপহার", "সাজেস্ট",
+        "दाम", "कीमत", "खरीद", "कार्ट", "ऑर्डर", "वापसी", "प्रोडक्ट",
+    )
+    if any(term in lowered for term in terms):
+        return True
+    if re.match(r"^(?:/search\s+|search\s+|find\s+|recommend\s+|show\s+)(?!how\b).{2,100}$", lowered):
+        return True
+    # A money budget only counts as shopping intent when a product noun is present.
+    has_budget = bool(re.search(r"(?:৳|\btk\b|\bbdt\b|\b\d+k\b|\b\d{3,}\s*(?:taka|টাকা))", lowered))
+    has_product = any(term in lowered for term in ("for", "item", "things", "কোন পণ্য", "কী কিন", "सामान"))
+    return has_budget and has_product
+
+
+def _has_coding_intent(prompt):
+    lowered = str(prompt or "").lower()
+    return any(term in lowered for term in (
+        "coding", "code", "debug", "programming", "write a script", "write code", "implement",
+        "stack trace", "syntax error", "কোড", "প্রোগ্রাম", "ডিবাগ", "প্রোগ্রামিং",
+    ))
+
+
+def _is_deterministic_shopping_prompt(prompt):
+    lowered = str(prompt or "").lower()
+    if any(term in lowered for term in (
+        "cart", "basket", "my order", "order status", "return policy", "refund", "delivery policy",
+        "contact support", "support agent", "categories", "category", "কার্ট", "অর্ডার",
+        "রিফান্ড", "ফেরত", "নীতি", "ক্যাটাগরি", "gift", "উপহার", "সাজেস্ট",
+    )):
+        return True
+    return bool(re.match(
+        r"^(?:/search\s+|search\s+|find\s+|recommend\s+|show\s+|compare\s+|shop for\s+).{2,200}$",
+        lowered,
+    )) or any(token in lowered for token in (
+        "under tk", "under ৳", "under bdt", "under 2k", "এর নিচে", "এর মধ্যে", "টাকার মধ্যে",
+        "কম দামে", "কম মূল্যে", "সস্তা", "কিনতে চাই", "খুঁজে দাও", "দেখাও", "उपहार", "खरीद", "सामान",
+    ))
 
 
 def _products_from_result(result):
@@ -550,6 +642,31 @@ def _deterministic_fallback(prompt, *, user=None):
         data = invoke("get_support_info")
         return _tool_result("Use this human support contact or open a support request from your NexHaat account.", data, "get_support_info")
 
+    if any(term in lowered for term in (
+        "price history", "price trend", "past price", "দামের ইতিহাস", "আগের দাম",
+        "দাম কেমন ছিল", "দামের পরিবর্তন",
+    )):
+        query = re.sub(
+            r"(?i)price history|price trend|past price|দামের ইতিহাস|আগের দাম|দাম কেমন ছিল|দামের পরিবর্তন|for|of|দেখাও|দেখান",
+            " ", text,
+        )
+        query = re.sub(r"\s+", " ", query).strip(" ,.-")[:100]
+        products = invoke("search_products", query=query, limit=3)
+        if not products:
+            return _tool_result("কোন পণ্যের যাচাইকৃত মূল্য-রেকর্ড খুঁজে পাইনি।" if "দাম" in lowered
+                                else "I could not identify a matching catalog product.", [],
+                                "get_product_price_history")
+        history = invoke("get_product_price_history", product_slug=products[0]["slug"])
+        observations = history.get("observations", []) if isinstance(history, dict) else []
+        if not observations:
+            answer = "এই পণ্যের পুরোনো পর্যবেক্ষিত দামের তথ্য নেই; তাই মূল্য-ইতিহাস দেখাতে পারছি না।" if "দাম" in lowered else "No earlier observed prices are available for this product, so I cannot show a price history."
+        elif len(observations) == 1:
+            answer = "এখন পর্যন্ত একটি যাচাইকৃত দামের পর্যবেক্ষণ আছে; প্রবণতা বলার মতো পুরোনো তথ্য নেই।" if "দাম" in lowered else "Only one verified price observation is available; there is not enough history to describe a trend."
+        else:
+            answer = (f"{history['product']} পণ্যের যাচাইকৃত দামের পর্যবেক্ষণ নিচে দেওয়া হয়েছে।"
+                      if "দাম" in lowered else f"Verified recorded price observations for {history['product']} are shown below.")
+        return _tool_result(answer, history, "get_product_price_history", products=products[:1])
+
     price_match = re.search(
         r"(?:under|below|less than|within|up to|max(?:imum)?|under tk|under bdt|এর নিচে|নিচে|বাজেট|এর মধ্যে|মধ্যে|से कम|के अंदर|ke moddhe|er moddhe|er niche)\s*(?:tk|৳|bdt|টাকা|रु)?\s*([\d,.]+)\s*(k|thousand|hazar|hajar|হাজার|हज़ार|हजार)?",
         lowered, re.I,
@@ -572,7 +689,7 @@ def _deterministic_fallback(prompt, *, user=None):
             maximum = None
     strip_patterns = (
         r"(?i)\b(?:show me|find|search|look for|recommend|suggest|please|i need|i want|for me|gift for|compare)\b",
-        r"(?:দেখাও|দেখান|খুঁজে দাও|খুঁজুন|আমার দরকার|আমার জন্য|ভালো|একটা|একটি|উপহার|জন্মদিনের জন্য)",
+        r"(?:দেখাও|দেখান|খুঁজে দাও|খুঁজুন|আমার দরকার|আমার জন্য|মায়ের জন্য|মায়ের জন্য|মায়ের|মায়ের|জন্য|ভালো|একটা|একটি|উপহার|সাজেস্ট(?: করো| করুন)?|জন্মদিনের জন্য|কম দামে|কম মূল্যে|সস্তা|চাই)",
         r"(?i)\b(?:amar|amr|lagbe|dorkar|valo|bhalo|dekhaw|khuje dao|gift|er jonno|er moddhe|ekta)\b",
         r"(?:मुझे|चाहिए|दिखाओ|अच्छा|एक|उपहार)",
     )
@@ -580,7 +697,9 @@ def _deterministic_fallback(prompt, *, user=None):
         query = re.sub(pattern, " ", query, flags=re.I).strip()
     query = re.sub(r"(?i)\b(?:under|below|less than|within|up to|budget|tk|bdt|hazar|hajar|thousand)\b|৳|টাকা|হাজার|এর নিচে|এর মধ্যে|এর|নিচে|মধ্যে|টাকার|के अंदर|से कम|हजार|हज़ार|rupees?|taka\b", " ", query)
     query = re.sub(r"\s+", " ", query).strip(" ,.-")[:100]
-    is_gift_or_recommendation = any(token in lowered for token in ("recommend", "suggest", "gift", "উপহার", "জন্মদিন", "উপহার", "सलाह", "उपहार"))
+    is_gift_or_recommendation = any(token in lowered for token in (
+        "recommend", "suggest", "gift", "উপহার", "সাজেস্ট", "জন্মদিন", "सलाह", "उपहार",
+    ))
     size_match = re.search(r"(?i)\b(?:size\s*)?(\d{1,3})\b", query)
     size = size_match.group(1) if size_match and any(token in lowered for token in ("size", "সাইজ", "साइज़", "42", "40")) else ""
     if size_match and size:
@@ -590,13 +709,20 @@ def _deterministic_fallback(prompt, *, user=None):
         query = re.sub(re.escape(color), " ", query, flags=re.I).strip()
     if is_gift_or_recommendation:
         if any(token in lowered for token in ("gift", "উপহার", "জন্মদিন", "उपहार")):
-            query = re.sub(r"(?i)\b(?:birthday|brother|sister|friend|mother|father|gift|present|for)\b|ভাইয়ের|ভাইয়ের|বোনের|জন্মদিনের|জন্য|উপহার|के लिए|जन्मदिन|भाई|बहन", " ", query)
+            query = re.sub(r"(?i)\b(?:birthday|brother|sister|friend|mother|father|gift|present|for)\b|ভাইয়ের|ভাইয়ের|বোনের|মায়ের|মায়ের|জন্মদিনের|জন্য|উপহার|সাজেস্ট(?: করো| করুন)?|के लिए|जन्मदिन|भाई|बहन", " ", query)
             query = re.sub(r"\s+", " ", query).strip()
         data = invoke("get_recommendations", query=query[:100], max_price=maximum, limit=5)
-        return _tool_result("Recommendations are ranked from currently available marketplace products and your permitted shopping signals.", data, "get_recommendations", products=data if isinstance(data, list) else [])
+        answer = (
+            "আপনার পছন্দ ও বর্তমানে মজুত পণ্যের তথ্য থেকে এই সুপারিশগুলো করা হয়েছে।"
+            if any("\u0980" <= char <= "\u09ff" for char in text)
+            else "Recommendations are ranked from currently available marketplace products and your permitted shopping signals."
+        )
+        return _tool_result(answer, data, "get_recommendations", products=data if isinstance(data, list) else [])
     is_compare = any(token in lowered for token in ("compare", "which is better", "vs", "তুলনা", "কোনটা ভালো", "कौन बेहतर"))
+    low_price = any(token in lowered for token in ("কম দামে", "কম মূল্যে", "সস্তা", "cheap", "low price", "affordable"))
     data = invoke("search_products", query=query or text[:100], max_price=maximum,
-                  size=size, attribute=color, limit=5)
+                  size=size, attribute=color, limit=5,
+                  sort="price_asc" if low_price else "featured")
     if is_compare and isinstance(data, list) and len(data) >= 2:
         compared = invoke("compare_products", slugs=[item["slug"] for item in data[:3]])
         return _tool_result("Compare the verified specifications, options, prices, and current stock shown below.", compared, "compare_products", products=compared if isinstance(compared, list) else [])
@@ -607,15 +733,19 @@ def _deterministic_fallback(prompt, *, user=None):
         return _tool_result("There is not enough order history to verify compatible or frequently bought items.", [], "get_frequently_bought_together")
     products = data if isinstance(data, list) else []
     if products:
-        answer = "Matching available products: " + ", ".join(
-            f"{row['name']} (BDT {row['price']})" for row in products[:3]
-        )
+        bengali = any("\u0980" <= char <= "\u09ff" for char in text)
+        label = "মিলে যাওয়া বর্তমানে মজুত পণ্য: " if bengali else "Matching available products: "
+        currency = "৳" if bengali else "BDT "
+        answer = label + ", ".join(f"{row['name']} ({currency}{row['price']})" for row in products[:3])
         return _tool_result(answer, products, "search_products", products=products)
-    answer = (
-        "No available catalog products matched. I can search products, prices, stock, and categories, "
-        "or help with your cart, orders, and store policies. "
-        f"{_customer_ai_unavailable_reason()}"
-    )
+    if any("\u0980" <= char <= "\u09ff" for char in text):
+        answer = "ক্যাটালগে বর্তমানে মজুত কোনো মেলা পণ্য পাওয়া যায়নি। পণ্য, দাম, স্টক বা ক্যাটাগরি খুঁজে দেখতে পারেন।"
+    else:
+        answer = (
+            "No available catalog products matched. I can search products, prices, stock, and categories, "
+            "or help with your cart, orders, and store policies. "
+            f"{_customer_ai_unavailable_reason()}"
+        )
     return _tool_result(answer, [], "search_products", products=[])
 
 

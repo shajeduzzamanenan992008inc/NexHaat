@@ -38,9 +38,10 @@ def create_app(config_object=None):
     babel.init_app(app, locale_selector=get_request_locale)
 
     from .models import AdminProfile, AppSetting, CustomerProfile, User  # noqa: F401
-    from .services import ai_notifications  # noqa: F401 - register opt-in product alert hooks
+    from .services import ai_notifications, ai_price_alerts  # noqa: F401 - register opt-in product alert hooks
     from .routes.auth import admin_login, auth_bp
     from .routes.ai import ai_bp
+    from .routes.ai_builder import ai_builder_bp
     from .routes.main import main_bp
     from .routes.notifications import notifications_bp
     from .routes.orders import orders_bp
@@ -54,6 +55,7 @@ def create_app(config_object=None):
 
     app.register_blueprint(main_bp)
     app.register_blueprint(ai_bp)
+    app.register_blueprint(ai_builder_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(seller_bp)
     app.register_blueprint(support_bp)
@@ -150,6 +152,51 @@ def create_app(config_object=None):
         created = seed_catalog_data()
         click.echo(f"Catalog seeded: {created} records created.")
 
+    @app.cli.command("index-ai-knowledge")
+    @click.option("--scope", type=click.Choice(["public", "customer", "seller", "admin", "rider", "security"]), default="public", show_default=True)
+    def index_ai_knowledge(scope):
+        """Index operator-curated Markdown from docs/ai-knowledge using local embeddings."""
+        if not app.config.get("AI_EMBEDDING_BASE_URL") or not app.config.get("AI_EMBEDDING_MODEL"):
+            raise click.ClickException("Configure the private AI_EMBEDDING_BASE_URL and AI_EMBEDDING_MODEL first.")
+        from .ai.core.knowledge import index_curated_knowledge
+        try:
+            count = index_curated_knowledge(app.root_path and Path(app.root_path).parent, scope=scope)
+        except (OSError, RuntimeError, ValueError) as error:
+            db.session.rollback()
+            raise click.ClickException("AI knowledge indexing failed safely.") from error
+        click.echo(f"Curated AI knowledge chunks indexed: {count} (scope: {scope}).")
+
+    @app.cli.command("benchmark-ai")
+    def benchmark_ai():
+        """Run private-local AI quality checks without storing prompts or answers."""
+        if not (
+            app.config.get("AI_LOCAL_ENABLED")
+            and app.config.get("AI_LOCAL_BASE_URL")
+            and app.config.get("AI_LOCAL_MODEL")
+        ):
+            raise click.ClickException(
+                "Configure the private local AI endpoint and model before running the benchmark."
+            )
+        from .ai.core.permissions import AI_SCOPE_ADMIN
+        from .ai.core.provider import AIService
+        from .ai.evaluation import evaluate_ai
+
+        service = AIService(app.config)
+        if not service.local_available:
+            raise click.ClickException("The private local AI endpoint is not available in this configuration.")
+        report = evaluate_ai(lambda prompt: service.respond(
+            prompt, scope=AI_SCOPE_ADMIN, allow_external=False,
+        ))
+        for result in report["results"]:
+            state = "PASS" if result["passed"] else "FAIL"
+            click.echo(f"{state} {result['category']}: {result['case_id']}")
+        click.echo(
+            f"Automated checks: {report['passed_count']}/{report['case_count']} passed; "
+            "human review is still required. Answers were not stored or printed."
+        )
+        if report["failed_count"]:
+            raise click.ClickException("AI benchmark has failed automated checks.")
+
     @app.cli.command("import-fdc")
     @click.option("--zip-path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path))
     @click.option("--release", required=True, help="USDA FoodData Central release label, such as 2024-10-31.")
@@ -239,11 +286,13 @@ def create_app(config_object=None):
     @app.cli.command("retry-telegram-alerts")
     @click.option("--limit", default=50, show_default=True, type=click.IntRange(min=1, max=200))
     def retry_telegram_alerts(limit):
-        """Deliver pending, privacy-minimized Telegram security alerts."""
+        """Deliver pending Telegram security alerts and external AI notices."""
         from .services.telegram_alerts import deliver_telegram_security_alerts
+        from .services.ai_external_notices import deliver_pending_external_call_notices
 
         delivered = deliver_telegram_security_alerts(limit=limit)
-        click.echo(f"Telegram security alerts delivered: {delivered}.")
+        delivered += deliver_pending_external_call_notices(limit=limit)
+        click.echo(f"Telegram security notices delivered: {delivered}.")
 
     @app.cli.command("smart-ai-notification-digest")
     @click.option("--limit", default=200, show_default=True, type=click.IntRange(min=1, max=1000))
@@ -375,7 +424,7 @@ def create_app(config_object=None):
         configured = 0
         bot_configs = (
             ("customer", ["message", "callback_query"]),
-            ("security", ["message"]),
+            ("security", ["message", "callback_query"]),
         )
         if selected_bot:
             bot_configs = tuple(item for item in bot_configs if item[0] == selected_bot)

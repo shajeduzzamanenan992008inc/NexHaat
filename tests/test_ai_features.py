@@ -18,9 +18,9 @@ from app.ai.security_tools import build_security_tool_registry
 from app.ai.seller_tools import build_seller_tool_registry
 from app.extensions import db
 from app.models import (
-    AIPreferences, AuditEvent, Category, CustomerCartItem, CustomerProfile,
+    AIProductPriceAlert, AIProductPriceHistory, AIPreferences, AuditEvent, Category, CustomerCartItem, CustomerProfile,
     Notification, Product, ProductVariant, RecentViewedProduct, Review,
-    SellerProfile, SupportConversation, SupportMessage, User, WishlistItem,
+    SellerProfile, SupportConversation, SupportMessage, TelegramSecurityAlert, User, WishlistItem,
 )
 from app.services.ai_notifications import _emit_opted_in_alerts, send_smart_notification_digest
 from app.services.cart import add_customer_cart_item
@@ -81,7 +81,14 @@ def test_customer_tool_cannot_read_another_customers_cart_or_override_identity(a
         assert forged["ok"] is False
 
 
-def test_cart_proposals_need_confirmation_and_revalidate_current_price(client, app):
+def test_cart_proposals_need_confirmation_and_revalidate_current_price(client, app, monkeypatch):
+    from app.models import AuditEvent
+
+    notices = []
+    monkeypatch.setattr(
+        "app.services.ai_action_notices.deliver_telegram_security_alerts",
+        lambda *, alert_id: notices.append(alert_id) or 1,
+    )
     with app.app_context():
         customer = _user("customer", "cart-confirm")
         product = _product()
@@ -103,6 +110,29 @@ def test_cart_proposals_need_confirmation_and_revalidate_current_price(client, a
     with app.app_context():
         from app.models import CustomerCartItem
         assert CustomerCartItem.query.filter_by(user_id=customer_id).count() == 0
+        assert db.session.query(AuditEvent).filter_by(
+            action="customer.ai.cart_change.confirmed"
+        ).count() == 0
+
+    fresh = client.post("/ai/cart/proposal", json={
+        "action": "add", "product_slug": product_slug, "quantity": 1,
+    })
+    assert fresh.status_code == 200
+    confirmed = client.post("/ai/cart/confirm", json={
+        "proposal_id": fresh.get_json()["proposal_id"],
+    })
+    assert confirmed.status_code == 200
+    assert confirmed.get_json()["ok"] is True
+    assert len(notices) == 1
+    with app.app_context():
+        assert db.session.query(CustomerCartItem).filter_by(user_id=customer_id).count() == 1
+        event = db.session.query(AuditEvent).filter_by(
+            action="customer.ai.cart_change.confirmed"
+        ).one()
+        alert = db.session.query(TelegramSecurityAlert).filter_by(
+            audit_event_id=event.id
+        ).one()
+        assert alert.status == "pending"
 
 
 def test_customer_language_fallback_extracts_banglish_and_hindi_budget(app):
@@ -114,6 +144,29 @@ def test_customer_language_fallback_extracts_banglish_and_hindi_budget(app):
         hindi = handle_marketplace_ai_query("मुझे headphone दो हजार के अंदर दिखाओ")
     assert [item["slug"] for item in banglish["products"]] == ["wireless-headphone"]
     assert [item["slug"] for item in hindi["products"]] == ["wireless-headphone"]
+
+
+def test_bangla_budget_and_gift_prompts_use_grounded_catalog_without_ai(app, monkeypatch):
+    from app.ai.marketplace_tools import handle_marketplace_ai_query
+
+    def fail_if_provider_called(*_args, **_kwargs):
+        raise AssertionError("Bangla shopping requests must use verified catalog data.")
+
+    monkeypatch.setattr("app.ai.marketplace_tools.AIService.respond", fail_if_provider_called)
+    with app.app_context():
+        _product("Compact Blender", "compact-blender", price="1250.00")
+        _product("Premium Blender", "premium-blender", price="4200.00")
+        _product("Gardening Gloves", "gardening-gloves", price="500.00")
+        db.session.commit()
+
+        budget = handle_marketplace_ai_query("কম দামে ভালো blender চাই")
+        gift = handle_marketplace_ai_query("মায়ের জন্য gardening gift সাজেস্ট করো")
+
+    assert [item["slug"] for item in budget["products"]] == ["compact-blender", "premium-blender"]
+    assert budget["products"][0]["price"] == "1250.00"
+    assert "মিলে যাওয়া" in budget["answer"]
+    assert [item["slug"] for item in gift["products"]] == ["gardening-gloves"]
+    assert "সুপারিশ" in gift["answer"]
 
 
 def test_seller_listing_tool_is_owner_scoped_and_suggestions_are_read_only(app):
@@ -189,7 +242,8 @@ def test_smart_notification_digest_recommends_only_after_customer_signal(app):
         viewed = _product("Viewed Product", "viewed-product")
         pick = _product("Recommended Product", "recommended-product")
         db.session.add_all([
-            AIPreferences(user_id=customer.id, smart_notifications_enabled=True),
+                AIPreferences(user_id=customer.id, smart_notifications_enabled=True,
+                              personalized_recommendations_enabled=True),
             RecentViewedProduct(user_id=customer.id, product_id=viewed.id,
                                 viewed_at=datetime.now(timezone.utc)),
         ])
@@ -285,10 +339,97 @@ def test_personalized_home_recommendations_use_private_customer_signals(app):
         viewed = _product("Viewed Item", "viewed-item")
         related = _product("Related Item", "related-item")
         db.session.add(WishlistItem(user_id=customer.id, product_id=viewed.id))
+        db.session.add(AIPreferences(user_id=customer.id))
+        db.session.commit()
+        assert personalized_products_for_user(customer) == []
+        preference = db.session.get(AIPreferences, customer.id)
+        preference.personalized_recommendations_enabled = True
         db.session.commit()
         results = personalized_products_for_user(customer)
         assert related in results
         assert viewed not in results
+
+
+def test_price_history_uses_observed_catalog_prices_and_missing_history_is_honest(app):
+    from app.ai.marketplace_tools import handle_marketplace_ai_query
+
+    with app.app_context():
+        product = _product()
+        db.session.commit()
+        first = AIProductPriceHistory.query.filter_by(product_id=product.id).one()
+        assert first.effective_price == Decimal("1800.00")
+        product.price = Decimal("1700.00")
+        db.session.commit()
+        history = AIProductPriceHistory.query.filter_by(product_id=product.id).order_by(
+            AIProductPriceHistory.recorded_at.desc()
+        ).all()
+        assert [row.effective_price for row in history] == [Decimal("1700.00"), Decimal("1800.00")]
+        answer = handle_marketplace_ai_query("price history for wireless headphone")
+        assert answer["tools_used"] == ["get_product_price_history"]
+        assert answer["data"]["observation_count"] == 2
+
+        AIProductPriceHistory.query.filter_by(product_id=product.id).delete()
+        db.session.commit()
+        missing = handle_marketplace_ai_query("price history for wireless headphone")
+        assert missing["data"]["observations"] == []
+        assert "No earlier observed" in missing["answer"]
+
+
+def test_target_price_alert_notifies_once_when_price_crosses_target(app):
+    from app.services.ai_price_alerts import save_price_alert
+
+    with app.app_context():
+        customer = _user("customer", "target-price")
+        product = _product()
+        db.session.commit()
+        alert = save_price_alert(customer, product, Decimal("1700.00"))
+        assert alert.active
+        product.price = Decimal("1750.00")
+        db.session.commit()
+        assert alert.active
+        assert AIProductPriceHistory.query.filter_by(product_id=product.id).order_by(
+            AIProductPriceHistory.recorded_at.desc(), AIProductPriceHistory.id.desc()
+        ).first().effective_price == Decimal("1750.00")
+        product.price = Decimal("1700.00")
+        db.session.commit()
+        assert AIProductPriceHistory.query.filter_by(product_id=product.id).order_by(
+            AIProductPriceHistory.recorded_at.desc(), AIProductPriceHistory.id.desc()
+        ).first().effective_price == Decimal("1700.00")
+        assert not alert.active and alert.notified_at is not None
+        notice = Notification.query.filter_by(user_id=customer.id).one()
+        assert "BDT 1700.00" in notice.message
+        assert notice.link == f"/food/{product.slug}?from=ai-price-alert"
+        product.price = Decimal("1600.00")
+        db.session.commit()
+        assert Notification.query.filter_by(user_id=customer.id).count() == 1
+
+
+def test_price_alert_form_is_scoped_to_signed_in_customer(client, app):
+    app.config["WTF_CSRF_ENABLED"] = False
+    with app.app_context():
+        owner = _user("customer", "price-alert-owner")
+        other = _user("customer", "price-alert-other")
+        product = _product()
+        db.session.commit()
+        product_slug = product.slug
+        owner_id, owner_version = owner.id, owner.auth_version
+        other_id, other_version = other.id, other.auth_version
+
+    _sign_in(client, type("Identity", (), {"id": owner_id, "auth_version": owner_version})())
+    detail = client.get(f"/food/{product_slug}")
+    assert detail.status_code == 200
+    assert b"Set price alert" in detail.data
+    history_response = client.get(f"/ai/price-history/{product_slug}")
+    assert history_response.status_code == 200
+    assert history_response.get_json()["history"]
+    saved = client.post(f"/ai/price-alert/{product_slug}", data={"target_price": "1700.00"})
+    assert saved.status_code == 302
+    _sign_in(client, type("Identity", (), {"id": other_id, "auth_version": other_version})())
+    cancelled = client.post(f"/ai/price-alert/{product_slug}", data={"action": "cancel"})
+    assert cancelled.status_code == 302
+    with app.app_context():
+        alert = AIProductPriceAlert.query.one()
+        assert alert.user_id == owner_id and alert.active
 
 
 def test_admin_and_seller_ai_pages_reject_customer_scope(client, app):
@@ -336,6 +477,46 @@ def test_admin_copilot_returns_real_read_only_data(client, app):
         result = handle_admin_ai_query("Show low stock and product performance", user=admin)
         assert result["ok"] is True
         assert "get_product_performance" in result["tools_used"]
+
+
+def test_admin_ai_query_logs_without_prompt_and_shows_web_activity(client, app, monkeypatch):
+    app.config.update(
+        TELEGRAM_SECURITY_BOT_TOKEN="security-test-token",
+        TELEGRAM_SECURITY_ADMIN_IDS="9001",
+        PUBLIC_BASE_URL="https://shop.example.test",
+    )
+    with app.app_context():
+        admin = _user("admin", "ai-notice")
+        db.session.commit()
+        identity = (admin.id, admin.auth_version)
+    with client.session_transaction() as browser_session:
+        browser_session["user_id"], browser_session["auth_version"] = identity
+
+    prompt = "Private weekly sales question must never appear in Telegram."
+    monkeypatch.setattr(
+        "app.ai.admin_tools.handle_admin_ai_query",
+        lambda _prompt, *, user: {"ok": True, "answer": "Sales report ready.", "tools_used": []},
+    )
+    from unittest.mock import patch
+
+    with patch("app.services.telegram_alerts.send_message", return_value=True) as send:
+        response = client.post("/admin/ai/query", json={"prompt": prompt})
+        page = client.get("/admin/ai")
+
+    assert response.status_code == 200
+    assert page.status_code == 200
+    assert b"Recent AI activity" in page.data
+    assert b"Admin AI query started" in page.data
+    assert b"Admin AI query completed" in page.data
+    assert send.call_count == 2
+    assert all(prompt not in call.args[2] for call in send.call_args_list)
+    with app.app_context():
+        events = db.session.query(AuditEvent).filter(
+            AuditEvent.actor_id == identity[0],
+            AuditEvent.action.in_(("admin.ai.query.started", "admin.ai.query.completed")),
+        ).all()
+        assert len(events) == 2
+        assert all(event.detail is None for event in events)
 
 
 def test_ai_settings_urls_and_malformed_model_tool_calls_are_safe():
@@ -426,6 +607,40 @@ def test_mocked_vision_and_transcription_never_need_live_provider():
     assert provider.describe_image(image_bytes=b"mock image", content_type="image/jpeg") == "black running shoe"
     assert "data:image/jpeg;base64," in fake.calls[0][1]["json"]["messages"][0]["content"][1]["image_url"]["url"]
     assert provider.transcribe(audio=b"mock audio", filename="voice.webm", content_type="audio/webm") == "headphones under 2000"
+
+
+def test_private_local_vision_and_asr_can_use_internal_https_without_api_key():
+    class FakeResponse:
+        def __init__(self, value):
+            self.value = value
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.value
+
+    class FakeSession:
+        def __init__(self):
+            self.responses = [
+                FakeResponse({"choices": [{"message": {"content": "blue backpack"}}]}),
+                FakeResponse({"text": "backpack under 3000"}),
+            ]
+            self.calls = []
+
+        def post(self, *args, **kwargs):
+            self.calls.append(kwargs)
+            return self.responses.pop(0)
+
+    fake = FakeSession()
+    provider = OpenAICompatibleProvider(
+        api_key="", model="local-model", base_url="https://gpu.internal/v1",
+        session=fake, allow_missing_key=True, require_https=True,
+    )
+    assert provider.describe_image(image_bytes=b"image") == "blue backpack"
+    assert provider.transcribe(audio=b"audio", filename="voice.webm",
+                               content_type="audio/webm") == "backpack under 3000"
+    assert all("Authorization" not in call["headers"] for call in fake.calls)
 
 
 def test_security_assistant_is_numeric_allowlist_scoped_and_read_only(app):
@@ -550,8 +765,27 @@ def test_migration_reaches_single_head_with_ai_and_support_tables(tmp_path):
     with migration_app.app_context():
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
-        assert {"ai_request_windows", "ai_preferences", "support_conversations", "support_messages"} <= tables
+        assert {"ai_request_windows", "ai_preferences", "support_conversations", "support_messages",
+            "ai_external_consents", "ai_external_spend", "ai_user_memories", "ai_knowledge_chunks",
+            "ai_external_call_notices", "ai_external_call_recipients",
+            "ai_product_price_history", "ai_product_price_alerts", "ai_builder_jobs"} <= tables
         columns = {item["name"] for item in inspect(db.engine).get_columns("ai_preferences")}
-        assert {"last_cart_reminder_at", "last_recommendation_notification_at"} <= columns
+        assert {"last_cart_reminder_at", "last_recommendation_notification_at",
+                "long_term_memory_enabled", "personalized_recommendations_enabled"} <= columns
         heads = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
-        assert heads == ["20261006_26"]
+        assert heads == ["20261007_30"]
+
+    downgraded = migration_app.test_cli_runner().invoke(args=["db", "downgrade", "20261007_29"])
+    assert downgraded.exit_code == 0, downgraded.output
+    with migration_app.app_context():
+        inspector = inspect(db.engine)
+        assert not inspector.has_table("ai_builder_jobs")
+        assert inspector.has_table("ai_product_price_history")
+        assert inspector.has_table("ai_product_price_alerts")
+        columns = {item["name"] for item in inspector.get_columns("ai_preferences")}
+        assert "personalized_recommendations_enabled" in columns
+    upgraded = migration_app.test_cli_runner().invoke(args=["db", "upgrade"])
+    assert upgraded.exit_code == 0, upgraded.output
+    with migration_app.app_context():
+        heads = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
+        assert heads == ["20261007_30"]

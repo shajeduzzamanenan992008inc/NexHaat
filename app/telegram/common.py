@@ -1,6 +1,8 @@
 import hmac
 import logging
 import time
+from io import BytesIO
+from urllib.parse import quote, urlsplit
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -163,6 +165,116 @@ def send_message(bot_name, chat_id, text, reply_markup=None):
     except (requests.RequestException, ValueError) as error:
         logger.warning("Telegram %s bot request failed (%s).", bot_name, type(error).__name__)
         return False
+
+
+def synthesize_local_speech(text):
+    config = current_app.config
+    base_url = str(config.get("AI_TTS_BASE_URL") or "").strip().rstrip("/")
+    model = str(config.get("AI_TTS_MODEL") or "").strip()
+    parsed = urlsplit(base_url)
+    if (not text or len(text) > 1200 or not model or not parsed.hostname
+            or parsed.scheme not in {"https", "http"} or parsed.username or parsed.password
+            or parsed.query or parsed.fragment
+            or config.get("ENVIRONMENT") == "production" and parsed.scheme != "https"):
+        return None
+    headers = {"Content-Type": "application/json"}
+    key = str(config.get("AI_LOCAL_API_KEY") or "").strip()
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    try:
+        response = requests.post(
+            f"{base_url}/audio/speech",
+            json={"model": model, "input": text, "voice": str(config.get("AI_TTS_VOICE") or "default"),
+                  "response_format": "wav"},
+            headers=headers, timeout=min(45, max(1, int(config.get("AI_TIMEOUT", 15))) * 2),
+            stream=True,
+        )
+        try:
+            response.raise_for_status()
+            content = bytearray()
+            for chunk in response.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    if len(content) + len(chunk) > 10 * 1024 * 1024:
+                        return None
+                    content.extend(chunk)
+            content_type = response.headers.get("Content-Type", "audio/wav").split(";", 1)[0]
+            if not content or content_type not in {"audio/wav", "audio/x-wav", "audio/mpeg",
+                                                     "audio/mp4", "audio/ogg", "audio/webm"}:
+                return None
+            return bytes(content), content_type
+        finally:
+            response.close()
+    except (requests.RequestException, TypeError, ValueError, AttributeError) as error:
+        logger.warning("Telegram local speech synthesis failed (%s).", type(error).__name__)
+        return None
+
+
+def send_voice(bot_name, chat_id, audio, content_type="audio/wav"):
+    token = current_app.config.get(f"TELEGRAM_{bot_name.upper()}_BOT_TOKEN")
+    extensions = {"audio/wav": "wav", "audio/x-wav": "wav", "audio/mpeg": "mp3",
+                  "audio/mp4": "m4a", "audio/ogg": "ogg", "audio/webm": "webm"}
+    if not token or not isinstance(audio, bytes) or not audio or len(audio) > 10 * 1024 * 1024:
+        return False
+    extension = extensions.get(content_type)
+    if extension is None:
+        return False
+    try:
+        response = requests.post(
+            f"https://api.telegram.org/bot{token}/sendVoice",
+            data={"chat_id": chat_id},
+            files={"voice": (f"answer.{extension}", BytesIO(audio), content_type)},
+            timeout=max(1, int(current_app.config.get("TELEGRAM_API_TIMEOUT", 10))),
+        )
+        if response.status_code != 200:
+            logger.warning("Telegram %s voice send failed (HTTP %s).", bot_name, response.status_code)
+            return False
+        result = response.json()
+        return isinstance(result, dict) and result.get("ok") is True
+    except (requests.RequestException, ValueError) as error:
+        logger.warning("Telegram %s voice send failed (%s).", bot_name, type(error).__name__)
+        return False
+
+
+def download_telegram_file(bot_name, file_id, *, max_bytes=8 * 1024 * 1024):
+    token = current_app.config.get(f"TELEGRAM_{bot_name.upper()}_BOT_TOKEN")
+    if not token or not isinstance(file_id, str) or not file_id or len(file_id) > 512:
+        return None
+    timeout = max(1, int(current_app.config.get("TELEGRAM_API_TIMEOUT", 10)))
+    try:
+        metadata_response = requests.get(
+            f"https://api.telegram.org/bot{token}/getFile",
+            params={"file_id": file_id}, timeout=timeout,
+        )
+        metadata_response.raise_for_status()
+        metadata = metadata_response.json()
+        file_path = metadata.get("result", {}).get("file_path") if metadata.get("ok") is True else None
+        if (not isinstance(file_path, str) or not file_path or len(file_path) > 1024
+                or ".." in file_path.split("/")
+            or any(not part or not all(char.isascii() and (char.isalnum() or char in "._-")
+                           for char in part)
+                   for part in file_path.split("/"))):
+            return None
+        response = requests.get(
+            f"https://api.telegram.org/file/bot{token}/{quote(file_path, safe='/._-')}",
+            timeout=timeout, stream=True, allow_redirects=False,
+        )
+        try:
+            response.raise_for_status()
+            content_length = response.headers.get("Content-Length")
+            if content_length and int(content_length) > max_bytes:
+                return None
+            content = bytearray()
+            for chunk in response.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    if len(content) + len(chunk) > max_bytes:
+                        return None
+                    content.extend(chunk)
+            return bytes(content) if content else None
+        finally:
+            response.close()
+    except (requests.RequestException, TypeError, ValueError, AttributeError) as error:
+        logger.warning("Telegram %s file download failed (%s).", bot_name, type(error).__name__)
+        return None
 
 
 def answer_callback(bot_name, callback_id, text=""):
