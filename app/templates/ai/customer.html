@@ -1,48 +1,59 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Shopping assistant') }} · {{ app_name }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261006_ai1') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261007_ai13') }}">{% endblock %}
 {% block page_content %}
 <div class="page-shell ai-page">
   <header class="page-heading">
     <div><p class="eyebrow">{{ _('NexHaat AI Core') }}</p><h1>{{ _('Shopping assistant') }}</h1>
-      <p>{{ _('Search the real catalog, compare products, and get help with your own cart and orders.') }}</p></div>
+      <p>{{ _('Ask general questions, get coding help, search the live catalog, and manage your shopping journey.') }}</p></div>
     <a class="button button--secondary" href="{{ url_for('main.menu') }}">{{ _('Browse catalog') }}</a>
   </header>
   <div class="ai-layout">
     <section class="surface surface-card ai-chat" aria-labelledby="ai-chat-title">
       <h2 id="ai-chat-title">{{ _('Ask NexHaat') }}</h2>
-      <p class="muted">{{ _('Bangla, English, Hindi, and Banglish are supported. Product, price, and stock details come from the live catalog.') }}</p>
-      {% if not ai_provider_configured %}<p class="muted" role="status">{{ _('AI text answers are currently unavailable. Product and category search can still use the live marketplace catalog.') }}</p>{% endif %}
+      <p class="muted">{{ _('Bangla, English, Hindi, and Banglish are supported. Product, price, stock, cart, and order facts stay grounded in NexHaat data.') }}</p>
+      {% if not ai_provider_configured %}<p class="muted" role="status">{{ _('The private local AI endpoint is not connected. Catalog search and account tools remain available.') }}</p>{% endif %}
       <div class="ai-chat__messages" id="ai-messages" aria-live="polite" aria-relevant="additions text">
-        <p class="ai-message ai-message--assistant">{{ _('Tell me what you are looking for, or ask about your cart, orders, or store policies.') }}</p>
+        <p class="ai-message ai-message--assistant">{{ _('Ask me anything, request coding help, or tell me what you want to shop for.') }}</p>
       </div>
       <form id="ai-chat-form" class="ai-chat__form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="ai-prompt">{{ _('Your question') }}</label>
-        <div class="ai-chat__input"><input id="ai-prompt" name="prompt" maxlength="2000" autocomplete="off" required placeholder="{{ _('Example: amar 2k er moddhe headphone lagbe') }}">
-          <button class="button" type="submit">{{ _('Ask') }}</button></div>
+        <div class="ai-chat__input">
+          <div class="ai-input-tools" aria-label="AI attachments and voice controls">
+            <button class="ai-input-tool" id="ai-attach-button" type="button" aria-label="{{ _('Attach files or images') }}">＋</button>
+            <button class="ai-input-tool ai-input-tool--voice" id="ai-voice-toggle" type="button" aria-label="{{ _('Start voice chat') }}">🎙️</button>
+            <input id="ai-attachment-input" type="file" name="attachment" multiple webkitdirectory directory aria-label="{{ _('Choose files, folders or images') }}" hidden>
+          </div>
+          <input id="ai-prompt" name="prompt" maxlength="2000" autocomplete="off" required placeholder="{{ _('Example: amar 2k er moddhe headphone lagbe') }}">
+          <button class="button" type="submit">{{ _('Ask') }}</button>
+        </div>
+        <div id="ai-attachment-list" class="ai-attachment-list" aria-live="polite"></div>
+        <label class="ai-checkbox ai-external-consent"><input id="ai-external-consent" type="checkbox" {% if external_ai_consent %}checked{% endif %}>
+          <span><strong>{{ _('Allow external specialist help for complex questions') }}</strong><small>{{ _('When enabled and the site spending cap is configured, a complex general prompt may be sent to up to three external model calls. Account records and security data are never sent. Turn this off any time.') }}</small></span>
+        </label>
       </form>
     </section>
     <aside class="ai-tools">
       <section class="surface surface-card">
-        <h2>{{ _('Voice search') }}</h2><p class="muted">{{ _('Upload a short voice recording. Audio is sent for transcription and not stored.') }}</p>
+        <h2>{{ _('Voice search') }}</h2><p class="muted">{{ _('Voice is transcribed by the private local Whisper service. Audio and transcript are not stored.') }}</p>
         <form id="ai-voice-form" enctype="multipart/form-data">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <label for="ai-audio">{{ _('Audio recording') }}</label><input id="ai-audio" name="audio" type="file" accept="audio/webm,audio/wav,audio/mpeg,audio/mp4,audio/ogg">
           <button class="button button--secondary" id="ai-record-button" type="button">{{ _('Start voice recording') }}</button>
-          <p id="ai-record-status" class="muted" aria-live="polite">{{ _('Recording is sent for transcription and not stored.') }}</p>
+          <p id="ai-record-status" class="muted" aria-live="polite">{{ _('Local transcription processes the recording in memory only.') }}</p>
           <button class="button button--secondary" type="submit">{{ _('Search by voice') }}</button>
         </form>
       </section>
       <section class="surface surface-card">
-        <h2>{{ _('Visual search') }}</h2><p class="muted">{{ _('Upload a product image to find similar available catalog items. The image is processed in memory only.') }}</p>
+        <h2>{{ _('Visual search') }}</h2><p class="muted">{{ _('The private local vision model analyzes your image in memory, then searches available catalog items.') }}</p>
         <form id="ai-image-form" enctype="multipart/form-data">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <label for="ai-image">{{ _('Product image') }}</label><input id="ai-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" required>
           <button class="button button--secondary" type="submit">{{ _('Find similar products') }}</button>
         </form>
       </section>
-      {% if user %}<p><a href="{{ url_for('ai.preferences') }}">{{ _('AI notification preferences') }}</a></p>
+      {% if user %}<p><a href="{{ url_for('ai.preferences') }}">{{ _('AI privacy and memory preferences') }}</a></p>
       <p><a href="{{ url_for('support.customer_cases') }}">{{ _('Contact human support') }}</a></p>{% endif %}
     </aside>
   </div>
@@ -51,7 +62,9 @@
   <input id="ai-cart-confirm-endpoint" type="hidden" value="{{ url_for('ai.confirm_cart_change') }}">
   <input id="ai-voice-endpoint" type="hidden" value="{{ url_for('ai.voice_search') }}">
   <input id="ai-image-endpoint" type="hidden" value="{{ url_for('ai.image_search') }}">
+  <input id="ai-consent-endpoint" type="hidden" value="{{ url_for('ai.external_consent') }}">
+  <input id="ai-speak-endpoint" type="hidden" value="{{ url_for('ai.speak') }}">
   <input id="ai-csrf" type="hidden" value="{{ csrf_token() }}">
 </div>
-<script src="{{ url_for('static', filename='js/ai-customer.js', v='20261006_ai1') }}" defer></script>
+<script src="{{ url_for('static', filename='js/ai-customer.js', v='20261007_ai13') }}" defer></script>
 {% endblock %}
