@@ -66,6 +66,17 @@ def test_search_is_tolerant_to_common_typo_errors(client, app):
     assert b"Garden Pizza" in response.data
 
 
+def test_single_word_search_stays_in_catalog_while_natural_language_can_use_ai(client, app):
+    add_catalog()
+    catalog_response = client.get("/search?q=garden")
+    assert catalog_response.status_code == 200
+    assert b"Garden Pizza" in catalog_response.data
+
+    ai_response = client.get("/search?q=which%20pizza%20is%20best")
+    assert ai_response.status_code == 302
+    assert "/ai/" in ai_response.headers["Location"]
+
+
 def test_store_stock_variant_and_deals_discovery(client, app):
     with app.app_context():
         category = Category(name="Discovery", slug="discovery", is_active=True)

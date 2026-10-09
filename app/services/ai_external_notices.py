@@ -26,9 +26,20 @@ def _admin_ids(config):
     return sorted(result)
 
 
+def _local_dev_notice_mode(config):
+    """Allow metadata-only notice persistence only for explicit local SQLite development."""
+    environment = str(config.get("ENVIRONMENT") or "").strip().lower()
+    database_uri = str(config.get("SQLALCHEMY_DATABASE_URI") or "").strip().lower()
+    enabled = config.get("AI_EXTERNAL_LOCAL_NOTICE_MODE") is True or str(
+        config.get("AI_EXTERNAL_LOCAL_NOTICE_MODE") or ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    return enabled and environment in {"development", "dev"} and database_uri.startswith("sqlite:")
+
+
 def external_call_notices_ready(config):
-    if not config.get("TELEGRAM_SECURITY_BOT_TOKEN") or not _admin_ids(config):
-        return False
+    if not _local_dev_notice_mode(config):
+        if not config.get("TELEGRAM_SECURITY_BOT_TOKEN") or not _admin_ids(config):
+            return False
     try:
         db.session.execute(select(AIExternalCallNotice.id).limit(1)).first()
         return True
@@ -56,8 +67,11 @@ def _notice_text(notice):
 
 
 def record_external_call_notice(*, config, provider, model, purpose, estimated_cost_usd, job_id=None):
-    recipients = _admin_ids(config)
-    if not config.get("TELEGRAM_SECURITY_BOT_TOKEN") or not recipients:
+    local_dev_mode = _local_dev_notice_mode(config)
+    recipients = [] if local_dev_mode else _admin_ids(config)
+    if not local_dev_mode and (
+        not config.get("TELEGRAM_SECURITY_BOT_TOKEN") or not recipients
+    ):
         return None
     call_id = str(uuid4())
     notice = AIExternalCallNotice(
@@ -80,7 +94,10 @@ def record_external_call_notice(*, config, provider, model, purpose, estimated_c
         db.session.rollback()
         logger.warning("External AI notice persistence failed (%s).", type(error).__name__)
         return None
-    deliver_external_call_notice(call_id)
+    # In explicit local SQLite development, persist the metadata-only audit entry,
+    # but never attempt to contact a production Telegram bot from the workstation.
+    if not local_dev_mode:
+        deliver_external_call_notice(call_id)
     return call_id
 
 
@@ -123,11 +140,15 @@ def deliver_external_call_notice(call_id):
 
 
 def external_call_notice_delivered(call_id):
+    from flask import current_app
+
     try:
         notice = db.session.get(AIExternalCallNotice, call_id)
-        return bool(notice and notice.recipients and all(
-            recipient.status == "sent" for recipient in notice.recipients
-        ))
+        if not notice:
+            return False
+        if not notice.recipients:
+            return _local_dev_notice_mode(current_app.config)
+        return all(recipient.status == "sent" for recipient in notice.recipients)
     except SQLAlchemyError:
         db.session.rollback()
         return False

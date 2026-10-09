@@ -23,6 +23,8 @@ LOCAL_DIRECT_AI_SETTINGS = frozenset({
     "AI_EXTERNAL_MONTHLY_BUDGET_USD",
     "AI_API_INPUT_USD_PER_MILLION",
     "AI_API_OUTPUT_USD_PER_MILLION",
+    "AI_API_IS_FREE",
+    "AI_EXTERNAL_LOCAL_NOTICE_MODE",
 })
 
 
@@ -286,6 +288,10 @@ class Config:
     AI_EXTERNAL_MAX_TOKENS = int(os.getenv("AI_EXTERNAL_MAX_TOKENS", "1024"))
     AI_API_INPUT_USD_PER_MILLION = os.getenv("AI_API_INPUT_USD_PER_MILLION", "0").strip()
     AI_API_OUTPUT_USD_PER_MILLION = os.getenv("AI_API_OUTPUT_USD_PER_MILLION", "0").strip()
+    # Enable only for a verified zero-priced OpenRouter free model; the provider URL/model are validated again.
+    AI_API_IS_FREE = _env_bool("AI_API_IS_FREE", False)
+    # Local SQLite development can persist external-call notices without contacting a production Telegram bot.
+    AI_EXTERNAL_LOCAL_NOTICE_MODE = _env_bool("AI_EXTERNAL_LOCAL_NOTICE_MODE", False)
     AI_SPECIALISTS = {
         "openai": {"api_key": os.getenv("AI_OPENAI_API_KEY", "").strip(),
                    "model": os.getenv("AI_OPENAI_MODEL", "").strip(),
@@ -339,6 +345,8 @@ class TestingConfig(Config):
     AI_SEARCH_BASE_URL = ""
     AI_EXTERNAL_ENABLED = False
     AI_EXTERNAL_MONTHLY_BUDGET_USD = "0"
+    AI_API_IS_FREE = False
+    AI_EXTERNAL_LOCAL_NOTICE_MODE = False
     AI_SPECIALISTS = {}
 
 

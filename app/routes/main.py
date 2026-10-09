@@ -178,25 +178,10 @@ def _search_routes_to_ai(query):
         return False
     if any(ord(character) > 127 for character in term):
         return False
-    if " " in term or "-" in term:
-        return True
-    product_names = [
-        name for name in db.session.scalars(
-            select(Product.name).where(
-                Product.is_available.is_(True),
-                Product.moderation_status == "approved",
-            )
-        ).all() if name
-    ]
-    if product_names:
-        lowered = term.lower()
-        catalog_terms = {
-            token
-            for name in product_names
-            for token in re.findall(r"[a-z0-9]+", name.lower())
-        }
-        if any(SequenceMatcher(None, lowered, token).ratio() >= 0.78 for token in catalog_terms):
-            return False
+    # Keep single-token searches in the catalog. The catalog service performs
+    # bounded fuzzy matching, so common typos still return useful products.
+    if " " not in term and "-" not in term:
+        return False
     return True
 
 

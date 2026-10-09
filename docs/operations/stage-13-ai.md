@@ -42,9 +42,12 @@ catalog. The app does not assume names such as “GPT-6 Astra” are real IDs.
 
 External requests are off until `AI_EXTERNAL_ENABLED=true`, the account or
 Telegram user opts in, a positive `AI_EXTERNAL_MONTHLY_BUDGET_USD` is set, and
-the selected provider credentials, model ID, and positive input/output rates
+the selected provider credentials, model ID, and current input/output rates
 are configured. Rates must match the configured model and current provider
-price list. One configured specialist can provide a gated customer fallback
+price list. A zero-cost model is accepted only when `AI_API_IS_FREE=true` and
+code validation confirms the URL is OpenRouter and the model ID is `openrouter/free`
+or a `:free` model slug; this flag is not a substitute for rechecking provider pricing.
+One configured specialist can provide a gated customer fallback
 when Local AI is missing or unavailable; a multi-specialist comparison/fusion
 still requires at least two configured specialists. The app reserves the
 worst-case cost before each bounded call. Reservations are not refunded after
@@ -78,10 +81,13 @@ its external-call gates. This is allowed only when the running app is in
 development with SQLite; database, mail, payment, Telegram, specialist-provider,
 and other production settings remain ignored. Local AI is forced off for this
 development override. Direct-provider inference remains external: customer
-consent, `AI_EXTERNAL_ENABLED`, a positive monthly budget, positive model rates,
-and a delivered notice are still required. Missing or zero-valued gates mean no
-inference request is sent; configure only an operator-approved spend cap and
-current provider rates. Do not use this override on an untrusted workstation or
+consent, `AI_EXTERNAL_ENABLED`, a positive monthly budget, and a delivered notice are still required.
+For a verified zero-priced OpenRouter free model only, set `AI_API_IS_FREE=true` instead of inventing
+positive token rates. Set `AI_EXTERNAL_LOCAL_NOTICE_MODE=true` only for local SQLite development to
+persist the metadata-only notice without contacting Telegram; the flag is ignored outside development
+SQLite. Production must keep this local flag false and use configured Security Bot delivery. The positive
+monthly budget remains an explicit enablement cap, but it cannot meter zero-cost calls; apply provider-side
+rate limits and retain application per-user limits. Do not use this override on an untrusted workstation or
 commit the `.env` file.
 
 Security Bot remains local-only. The single-specialist fallback is restricted

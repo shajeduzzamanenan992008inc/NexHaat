@@ -59,6 +59,9 @@ class AIService:
         self.direct_model = str(self.config.get("AI_MODEL") or "").strip()
         self.direct_api_key = str(self.config.get("AI_API_KEY") or "").strip()
         self.direct_base_url = str(self.config.get("AI_BASE_URL") or "").strip().rstrip("/")
+        self.direct_is_free = _is_configured_openrouter_free_model(
+            self.direct_base_url, self.direct_model, self.config.get("AI_API_IS_FREE")
+        )
         self.model = self.local_model if self.local_available else str(self.config.get("AI_MODEL") or "").strip()
         self.api_key = self.local_api_key if self.local_available else str(self.config.get("AI_API_KEY") or "").strip()
         self.base_url = self.local_base_url if self.local_available else str(self.config.get("AI_BASE_URL") or "").strip().rstrip("/")
@@ -138,10 +141,13 @@ class AIService:
             self.config.get("AI_EXTERNAL_ENABLED")
             and decimal_setting(self.config.get("AI_EXTERNAL_MONTHLY_BUDGET_USD")) > 0
         )
+        rates_configured = (
+            decimal_setting(self.config.get("AI_API_INPUT_USD_PER_MILLION")) > 0
+            and decimal_setting(self.config.get("AI_API_OUTPUT_USD_PER_MILLION")) > 0
+        )
         direct_fallback_configured = bool(
             budgeted and self.direct_provider is not None
-            and decimal_setting(self.config.get("AI_API_INPUT_USD_PER_MILLION")) > 0
-            and decimal_setting(self.config.get("AI_API_OUTPUT_USD_PER_MILLION")) > 0
+            and (rates_configured or self.direct_is_free)
         )
         configured = bool(self._external_fallback_specs() or direct_fallback_configured)
         return {
@@ -671,6 +677,7 @@ class AIService:
             "base_url": self.direct_base_url,
             "input_rate": self.config.get("AI_API_INPUT_USD_PER_MILLION", "0"),
             "output_rate": self.config.get("AI_API_OUTPUT_USD_PER_MILLION", "0"),
+            "free": self.direct_is_free,
         }
         if not external_call_notices_ready(self.config):
             return None
@@ -1194,6 +1201,30 @@ def _local_provider_requires_https(base_url, environment):
         if is_loopback:
             return False
     return True
+
+
+def _is_configured_openrouter_free_model(base_url, model, explicit_free_flag):
+    """Trust zero pricing only when explicitly enabled for an OpenRouter free model slug."""
+    if isinstance(explicit_free_flag, bool):
+        enabled = explicit_free_flag
+    else:
+        enabled = str(explicit_free_flag or "").strip().lower() in {"1", "true", "yes", "on"}
+    if not enabled:
+        return False
+    try:
+        parsed = urlsplit(str(base_url or "").strip())
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+    except ValueError:
+        return False
+    slug = str(model or "").strip().lower()
+    allowed_slug = slug == "openrouter/free" or slug.endswith(":free")
+    return (
+        parsed.scheme == "https"
+        and hostname in {"openrouter.ai", "www.openrouter.ai"}
+        and allowed_slug
+        and not parsed.username and not parsed.password
+        and not parsed.query and not parsed.fragment
+    )
 
 
 def _bounded_int(value, default, minimum, maximum):

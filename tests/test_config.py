@@ -51,6 +51,8 @@ def test_production_json_imports_only_direct_ai_settings_for_sqlite_development(
         {"name": "AI_EXTERNAL_MONTHLY_BUDGET_USD", "value": "0"},
         {"name": "AI_API_INPUT_USD_PER_MILLION", "value": "0"},
         {"name": "AI_API_OUTPUT_USD_PER_MILLION", "value": "0"},
+        {"name": "AI_API_IS_FREE", "value": "true"},
+        {"name": "AI_EXTERNAL_LOCAL_NOTICE_MODE", "value": "true"},
     ]
     settings_path = tmp_path / ".env"
     settings_path.write_text(json.dumps(settings), encoding="utf-8")
@@ -61,6 +63,7 @@ def test_production_json_imports_only_direct_ai_settings_for_sqlite_development(
         "AI_ENABLED", "AI_PROVIDER", "AI_API_KEY", "AI_MODEL", "AI_BASE_URL",
         "AI_EXTERNAL_ENABLED", "AI_EXTERNAL_MONTHLY_BUDGET_USD",
         "AI_API_INPUT_USD_PER_MILLION", "AI_API_OUTPUT_USD_PER_MILLION",
+        "AI_API_IS_FREE", "AI_EXTERNAL_LOCAL_NOTICE_MODE",
         "SECRET_KEY", "BREVO_API_KEY", "AI_LOCAL_BASE_URL",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -76,6 +79,8 @@ def test_production_json_imports_only_direct_ai_settings_for_sqlite_development(
     assert os.environ["AI_LOCAL_ENABLED"] == "false"
     assert os.environ["AI_EXTERNAL_ENABLED"] == "false"
     assert os.environ["AI_EXTERNAL_MONTHLY_BUDGET_USD"] == "0"
+    assert os.environ["AI_API_IS_FREE"] == "true"
+    assert os.environ["AI_EXTERNAL_LOCAL_NOTICE_MODE"] == "true"
     service = AIService({
         "ENVIRONMENT": "development",
         "AI_ENABLED": os.environ["AI_ENABLED"].lower() == "true",

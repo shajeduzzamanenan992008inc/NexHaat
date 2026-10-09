@@ -26,7 +26,7 @@
       <p class="ai-service-status visually-hidden" id="ai-service-status" role="status" aria-live="polite">
         <span class="ai-service-status__dot" aria-hidden="true"></span>{{ _('Checking AI service connectivity…') }}
       </p>
-      <span id="ai-external-assistance-notice" hidden>{{ _('External specialist assistance was used for this response.') }}</span>
+      <span id="ai-external-assistance-notice" hidden>{{ _('External AI assistance was used for this response.') }}</span>
       {% if user and user.role == 'customer' %}
       <p id="ai-usage-status" class="muted" role="status" aria-live="polite">{{ _('Checking your AI usage…') }}</p>
       {% endif %}
@@ -84,8 +84,8 @@
         {% if external_ai_enabled %}
         <label class="ai-checkbox ai-chat__external-consent">
           <input id="ai-external-consent" type="checkbox" {% if external_ai_consent %}checked{% endif %}>
-          <span><strong>{{ _('Allow external specialist providers') }}</strong>
-            <small>{{ _('Complex prompts may be sent to up to three configured specialist calls under the site monthly budget. Prompts are redacted where possible. Private database results, cart/order data, and security records are not sent. You may revoke consent at any time.') }}</small>
+          <span><strong>{{ _('Allow external AI assistance') }}</strong>
+            <small>{{ _('Eligible general questions may be sent to the configured external AI provider. Prompts are redacted where possible. Catalog, account, cart/order, and security records are not sent to this provider. You may revoke consent at any time.') }}</small>
           </span>
         </label>
         <p id="ai-external-consent-status" class="muted" role="status" aria-live="polite"></p>

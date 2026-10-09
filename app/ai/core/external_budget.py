@@ -37,7 +37,9 @@ def reserve_external_budget(config, provider_specs, *, input_tokens=8000, output
     for spec in provider_specs:
         input_rate = decimal_setting(spec.get("input_rate"))
         output_rate = decimal_setting(spec.get("output_rate"))
-        if not spec.get("model") or not spec.get("api_key") or input_rate <= 0 or output_rate <= 0:
+        if not spec.get("model") or not spec.get("api_key"):
+            return False
+        if (input_rate <= 0 or output_rate <= 0) and spec.get("free") is not True:
             return False
         reserve += (input_rate * Decimal(input_tokens) + output_rate * Decimal(output_tokens)) / Decimal(1_000_000)
     if include_verifier:
@@ -53,7 +55,19 @@ def reserve_external_budget(config, provider_specs, *, input_tokens=8000, output
             return False
         reserve += (max(pair[0] for pair in rates) * Decimal(input_tokens)
                     + max(pair[1] for pair in rates) * Decimal(output_tokens)) / Decimal(1_000_000)
-    if reserve <= 0:
+    # A verified free model has a real $0 reservation. Keep the positive configured
+    # budget as an explicit enablement gate; application/provider rate limits still apply.
+    zero_cost_free_call = (
+        not include_verifier
+        and bool(provider_specs)
+        and all(
+            spec.get("free") is True
+            and decimal_setting(spec.get("input_rate")) == 0
+            and decimal_setting(spec.get("output_rate")) == 0
+            for spec in provider_specs
+        )
+    )
+    if reserve <= 0 and not zero_cost_free_call:
         return False
     reserve = reserve.quantize(Decimal("0.000001"), rounding=ROUND_CEILING)
     now = datetime.now(timezone.utc)

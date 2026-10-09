@@ -1066,3 +1066,42 @@ def test_guest_can_toggle_session_consent_and_rider_has_a_protected_workspace(cl
         browser_session["auth_version"] = customer_version
     assert client.get("/rider/ai").status_code == 403
     assert client.post("/rider/ai/query", json={"prompt": "Explain coding"}).status_code == 403
+
+
+def test_zero_price_openrouter_free_model_can_reserve_budget_gate(app):
+    with app.app_context():
+        config = {
+            "AI_EXTERNAL_ENABLED": True,
+            "AI_EXTERNAL_MONTHLY_BUDGET_USD": "1.00",
+            "AI_SPECIALISTS": {},
+        }
+        spec = {
+            "model": "openrouter/free",
+            "api_key": "test-key",
+            "base_url": "https://openrouter.ai/api/v1",
+            "input_rate": "0",
+            "output_rate": "0",
+            "free": True,
+        }
+        assert reserve_external_budget(
+            config, [spec], minimum_provider_count=1, include_verifier=False,
+        ) is True
+
+
+def test_unverified_zero_price_model_still_cannot_reserve_budget(app):
+    with app.app_context():
+        config = {
+            "AI_EXTERNAL_ENABLED": True,
+            "AI_EXTERNAL_MONTHLY_BUDGET_USD": "1.00",
+            "AI_SPECIALISTS": {},
+        }
+        spec = {
+            "model": "some-model",
+            "api_key": "test-key",
+            "base_url": "https://provider.example/v1",
+            "input_rate": "0",
+            "output_rate": "0",
+        }
+        assert reserve_external_budget(
+            config, [spec], minimum_provider_count=1, include_verifier=False,
+        ) is False
