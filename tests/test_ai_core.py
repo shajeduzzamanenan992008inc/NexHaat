@@ -7,7 +7,8 @@ import requests
 from app.ai.core.provider import AIProviderError, AIService, OpenAICompatibleProvider
 from app.ai.core.tools import ToolRegistry
 from app.ai.marketplace_tools import build_customer_tool_registry, handle_marketplace_ai_query
-from app.models import SupportMessage
+from app.extensions import db
+from app.models import SupportMessage, User
 
 
 def test_ai_service_returns_safe_fallback_when_disabled():
@@ -29,6 +30,60 @@ def test_local_ai_health_is_not_configured_without_endpoint_or_model():
     assert "AI_LOCAL_BASE_URL" in result["message"]
     assert "AI_LOCAL_MODEL" in result["message"]
     assert "http" not in str(result).lower()
+
+
+def test_missing_local_model_explains_external_consent_gate_without_calling_provider(
+    app, monkeypatch,
+):
+    external_calls = []
+    monkeypatch.setattr(
+        "app.ai.core.provider._specialist_provider",
+        lambda *_args, **_kwargs: external_calls.append(True),
+    )
+    service = AIService({
+        "AI_LOCAL_ENABLED": True,
+        "AI_LOCAL_BASE_URL": "",
+        "AI_LOCAL_MODEL": "",
+        "AI_EXTERNAL_ENABLED": True,
+        "AI_EXTERNAL_MONTHLY_BUDGET_USD": "2",
+        "AI_SPECIALISTS": {
+            "openai": {
+                "api_key": "test-only",
+                "model": "test-model",
+                "base_url": "https://provider.example/v1",
+                "input_rate": "1",
+                "output_rate": "1",
+            },
+        },
+    })
+
+    with app.app_context():
+        user = User(email="external-consent-required@example.test", role="customer")
+        user.set_password("test-password")
+        db.session.add(user)
+        db.session.commit()
+        result = service.respond(
+            "Explain recursion", scope=AI_SCOPE_CUSTOMER, user=user,
+        )
+
+    assert result["ok"] is False
+    assert "External fallback is configured" in result["fallback"]
+    assert "not authorized" in result["fallback"]
+    assert external_calls == []
+
+
+def test_local_and_external_unavailable_returns_clear_non_sensitive_error():
+    result = AIService({
+        "AI_LOCAL_ENABLED": True,
+        "AI_LOCAL_BASE_URL": "",
+        "AI_LOCAL_MODEL": "",
+        "AI_EXTERNAL_ENABLED": False,
+    }).respond("Explain recursion", scope=AI_SCOPE_CUSTOMER)
+
+    assert result["ok"] is False
+    assert "Private Local AI is not configured" in result["fallback"]
+    assert "No complete external fallback is enabled" in result["fallback"]
+    assert "api_key" not in result["fallback"].lower()
 
 
 def test_openai_compatible_health_check_uses_models_endpoint():
@@ -250,8 +305,11 @@ def test_ai_service_rejects_dots_function_call_markup():
     assert "under 500 BDT" not in str(result)
 
 
-def test_ai_service_uses_configured_direct_api_without_local_endpoint(monkeypatch):
+def test_ai_service_does_not_use_direct_api_without_cloud_consent(monkeypatch):
+    requests_sent = []
+
     def generate(self, **kwargs):
+        requests_sent.append(kwargs)
         return {"content": "Hello from the configured API.", "tool_calls": []}
 
     monkeypatch.setattr(OpenAICompatibleProvider, "generate", generate)
@@ -266,9 +324,53 @@ def test_ai_service_uses_configured_direct_api_without_local_endpoint(monkeypatc
 
     result = service.respond("hello", scope=AI_SCOPE_CUSTOMER)
 
+    assert result["ok"] is False
+    assert requests_sent == []
+
+
+def test_ai_service_uses_direct_api_only_after_consent_budget_and_notice(
+    app, monkeypatch,
+):
+    def generate(self, **kwargs):
+        return {"content": "Hello from the configured API.", "tool_calls": []}
+
+    monkeypatch.setattr(OpenAICompatibleProvider, "generate", generate)
+    monkeypatch.setattr(
+        "app.ai.core.external_budget.reserve_external_budget",
+        lambda *_args, **_kwargs: True,
+    )
+    monkeypatch.setattr(
+        "app.services.ai_external_notices.external_call_notices_ready",
+        lambda _config: True,
+    )
+    monkeypatch.setattr(
+        "app.services.ai_external_notices.record_external_call_notice",
+        lambda **_kwargs: "notice-id",
+    )
+    monkeypatch.setattr(
+        "app.services.ai_external_notices.external_call_notice_delivered",
+        lambda _call_id: True,
+    )
+    service = AIService({
+        "AI_ENABLED": True,
+        "AI_PROVIDER": "openai_compatible",
+        "AI_API_KEY": "test-key",
+        "AI_MODEL": "test-model",
+        "AI_BASE_URL": "https://provider.example/v1",
+        "AI_API_INPUT_USD_PER_MILLION": "1",
+        "AI_API_OUTPUT_USD_PER_MILLION": "1",
+        "AI_EXTERNAL_ENABLED": True,
+        "AI_EXTERNAL_MONTHLY_BUDGET_USD": "5",
+        "AI_LOCAL_ENABLED": False,
+    })
+
+    result = service.respond(
+        "hello", scope=AI_SCOPE_CUSTOMER, allow_external=True,
+    )
+
     assert result["ok"] is True
     assert result["answer"] == "Hello from the configured API."
-    assert result["provider"] == "openai_compatible"
+    assert result["provider"] == "openai_compatible-fallback"
 
 
 def test_ai_service_falls_back_to_configured_api_when_local_server_is_unreachable(monkeypatch):
@@ -328,18 +430,15 @@ def test_ai_service_falls_back_to_configured_api_when_local_server_is_unreachabl
     ]
 
 
-def test_customer_chat_uses_configured_direct_api_end_to_end(client, monkeypatch):
+def test_customer_chat_uses_configured_local_api_end_to_end(client, monkeypatch):
     def generate(self, **kwargs):
         return {"content": "API response reached the customer chat.", "tool_calls": []}
 
     monkeypatch.setattr(OpenAICompatibleProvider, "generate", generate)
     client.application.config.update(
-        AI_ENABLED=True,
-        AI_PROVIDER="openai_compatible",
-        AI_API_KEY="test-key",
-        AI_MODEL="test-model",
-        AI_BASE_URL="https://provider.example/v1",
-        AI_LOCAL_ENABLED=False,
+        AI_LOCAL_ENABLED=True,
+        AI_LOCAL_BASE_URL="http://127.0.0.1:1234/v1",
+        AI_LOCAL_MODEL="test-model",
     )
 
     page = client.get("/ai/")
@@ -350,8 +449,40 @@ def test_customer_chat_uses_configured_direct_api_end_to_end(client, monkeypatch
     assert b'id="ai-health-endpoint"' in page.data
     assert response.status_code == 200
     assert response.get_json()["answer"] == "API response reached the customer chat."
+    assert response.get_json()["warnings"] == []
     assert "provider" not in response.get_json()
     assert "model" not in response.get_json()
+
+
+def test_customer_chat_returns_only_a_fixed_notice_for_external_assistance(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.routes.ai.handle_marketplace_ai_query",
+        lambda *_args, **_kwargs: {
+            "ok": True,
+            "answer": "A safe answer",
+            "products": [],
+            "external_assistance": True,
+            "warnings": ["provider-supplied secret"],
+            "provider": "private-provider-id",
+            "model": "private-model-id",
+            "usage": {"prompt_tokens": 9},
+            "latency_ms": 125,
+        },
+    )
+
+    response = client.post("/ai/chat", json={"prompt": "Explain this topic."})
+    result = response.get_json()
+
+    assert response.status_code == 200
+    assert result["warnings"] == [
+        "External specialist assistance was used for this response."
+    ]
+    assert "provider" not in result
+    assert "model" not in result
+    assert "usage" not in result
+    assert "latency_ms" not in result
+    assert "provider-supplied secret" not in response.get_data(as_text=True)
+    assert "private-provider-id" not in response.get_data(as_text=True)
 
 
 @pytest.mark.parametrize(
@@ -380,12 +511,9 @@ def test_natural_prompts_reach_ai_with_tools_before_keyword_fallback(
 
     monkeypatch.setattr(OpenAICompatibleProvider, "generate", generate)
     app.config.update(
-        AI_ENABLED=True,
-        AI_PROVIDER="openai_compatible",
-        AI_API_KEY="test-key",
-        AI_MODEL="test-model",
-        AI_BASE_URL="https://provider.example/v1",
-        AI_LOCAL_ENABLED=False,
+        AI_LOCAL_ENABLED=True,
+        AI_LOCAL_BASE_URL="http://127.0.0.1:1234/v1",
+        AI_LOCAL_MODEL="test-model",
     )
 
     with app.app_context():
@@ -410,12 +538,9 @@ def test_natural_follow_up_history_reaches_provider_for_reference_resolution(
 
     monkeypatch.setattr(OpenAICompatibleProvider, "generate", generate)
     app.config.update(
-        AI_ENABLED=True,
-        AI_PROVIDER="openai_compatible",
-        AI_API_KEY="test-key",
-        AI_MODEL="test-model",
-        AI_BASE_URL="https://provider.example/v1",
-        AI_LOCAL_ENABLED=False,
+        AI_LOCAL_ENABLED=True,
+        AI_LOCAL_BASE_URL="http://127.0.0.1:1234/v1",
+        AI_LOCAL_MODEL="test-model",
     )
 
     with app.app_context():
@@ -449,12 +574,9 @@ def test_customer_chat_preserves_emojis_and_instructs_model_to_use_them_naturall
 
     monkeypatch.setattr(OpenAICompatibleProvider, "generate", generate)
     client.application.config.update(
-        AI_ENABLED=True,
-        AI_PROVIDER="openai_compatible",
-        AI_API_KEY="test-key",
-        AI_MODEL="test-model",
-        AI_BASE_URL="https://provider.example/v1",
-        AI_LOCAL_ENABLED=False,
+        AI_LOCAL_ENABLED=True,
+        AI_LOCAL_BASE_URL="http://127.0.0.1:1234/v1",
+        AI_LOCAL_MODEL="test-model",
     )
 
     response = client.post("/ai/chat", json={"prompt": "Explain photosynthesis"})
@@ -488,13 +610,8 @@ def test_customer_chat_rejects_function_markup_at_response_boundary(client, monk
     assert "platform_search_products" not in str(result)
 
 
-def test_ai_service_uses_configured_direct_api_for_customer_image_without_local_endpoint(monkeypatch):
-    def describe_image(self, **kwargs):
-        assert kwargs["model"] == "vision-test"
-        assert kwargs["base_url"] == "https://provider.example/v1"
-        assert kwargs["max_tokens"] == 512
-        return "orange geometric product"
-
+def test_ai_service_does_not_send_customer_image_to_direct_external_api(monkeypatch):
+    describe_image = Mock()
     monkeypatch.setattr(OpenAICompatibleProvider, "describe_image", describe_image)
     service = AIService({
         "AI_ENABLED": True,
@@ -505,7 +622,24 @@ def test_ai_service_uses_configured_direct_api_for_customer_image_without_local_
         "AI_LOCAL_ENABLED": False,
     })
 
+    with pytest.raises(AIProviderError, match="Private local visual search"):
+        service.describe_image(b"test-image")
+    describe_image.assert_not_called()
+
+
+def test_ai_service_describes_customer_image_using_local_provider(monkeypatch):
+    describe_image = Mock(return_value="orange geometric product")
+    monkeypatch.setattr(OpenAICompatibleProvider, "describe_image", describe_image)
+    service = AIService({
+        "AI_LOCAL_ENABLED": True,
+        "AI_LOCAL_BASE_URL": "http://127.0.0.1:1234/v1",
+        "AI_LOCAL_MODEL": "local-vision",
+    })
+
     assert service.describe_image(b"test-image") == "orange geometric product"
+    describe_image.assert_called_once()
+    assert describe_image.call_args.kwargs["model"] == "local-vision"
+    assert describe_image.call_args.kwargs["max_tokens"] == 160
 
 
 def test_customer_ai_hides_voice_actions_when_local_media_services_are_missing(client):
@@ -535,6 +669,40 @@ def test_guest_external_provider_consent_is_explicit_and_session_scoped(client, 
 
     assert consent.status_code == 200
     assert 'id="ai-external-consent" type="checkbox" checked' in opted_in_page
+
+
+def test_customer_can_opt_in_to_external_fallback_from_chat_page(client, app):
+    from app.ai.core.consent import external_consent_enabled
+
+    app.config["AI_EXTERNAL_ENABLED"] = True
+    with app.app_context():
+        customer = User(
+            email="inline-external-consent@example.test",
+            role="customer",
+        )
+        customer.set_password("test-password")
+        db.session.add(customer)
+        db.session.commit()
+        identity = (customer.id, customer.auth_version)
+
+    with client.session_transaction() as browser_session:
+        browser_session["user_id"], browser_session["auth_version"] = identity
+
+    page = client.get("/ai/")
+    assert page.status_code == 200
+    assert b'id="ai-external-consent" type="checkbox"' in page.data
+    assert b'id="ai-external-consent" type="checkbox" checked' not in page.data
+
+    response = client.post("/ai/external-consent", json={"enabled": True})
+    assert response.status_code == 200
+    assert response.get_json()["enabled"] is True
+
+    with app.app_context():
+        customer = db.session.get(User, identity[0])
+        assert external_consent_enabled(user=customer)
+
+    opted_in_page = client.get("/ai/")
+    assert b'id="ai-external-consent" type="checkbox" checked' in opted_in_page.data
 
 
 def test_customer_ai_enables_voice_controls_only_with_local_asr(client, app):
@@ -597,6 +765,32 @@ def test_marketplace_ai_query_uses_customer_tools_with_no_provider(app):
     assert result["ok"] is True
     assert result["tools_used"] == ["search_products"]
     assert result["products"] == []
+    assert "no available" in result["answer"].lower()
+
+
+def test_marketplace_queries_stay_deterministic_when_local_ai_is_disabled(app, monkeypatch):
+    app.config.update(
+        AI_ENABLED=True,
+        AI_PROVIDER="openai_compatible",
+        AI_API_KEY="test-key",
+        AI_MODEL="test-model",
+        AI_BASE_URL="https://provider.example/v1",
+        AI_LOCAL_ENABLED=False,
+        AI_EXTERNAL_ENABLED=True,
+        AI_EXTERNAL_MONTHLY_BUDGET_USD="5",
+        AI_API_INPUT_USD_PER_MILLION="1",
+        AI_API_OUTPUT_USD_PER_MILLION="1",
+    )
+
+    def reject_external_request(*_args, **_kwargs):
+        pytest.fail("Marketplace prompts must not be sent to the direct external provider.")
+
+    monkeypatch.setattr("app.ai.core.provider.requests.post", reject_external_request)
+    with app.app_context():
+        result = handle_marketplace_ai_query("show me burgers in the catalog", user=None)
+
+    assert result["ok"] is True
+    assert result["tools_used"] == ["search_products"]
     assert "no available" in result["answer"].lower()
 
 

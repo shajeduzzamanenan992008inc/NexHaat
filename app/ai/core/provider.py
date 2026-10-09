@@ -152,6 +152,40 @@ class AIService:
             "external": "configured" if configured else "disabled_or_incomplete",
         }
 
+    def _unavailable_reason(self, *, allow_external):
+        fallback_configured = self._local_fallback_status()["external"] == "configured"
+        if self.local_available:
+            local_failure = (
+                "The configured private AI service could not be reached or returned an invalid response. "
+                "Check its health and OpenAI-compatible chat endpoint."
+            )
+        elif self.local_enabled:
+            local_failure = (
+                "Private Local AI is not configured. Set AI_LOCAL_BASE_URL and AI_LOCAL_MODEL "
+                "to connect the private OpenAI-compatible AI service."
+            )
+        else:
+            local_failure = "Private Local AI is disabled."
+
+        if fallback_configured and not allow_external:
+            return (
+                f"{local_failure} External fallback is configured but was not used because "
+                "this request is not authorized for external assistance."
+            )
+        if fallback_configured:
+            return (
+                "AI Core is temporarily unavailable. Private Local AI could not answer, and "
+                "the configured external fallback could not complete this request."
+            )
+        if not self.local_available:
+            return (
+                f"{local_failure} No complete external fallback is enabled; it requires a "
+                "configured provider and model, valid pricing, and a positive monthly budget."
+            )
+        return (
+            f"{local_failure} No complete consent- and budget-gated external fallback is configured."
+        )
+
     def health_check(self):
         """Check the configured provider without sending a prompt or exposing its URL."""
         if self.local_enabled:
@@ -176,7 +210,21 @@ class AIService:
                 }
             provider, base_url, model = self.provider, self.local_base_url, self.local_model
         elif self.direct_provider is not None:
-            provider, base_url, model = self.direct_provider, self.direct_base_url, self.direct_model
+            external_status = self._local_fallback_status()
+            if external_status["external"] == "configured":
+                return {
+                    "ok": True, "status": "fallback_ready", "provider": "external",
+                    "providers": external_status,
+                    "message": (
+                        "A consent- and budget-gated external fallback is configured. "
+                        "No external provider health request was sent."
+                    ),
+                }
+            return {
+                "ok": False, "status": "not_configured", "provider": "external",
+                "providers": external_status,
+                "message": "External AI is disabled or missing a positive budget and model rates.",
+            }
         else:
             return {
                 "ok": False, "status": "not_configured", "provider": "none",
@@ -242,16 +290,20 @@ class AIService:
             and _is_complex_prompt(prompt)
             and len(self._external_fallback_specs()) >= 2
         )
-        direct_provider_available = bool(
-            self.enabled
-            and self.provider_name.lower() in {"openai_compatible", "openai-compatible", "openai"}
-            and self.direct_api_key
-            and self.direct_model
-            and self.direct_base_url
-        )
-        if not self.local_available and not self._custom_provider and not direct_provider_available:
+        if not self.local_available and not self._custom_provider:
             specialist_answer = None
             if not prefer_specialist_fusion:
+                direct_answer = self._direct_provider_fallback(
+                    prompt, scope=scope, allow_external=allow_external,
+                    has_tools=False,
+                    live_lookup_requested=_needs_fresh_answer(prompt),
+                    allowed=self._external_fallback_is_safe(
+                        prompt, scope=scope, allowed=allow_external_fallback,
+                    ),
+                    job_id=(context or {}).get("job_id") if isinstance(context, dict) else None,
+                )
+                if direct_answer:
+                    return direct_answer
                 specialist_answer = self._external_provider_fallback(
                     prompt, scope=scope, allow_external=allow_external,
                     allowed=self._external_fallback_is_safe(
@@ -280,19 +332,11 @@ class AIService:
                         "latency_ms": int((time.perf_counter() - started) * 1000),
                         "fallback_used": True, "external_assistance": True,
                     }
-            reason = (
-                "AI is not configured. Set AI_LOCAL_BASE_URL and AI_LOCAL_MODEL to connect "
-                "the private OpenAI-compatible AI service."
-                if self.local_enabled else
-                "AI is not configured. Configure the existing direct-provider settings or enable the private local service."
-            )
+            reason = self._unavailable_reason(allow_external=allow_external)
             log_ai_event("ai_local_unavailable", scope=scope, provider="local", status="fallback")
             return self._fallback(scope, reason=reason)
         if self._custom_provider and not self.model:
             self.model = "configured-test-provider"
-        if direct_provider_available and self.direct_provider is None:
-            self.direct_provider = self._build_direct_provider()
-
         registry = tools if isinstance(tools, ToolRegistry) else None
         try:
             supplied_context = dict(context) if isinstance(context, dict) else {}
@@ -372,6 +416,8 @@ class AIService:
                 input_tokens = usage.get("prompt_tokens", input_tokens)
                 output_tokens = usage.get("completion_tokens", output_tokens)
                 if not calls:
+                    if content is None or not str(content).strip():
+                        raise AIProviderError("The provider returned no answer.")
                     answer = sanitize_ai_response(content)
                     if not answer:
                         raise AIProviderError("The provider returned no answer.")
@@ -496,16 +542,16 @@ class AIService:
                         "latency_ms": int((time.perf_counter() - started) * 1000),
                         "fallback_used": True, "external_assistance": True,
                     }
-            if self.local_available and not direct_provider_available:
+            if self.local_available:
                 return self._fallback(
                     scope,
-                    reason=(
-                        "The configured private AI service could not be reached or returned "
-                        "an invalid response. Check AI_LOCAL_BASE_URL, AI_LOCAL_MODEL, and "
-                        "the service's OpenAI-compatible chat endpoint."
-                    ),
+                    reason=self._unavailable_reason(allow_external=allow_external),
                 )
-            return self._fallback(scope, reason="AI is temporarily unavailable.")
+            if self._custom_provider:
+                return self._fallback(scope, reason="AI is temporarily unavailable.")
+            return self._fallback(
+                scope, reason=self._unavailable_reason(allow_external=allow_external)
+            )
 
     @staticmethod
     def _external_fallback_is_safe(prompt, *, scope, allowed=None):
@@ -608,7 +654,7 @@ class AIService:
 
     def _direct_provider_fallback(self, prompt, *, scope, allow_external, has_tools,
                                   live_lookup_requested, allowed, job_id=None):
-        if (not self.local_enabled or scope != AI_SCOPE_CUSTOMER or not allow_external
+        if (scope != AI_SCOPE_CUSTOMER or not allow_external
                 or not self.config.get("AI_EXTERNAL_ENABLED") or has_tools
                 or live_lookup_requested or not allowed or self.direct_provider is None):
             return None
@@ -668,6 +714,8 @@ class AIService:
                 base_url=self.direct_base_url,
             )
             content, calls, usage = _normalize_provider_response(response)
+            if content is None or not str(content).strip():
+                return None
             answer = sanitize_ai_response(content)
             if calls or not answer:
                 return None
@@ -871,15 +919,17 @@ class AIService:
         raise AIProviderError("Private local voice transcription is not configured.")
 
     def describe_image(self, image_bytes, *, content_type="image/jpeg"):
-        provider = self.provider if self.local_available else self.direct_provider
+        if not self.local_available:
+            raise AIProviderError("Private local visual search is not configured.")
+        provider = self.provider
         if provider is None or not hasattr(provider, "describe_image"):
-            raise AIProviderError("Visual search is not configured.")
+            raise AIProviderError("Private local visual search is not configured.")
         return sanitize_prompt(provider.describe_image(
             image_bytes=image_bytes, content_type=content_type,
-            model=self.model if self.local_available else self.direct_model,
+            model=self.model,
             timeout=self.timeout,
-            base_url=self.base_url if self.local_available else self.direct_base_url,
-            max_tokens=160 if self.local_available else 512,
+            base_url=self.base_url,
+            max_tokens=160,
         ), max_chars=1000)
 
 

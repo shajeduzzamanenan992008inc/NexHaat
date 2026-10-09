@@ -4,7 +4,8 @@ from .user import (
 )
 from .audit import AuditEvent
 from .ai import (
-    AIGuardianFinding, AIGuardianLesson, AIGuardianScan, AIBuilderJob, AIBuilderPatch,
+    AICustomerDocument, AIGuardianFinding, AIGuardianLesson, AIGuardianScan,
+    AIBuilderJob, AIBuilderPatch,
     AIBuilderProject, AIExternalCallNotice, AIExternalCallRecipient, AIExternalConsent,
     AIExternalSpend, AIKnowledgeChunk, AIProductPriceAlert, AIProductPriceHistory,
     AIRequestWindow, AIPreferences, AIUserMemory,
@@ -30,7 +31,7 @@ from .telegram import (
 
 __all__ = [
     "AccountInvitation", "AdminLoginChallenge", "AdminProfile", "AuditEvent", "AuthThrottle", "Category", "CustomerAddress", "CustomerProfile",
-    "AIRequestWindow", "AIPreferences",
+    "AIRequestWindow", "AIPreferences", "AICustomerDocument",
     "AIExternalConsent", "AIExternalSpend", "AIKnowledgeChunk", "AIUserMemory",
     "AIExternalCallNotice", "AIExternalCallRecipient",
     "AIBuilderJob",

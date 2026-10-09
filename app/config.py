@@ -11,6 +11,19 @@ from sqlalchemy.engine import make_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 logger = logging.getLogger(__name__)
 POSTGRES_TLS_MODES = frozenset({"require", "verify-ca", "verify-full"})
+LOCAL_DIRECT_AI_SETTINGS = frozenset({
+    "AI_ENABLED",
+    "AI_PROVIDER",
+    "AI_API_KEY",
+    "AI_MODEL",
+    "AI_BASE_URL",
+    "AI_TIMEOUT",
+    "AI_MAX_TOKENS",
+    "AI_EXTERNAL_ENABLED",
+    "AI_EXTERNAL_MONTHLY_BUDGET_USD",
+    "AI_API_INPUT_USD_PER_MILLION",
+    "AI_API_OUTPUT_USD_PER_MILLION",
+})
 
 
 def _load_local_environment(path):
@@ -51,6 +64,16 @@ def _load_local_environment(path):
     except Exception:  # noqa: BLE001 - invalid settings are not loaded locally
         file_database_backend = ""
 
+    runtime_environment = str(os.environ.get("APP_ENV") or "development").strip().lower()
+    runtime_database_url = str(
+        os.environ.get("DATABASE_URL")
+        or f"sqlite:///{BASE_DIR / 'instance' / 'food_ordering.sqlite3'}"
+    ).strip()
+    try:
+        runtime_database_backend = make_url(runtime_database_url).get_backend_name()
+    except Exception:  # noqa: BLE001 - invalid settings are not loaded locally
+        runtime_database_backend = ""
+
     active_environment = str(os.environ.get("APP_ENV") or file_environment).strip().lower()
     active_database_url = str(os.environ.get("DATABASE_URL") or file_database_url).strip()
     try:
@@ -64,6 +87,31 @@ def _load_local_environment(path):
         and active_environment == "development"
         and active_database_backend == "sqlite"
     ):
+        direct_provider_configured = (
+            str(values.get("AI_ENABLED") or "").strip().lower()
+            in {"1", "true", "yes", "on"}
+            and str(values.get("AI_PROVIDER") or "").strip().lower()
+            in {"openai_compatible", "openai-compatible", "openai"}
+            and all(str(values.get(name) or "").strip() for name in (
+                "AI_API_KEY", "AI_MODEL", "AI_BASE_URL",
+            ))
+        )
+        if (
+            file_environment == "production"
+            and runtime_environment == "development"
+            and runtime_database_backend == "sqlite"
+            and direct_provider_configured
+        ):
+            for name in LOCAL_DIRECT_AI_SETTINGS:
+                value = values.get(name)
+                if not isinstance(value, (dict, list)) and value is not None:
+                    os.environ.setdefault(name, str(value))
+            os.environ["AI_LOCAL_ENABLED"] = "false"
+            logger.info(
+                "Loaded allowlisted direct AI settings from production JSON for SQLite development; "
+                "Local AI is disabled and external request gates remain enforced."
+            )
+            return
         logger.warning(
             "Ignored JSON .env settings: local JSON settings must declare development and SQLite; configure production settings in the hosting environment."
         )

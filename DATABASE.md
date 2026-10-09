@@ -44,6 +44,8 @@ Revision `20261007_28` adds metadata-only per-request external AI notice records
 
 Revision `20261007_30` adds Admin project-analysis job metadata and bounded result storage. Uploaded ZIP bytes and source files are not persisted; each row is scoped to its creating Admin and can be deleted through the job API. Apply with `flask --app run.py db upgrade` before deploying the Stage 14 analysis endpoint. This schema does not implement saved projects, patches, sandbox state, or scan results.
 
+Revision `20261009_34` adds the owner-scoped `ai_customer_documents` table for extracted PDF, UTF-8 TXT, and Markdown text. Source upload bytes are transient; rows cascade-delete with the owning customer and are covered by a unique per-customer content digest. Apply with `flask --app run.py db upgrade` before deploying Customer AI document upload and retrieval.
+
 ## Food reference data
 
 USDA FoodData Central reference records are stored separately from `products`: reference foods have no invented menu price and cannot be ordered. The `fdc_foods`, `fdc_categories`, `fdc_nutrients`, `fdc_food_nutrients`, and `fdc_food_portions` tables keep source IDs, survey category assignments, nutrient measurements, and portion data. FoodOn product vocabulary is stored in `foodon_categories`, separately from the shop's customer-facing menu categories.

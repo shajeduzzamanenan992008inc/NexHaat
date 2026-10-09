@@ -76,9 +76,19 @@ API clients authenticate with the existing session cookie. Signup challenges are
 
 ## AI and Telegram integrations
 
+- `POST /api/v1/ai/chat` — signed-in Customer chat through the shared AI Core; accepts `message`, optional bounded `history`, `mode=auto`, and `privacy_mode=standard|local_only`. `local_only` prevents external specialist routing for that request. Chat history is request-scoped and not persisted; unsupported model selection, tools, streaming, and attachments return a validation error. Successful responses include bounded `provider`, `model`, `fallback_used`, `usage` (prompt/completion token counts only), and `latency_ms` metadata plus a standard `warnings` notice if external specialist assistance was used. Provider-supplied warning text and cost/internal usage fields are not exposed.
+- `GET /api/v1/ai/providers`, `GET /api/v1/ai/models`, and `GET /api/v1/ai/health` — authenticated, redacted AI readiness and configured model metadata. Health probes only the private local service; external health checks never send a request.
+- `GET /api/v1/ai/usage` — signed-in Customer's current request quota, remaining requests, and reset time. It does not consume quota or expose prompts, transcripts, or global spend.
+- The signed-in Customer assistant page displays this quota and refreshes it after chat requests without saving conversation history.
+- `GET|POST /api/v1/ai/documents`, `DELETE /api/v1/ai/documents/{id}` — upload/list/delete owner-scoped PDF, UTF-8 TXT, or Markdown documents; uploads are limited to 2 MB, 40 PDF pages, 24,000 extracted characters, and 10 documents per customer. Only extracted text is retained.
+- `POST /api/v1/ai/documents/search` — search selected or owned documents and return bounded excerpts with document citations; search consumes the normal Customer AI request quota.
+- `POST /api/v1/ai/chat` accepts optional `document_ids` (up to three owned documents); selecting any document forces local-only routing for that request, including when retrieval finds no matching excerpt. Returned document citations identify private filenames. Chat history remains request-scoped and is not persisted.
+- The signed-in Customer assistant page exposes a private document library for upload, selection, and deletion; selecting documents routes that chat through the versioned API. Guests do not see the library.
+- `GET|PATCH /api/v1/ai/settings` — Customer-only, CSRF-protected preference read/update for external-AI consent, long-term memory, personalization, and smart notifications. All preferences default off.
+- `GET|POST /api/v1/ai/memory`, `DELETE /api/v1/ai/memory/{id}` — Customer-owned, opt-in memory notes; capped at 20 notes of up to 500 characters each.
 - `GET /ai/` — customer/guest shopping assistant page; responses use the configured local-first Core and authoritative catalog services
 - `GET /ai/health` — customer/guest-safe configured AI provider connectivity status; does not return private endpoint or model settings
-- `POST /ai/chat` — customer catalog, policy, cart, and order assistance; scope and account identity are selected by the server
+- `POST /ai/chat` — customer catalog, policy, cart, and order assistance; scope and account identity are selected by the server. Customer responses include only a fixed warning when external specialist assistance was used; provider-supplied warning text and provider/model/usage diagnostics are not returned.
 - `POST /ai/voice-search`, `POST /ai/image-search` — bounded in-memory voice and image search; uploads are not persisted. Voice transcription uses only the configured private ASR endpoint; the UI hides recording controls when it is not configured and never falls back to browser speech recognition.
 - `POST /ai/cart/proposal`, `POST /ai/cart/confirm` — signed-in customer cart suggestions and explicit one-use confirmation
 - `GET /ai/price-history/{slug}` — recorded NexHaat listing-price observations only; does not synthesize or backfill history

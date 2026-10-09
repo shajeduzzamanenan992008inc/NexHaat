@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Shopping assistant') }} · {{ app_name }}{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261008_fullpage_hide_status') }}">{% endblock %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261009_customer_documents') }}">{% endblock %}
 {% block page_content %}
 <div class="page-shell ai-page">
   <header class="page-heading ai-hero">
@@ -26,6 +26,10 @@
       <p class="ai-service-status visually-hidden" id="ai-service-status" role="status" aria-live="polite">
         <span class="ai-service-status__dot" aria-hidden="true"></span>{{ _('Checking AI service connectivity…') }}
       </p>
+      <span id="ai-external-assistance-notice" hidden>{{ _('External specialist assistance was used for this response.') }}</span>
+      {% if user and user.role == 'customer' %}
+      <p id="ai-usage-status" class="muted" role="status" aria-live="polite">{{ _('Checking your AI usage…') }}</p>
+      {% endif %}
       {% if not voice_transcription_configured %}<p class="ai-service-status ai-service-status--notice visually-hidden" id="ai-voice-unavailable" role="status">
         {{ _('Private voice transcription is not connected. You can type your question instead.') }}</p>{% endif %}
       <div class="ai-chat__messages" id="ai-messages" aria-live="polite" aria-relevant="additions text">
@@ -77,13 +81,14 @@
         </div>
         <div id="ai-attachment-list" class="ai-attachment-list" aria-live="polite"></div>
         <p class="ai-chat__hint">{{ _('AI can make mistakes. Check product details before checkout.') }}</p>
-        {% if not user and external_ai_enabled %}
+        {% if external_ai_enabled %}
         <label class="ai-checkbox ai-chat__external-consent">
           <input id="ai-external-consent" type="checkbox" {% if external_ai_consent %}checked{% endif %}>
           <span><strong>{{ _('Allow external specialist providers') }}</strong>
             <small>{{ _('Complex prompts may be sent to up to three configured specialist calls under the site monthly budget. Prompts are redacted where possible. Private database results, cart/order data, and security records are not sent. You may revoke consent at any time.') }}</small>
           </span>
         </label>
+        <p id="ai-external-consent-status" class="muted" role="status" aria-live="polite"></p>
         {% else %}<input id="ai-external-consent" type="hidden" value="{{ 'true' if external_ai_consent else 'false' }}">{% endif %}
       </form>
     </section>
@@ -129,6 +134,28 @@
       </nav>{% endif %}
     </aside>
   </div>
+  {% if user and user.role == 'customer' %}
+  <section class="surface surface-card ai-document-library" aria-labelledby="ai-documents-title">
+    <div>
+      <p class="eyebrow">{{ _('Private to your account') }}</p>
+      <h2 id="ai-documents-title">{{ _('Your AI document library') }}</h2>
+      <p class="muted">{{ _('Upload PDF, TXT, or Markdown files. Extracted text is stored privately in your account and is sent only to the configured local AI when you select a document for chat.') }}</p>
+    </div>
+    <form id="ai-document-upload" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="ai-document-file">{{ _('Choose a PDF, TXT, or Markdown file (up to 2 MB)') }}</label>
+      <div class="ai-document-library__upload">
+        <input id="ai-document-file" name="file" type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" required>
+        <button class="button button--secondary" type="submit">{{ _('Add document') }}</button>
+      </div>
+    </form>
+    <p id="ai-document-status" class="muted" role="status" aria-live="polite"></p>
+    <ul id="ai-document-list" class="ai-document-list" aria-label="{{ _('Your private documents') }}"></ul>
+  </section>
+  {% endif %}
+  <input id="ai-customer-api-enabled" type="hidden"
+    value="{{ 'true' if user and user.role == 'customer' else 'false' }}">
+  <input id="ai-document-api-endpoint" type="hidden" value="/api/v1/ai/documents">
   <input id="ai-endpoint" type="hidden" value="{{ url_for('ai.chat') }}">
   <input id="ai-health-endpoint" type="hidden" value="{{ url_for('ai.health') }}">
   <input id="ai-cart-proposal-endpoint" type="hidden" value="{{ url_for('ai.create_cart_proposal') }}">
@@ -145,5 +172,5 @@
   <input id="ai-speech-output-configured" type="hidden" value="{{ 'true' if speech_output_configured else 'false' }}">
   <input id="ai-csrf" type="hidden" value="{{ csrf_token() }}">
 </div>
-<script src="{{ url_for('static', filename='js/ai-customer.js', v='20261008_fullpage') }}" defer></script>
+<script src="{{ url_for('static', filename='js/ai-customer.js', v='20261009_customer_documents') }}" defer></script>
 {% endblock %}

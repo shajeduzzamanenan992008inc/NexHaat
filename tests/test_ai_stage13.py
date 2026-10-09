@@ -178,12 +178,25 @@ def test_configured_api_is_local_failure_fallback_only_after_consent_and_budget(
         assert allowed["provider"] == "openai_compatible-fallback"
         assert allowed["external_assistance"] is True
         assert allowed["answer"] == "A safe general answer from the API."
-        assert len(direct_calls) == 1
+
+        class EmptyLocalModel:
+            def generate(self, **kwargs):
+                return {"content": "", "tool_calls": []}
+
+        empty_local = AIService(config, provider=EmptyLocalModel()).respond(
+            "Explain recursion", scope=AI_SCOPE_CUSTOMER, user=user,
+        )
+        assert empty_local["ok"] is True
+        assert empty_local["provider"] == "openai_compatible-fallback"
+        assert empty_local["fallback_used"] is True
+        assert empty_local["external_assistance"] is True
+        assert empty_local["answer"] == "A safe general answer from the API."
+        assert len(direct_calls) == 2
         assert direct_calls[0]["model"] == "api-model"
         assert direct_calls[0]["messages"][-1]["content"] == "Explain recursion"
         assert len(direct_calls[0]["messages"]) == 2
-        assert AIExternalCallNotice.query.count() == 1
-        assert AIExternalCallRecipient.query.filter_by(status="sent").count() == 1
+        assert AIExternalCallNotice.query.count() == 2
+        assert AIExternalCallRecipient.query.filter_by(status="sent").count() == 2
         assert AIExternalSpend.query.one().reserved_usd > 0
 
 
@@ -385,6 +398,53 @@ def test_missing_local_endpoint_does_not_make_api_an_ungated_primary(app, monkey
         assert allowed["ok"] is True
         assert allowed["provider"] == "openai_compatible-fallback"
         assert len(direct_calls) == 1
+
+
+def test_configured_external_failure_returns_clear_error_without_provider_details(
+    app, monkeypatch,
+):
+    class FailedSpecialist:
+        def generate(self, **kwargs):
+            raise RuntimeError("provider body and private endpoint must not escape")
+
+    monkeypatch.setattr(
+        "app.ai.core.provider._specialist_provider",
+        lambda *_args, **_kwargs: FailedSpecialist(),
+    )
+    monkeypatch.setattr(
+        "app.services.ai_external_notices.send_message",
+        lambda *_args: True,
+    )
+    with app.app_context():
+        user = _user("customer", "external-fallback-failure")
+        set_external_consent(True, user=user)
+        config = {
+            "AI_LOCAL_ENABLED": True,
+            "AI_LOCAL_BASE_URL": "",
+            "AI_LOCAL_MODEL": "",
+            "AI_EXTERNAL_ENABLED": True,
+            "AI_EXTERNAL_MONTHLY_BUDGET_USD": "0.05",
+            "AI_EXTERNAL_MAX_TOKENS": 128,
+            "AI_SPECIALISTS": {"openai": _provider_spec()},
+            "TELEGRAM_SECURITY_BOT_TOKEN": "security-test-token",
+            "TELEGRAM_SECURITY_ADMIN_IDS": "9001",
+        }
+        app.config.update({
+            "TELEGRAM_SECURITY_BOT_TOKEN": config["TELEGRAM_SECURITY_BOT_TOKEN"],
+            "TELEGRAM_SECURITY_ADMIN_IDS": config["TELEGRAM_SECURITY_ADMIN_IDS"],
+        })
+
+        result = AIService(config).respond(
+            "Explain recursion in simple terms",
+            scope=AI_SCOPE_CUSTOMER,
+            user=user,
+        )
+
+    assert result["ok"] is False
+    assert "AI Core is temporarily unavailable" in result["fallback"]
+    assert "external fallback could not complete" in result["fallback"]
+    assert "provider body" not in result["fallback"]
+    assert "provider.example.test" not in result["fallback"]
 
 
 def test_budget_exhaustion_prevents_external_requests(app):

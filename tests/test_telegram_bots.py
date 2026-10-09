@@ -1454,10 +1454,13 @@ def test_telegram_followup_uses_recent_real_product_results(client, app, monkeyp
     app.config.update(
         AI_ENABLED=True,
         AI_PROVIDER="openai_compatible",
-        AI_API_KEY="test-key",
-        AI_MODEL="test-model",
-        AI_BASE_URL="https://provider.example/v1",
-        AI_LOCAL_ENABLED=False,
+        AI_API_KEY="",
+        AI_MODEL="",
+        AI_BASE_URL="",
+        AI_LOCAL_ENABLED=True,
+        AI_LOCAL_API_KEY="",
+        AI_LOCAL_MODEL="test-model",
+        AI_LOCAL_BASE_URL="http://127.0.0.1:1234/v1",
         AI_EXTERNAL_ENABLED=False,
     )
     headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}

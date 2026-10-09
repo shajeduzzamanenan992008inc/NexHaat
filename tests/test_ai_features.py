@@ -948,12 +948,13 @@ def test_migration_reaches_single_head_with_ai_and_support_tables(tmp_path):
             "ai_external_consents", "ai_external_spend", "ai_user_memories", "ai_knowledge_chunks",
             "ai_external_call_notices", "ai_external_call_recipients",
             "ai_product_price_history", "ai_product_price_alerts", "ai_builder_jobs",
-            "telegram_shopping_contexts", "telegram_security_alert_recipients"} <= tables
+            "ai_customer_documents", "telegram_shopping_contexts",
+            "telegram_security_alert_recipients"} <= tables
         columns = {item["name"] for item in inspect(db.engine).get_columns("ai_preferences")}
         assert {"last_cart_reminder_at", "last_recommendation_notification_at",
                 "long_term_memory_enabled", "personalized_recommendations_enabled"} <= columns
         heads = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
-        assert heads == ["20261009_33"]
+        assert heads == ["20261009_34"]
 
     downgraded = migration_app.test_cli_runner().invoke(args=["db", "downgrade", "20261007_30"])
     assert downgraded.exit_code == 0, downgraded.output
@@ -962,6 +963,7 @@ def test_migration_reaches_single_head_with_ai_and_support_tables(tmp_path):
         assert inspector.has_table("ai_builder_jobs")
         assert not inspector.has_table("telegram_shopping_contexts")
         assert not inspector.has_table("telegram_security_alert_recipients")
+        assert not inspector.has_table("ai_customer_documents")
         assert inspector.has_table("ai_product_price_history")
         assert inspector.has_table("ai_product_price_alerts")
         columns = {item["name"] for item in inspector.get_columns("ai_preferences")}
@@ -970,4 +972,5 @@ def test_migration_reaches_single_head_with_ai_and_support_tables(tmp_path):
     assert upgraded.exit_code == 0, upgraded.output
     with migration_app.app_context():
         heads = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
-        assert heads == ["20261009_33"]
+        assert heads == ["20261009_34"]
+        assert inspect(db.engine).has_table("ai_customer_documents")

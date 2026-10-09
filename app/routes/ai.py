@@ -83,11 +83,17 @@ def _sanitize_customer_ai_result(result):
             result[field] = sanitize_ai_response(value) or (
                 "The assistant could not verify that response. Please use catalog search."
             )
+    external_assistance = result.get("external_assistance") is True
     for field in (
         "provider", "model", "confidence", "source_metadata", "images", "audio",
         "usage", "latency_ms", "fallback_used", "response_text",
+        "external_assistance", "warnings",
     ):
         result.pop(field, None)
+    result["warnings"] = (
+        ["External specialist assistance was used for this response."]
+        if external_assistance else []
+    )
     return result
 
 

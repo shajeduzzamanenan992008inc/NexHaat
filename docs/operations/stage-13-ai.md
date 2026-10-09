@@ -50,6 +50,17 @@ still requires at least two configured specialists. The app reserves the
 worst-case cost before each bounded call. Reservations are not refunded after
 partial failures. Configure a matching provider-side spending cap as an
 additional safeguard.
+When local inference is unavailable, the application reports whether a
+complete external fallback is configured and whether it was withheld because
+the request is not authorized for external assistance. This status check sends
+no prompt. If an authorized fallback attempt also fails, the customer receives
+a generic service-unavailable message; provider bodies, secrets, and private
+endpoint details are never returned.
+Customers can grant or revoke this consent directly on the Shopping assistant
+page when external AI is enabled. The preference is saved before that page
+sends another chat request. The versioned Customer API also checks the saved
+consent; standard privacy mode alone does not authorize an external request.
+Selecting a private document or choosing local-only mode always blocks fallback.
 
 Settings are grouped by provider. Configure the selected provider's `AI_OPENAI_API_KEY`,
 `AI_OPENAI_MODEL`, `AI_OPENAI_BASE_URL`, `AI_OPENAI_INPUT_USD_PER_MILLION`, and
@@ -60,6 +71,18 @@ limitations. Model identifiers are never guessed by the application. See
 [Gemini compatibility](https://ai.google.dev/gemini-api/docs/openai),
 [Anthropic model status](https://platform.claude.com/docs/en/about-claude/model-deprecations),
 and [DeepSeek Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/).
+
+For a local SQLite development run using a production-format JSON `.env` export,
+the loader may import only a complete primary direct-provider configuration and
+its external-call gates. This is allowed only when the running app is in
+development with SQLite; database, mail, payment, Telegram, specialist-provider,
+and other production settings remain ignored. Local AI is forced off for this
+development override. Direct-provider inference remains external: customer
+consent, `AI_EXTERNAL_ENABLED`, a positive monthly budget, positive model rates,
+and a delivered notice are still required. Missing or zero-valued gates mean no
+inference request is sent; configure only an operator-approved spend cap and
+current provider rates. Do not use this override on an untrusted workstation or
+commit the `.env` file.
 
 Security Bot remains local-only. The single-specialist fallback is restricted
 to general Customer questions; it is blocked for catalog searches, changing
@@ -121,6 +144,22 @@ and personal-contact screening, and enters only the Admin knowledge scope after
 an Admin explicitly approves it and the private embedding endpoint returns a
 valid vector. No Guardian finding, conversation, upload, or unverified model
 output is learned automatically.
+
+## Customer-owned AI documents
+
+Apply the Alembic migration before enabling the Customer document library:
+`flask --app run.py db upgrade`. The authenticated Customer page accepts PDF,
+UTF-8 TXT, and Markdown up to 2 MiB; extraction is limited to 40 PDF pages and
+24,000 characters, with at most 10 documents per customer. Only extracted text
+and bounded metadata are stored. The customer can select up to three owned
+documents for a request; retrieval is lexical and bounded, citations name the
+private file, and selecting a document forces local-only AI routing even when
+no excerpt matches. Chat history is still request-scoped and is not persisted.
+Customer chat responses expose only bounded provider diagnostics on the
+versioned API; both customer chat interfaces replace provider-supplied warning
+text with a fixed, localized notice when external specialist assistance was
+used. They do not expose provider/model identifiers or token/cost diagnostics
+through the legacy web endpoint.
 
 ## Acceptance evidence and remaining operator checks
 

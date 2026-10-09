@@ -434,6 +434,34 @@ class AIUserMemory(db.Model):
     user = db.relationship("User", backref=db.backref("ai_memories", cascade="all, delete-orphan"))
 
 
+class AICustomerDocument(db.Model):
+    __tablename__ = "ai_customer_documents"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    filename = db.Column(db.String(180), nullable=False)
+    content_type = db.Column(db.String(32), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    content_sha256 = db.Column(db.String(64), nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    user = db.relationship(
+        "User", backref=db.backref("ai_customer_documents", cascade="all, delete-orphan")
+    )
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "content_sha256", name="uq_ai_customer_document_digest"),
+        db.CheckConstraint(
+            "content_type IN ('text/plain', 'text/markdown', 'application/pdf')",
+            name="ck_ai_customer_document_content_type",
+        ),
+        db.Index("ix_ai_customer_documents_user_created", "user_id", "created_at"),
+    )
+
+
 class AIKnowledgeChunk(db.Model):
     __tablename__ = "ai_knowledge_chunks"
 

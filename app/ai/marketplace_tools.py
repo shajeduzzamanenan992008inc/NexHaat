@@ -485,7 +485,7 @@ def build_customer_tool_registry(max_tool_calls=5):
 
 
 def handle_marketplace_ai_query(prompt: str, *, user=None, channel="web", context=None,
-                               rate_limited=False):
+                               rate_limited=False, allow_external=None):
     """Give the shared Core every message and its approved tools before using fallbacks."""
     text = (prompt or "").strip()
     if not text:
@@ -504,10 +504,6 @@ def handle_marketplace_ai_query(prompt: str, *, user=None, channel="web", contex
             return {"ok": False, "scope": AI_SCOPE_CUSTOMER, "answer": message,
                     "data": "", "products": [], "fallback": message, "tools_used": []}
     service = AIService(current_app.config)
-    has_configured_model = bool(
-        getattr(service, "local_available", False)
-        or getattr(service, "direct_provider", None) is not None
-    )
     has_contextual_reference = bool(
         safe_context.get("recent_products")
         and re.search(
@@ -525,7 +521,7 @@ def handle_marketplace_ai_query(prompt: str, *, user=None, channel="web", contex
         _has_shopping_intent(text) or _requires_marketplace_data(text)
         or has_contextual_reference
     )
-    if not has_configured_model and is_marketplace_request:
+    if not getattr(service, "local_available", False) and is_marketplace_request:
         return _deterministic_fallback(text, user=user, context=safe_context)
 
     registry = build_customer_tool_registry(getattr(service, "max_tool_calls", 5))
@@ -542,12 +538,19 @@ def handle_marketplace_ai_query(prompt: str, *, user=None, channel="web", contex
         allow_external=(
             external_consent_enabled(user=user, principal=principal)
             and not is_marketplace_request
+            and allow_external is not False
         ),
     )
     if result.get("ok"):
         grounded = any(isinstance(item, dict) and item.get("ok") is True
                        for item in result.get("tool_results", []))
-        if is_marketplace_request and _requires_marketplace_data(text) and not grounded:
+        document_context = bool(safe_context.get("customer_documents"))
+        if (
+            is_marketplace_request
+            and _requires_marketplace_data(text)
+            and not grounded
+            and not (document_context and _references_selected_customer_document(text))
+        ):
             return _deterministic_fallback(text, user=user, context=safe_context)
         products = _products_from_result(result)
         response = {
@@ -685,6 +688,17 @@ def _requires_marketplace_data(prompt):
         "ফেরত", "রিফান্ড", "ক্যাটাগরি", "উপহার", "মূল্য", "सामान", "कीमत", "स्टॉक",
         "खोज", "दिखाओ", "कार्ट", "ऑर्डर", "डिलीवरी", "वापसी", "उपहार",
     )) or bool(re.search(r"\d", str(prompt or "")))
+
+
+def _references_selected_customer_document(prompt):
+    """Keep a local document answer when marketplace words appear in the question."""
+    lowered = str(prompt or "").casefold()
+    references = (
+        "document", "file", "note", "attachment", "uploaded", "upload",
+        "নথি", "ফাইল", "নোট", "ডকুমেন্ট", "আপলোড",
+        "दस्तावेज़", "दस्तावेज", "फ़ाइल", "फाइल", "नोट", "अपलोड",
+    )
+    return any(reference in lowered for reference in references)
 
 
 def _deterministic_fallback(prompt, *, user=None, context=None):

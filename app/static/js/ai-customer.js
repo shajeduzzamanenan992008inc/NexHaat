@@ -27,7 +27,16 @@
   const voiceTranscriptionConfigured = document.getElementById('ai-voice-transcription-configured')?.value === 'true';
   const speechOutputConfigured = document.getElementById('ai-speech-output-configured')?.value === 'true';
   const aiServiceStatus = document.getElementById('ai-service-status');
+  const externalAssistanceNotice = document.getElementById('ai-external-assistance-notice')?.textContent.trim();
+  const externalConsentStatus = document.getElementById('ai-external-consent-status');
   const customerCartEnabled = document.getElementById('ai-customer-cart-enabled')?.value === 'true';
+  const customerApiEnabled = document.getElementById('ai-customer-api-enabled')?.value === 'true';
+  const usageStatus = document.getElementById('ai-usage-status');
+  const usageEndpoint = '/api/v1/ai/usage';
+  const documentEndpoint = document.getElementById('ai-document-api-endpoint')?.value;
+  const documentUploadForm = document.getElementById('ai-document-upload');
+  const documentList = document.getElementById('ai-document-list');
+  const documentStatus = document.getElementById('ai-document-status');
   const cartUrl = document.getElementById('ai-cart-url')?.value || '/cart';
   const checkoutUrl = document.getElementById('ai-checkout-url')?.value || '/checkout';
   const history = [];
@@ -38,6 +47,26 @@
   let activeVoiceStream = null;
   let activeVoiceMode = null;
   let pendingCartConfirmation = null;
+  let selectedDocumentIds = [];
+  let consentUpdate = Promise.resolve();
+
+  const refreshCustomerUsage = async () => {
+    if (!customerApiEnabled || !usageStatus) return;
+    try {
+      const response = await fetch(usageEndpoint, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.success !== true || !payload.data) {
+        throw new Error(payload.error?.message || 'Your AI usage could not be loaded.');
+      }
+      usageStatus.textContent = `AI requests: ${payload.data.used} of ${payload.data.limit} used; ${payload.data.remaining} remaining.`;
+    } catch (error) {
+      usageStatus.textContent = error.message || 'Your AI usage could not be loaded.';
+    }
+  };
+  refreshCustomerUsage();
 
   if (aiServiceStatus && endpoints['health-endpoint']) {
     const controller = new AbortController();
@@ -596,10 +625,17 @@
     const group = document.createElement('div'); group.className = 'ai-sources';
     const heading = document.createElement('strong'); heading.textContent = 'Sources'; group.appendChild(heading);
     sources.slice(0, 5).forEach((source) => {
-      if (!source || typeof source.url !== 'string' || !source.url.startsWith('https://')) return;
+      if (!source) return;
       const row = document.createElement('div'); row.className = 'ai-source';
-      const link = document.createElement('a'); link.href = source.url; link.textContent = source.title || 'Open source';
-      link.target = '_blank'; link.rel = 'noopener noreferrer'; row.appendChild(link);
+      if (typeof source.url === 'string' && source.url.startsWith('https://')) {
+        const link = document.createElement('a'); link.href = source.url; link.textContent = source.title || 'Open source';
+        link.target = '_blank'; link.rel = 'noopener noreferrer'; row.appendChild(link);
+      } else if (typeof source.filename === 'string') {
+        const label = document.createElement('span'); label.textContent = `${source.filename} (private document)`;
+        row.appendChild(label);
+      } else {
+        return;
+      }
       if (source.snippet) { const snippet = document.createElement('small'); snippet.textContent = source.snippet; row.appendChild(snippet); }
       group.appendChild(row);
     });
@@ -738,6 +774,141 @@
     if (consent.type === 'checkbox') return consent.checked;
     return String(consent.value).toLowerCase() !== 'false';
   };
+  if (consent?.type === 'checkbox') {
+    consent.addEventListener('change', () => {
+      const enabled = consent.checked;
+      consent.disabled = true;
+      consentUpdate = (async () => {
+        try {
+          const response = await fetch(endpoints['consent-endpoint'], {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+            body: JSON.stringify({ enabled })
+          });
+          const result = await response.json();
+          if (!response.ok || result.ok !== true) {
+            throw new Error(result.answer || 'Your external AI preference could not be saved.');
+          }
+          if (externalConsentStatus) {
+            externalConsentStatus.textContent = enabled
+              ? 'External assistance is enabled for eligible questions when a provider and budget are configured.'
+              : 'External assistance is turned off.';
+          }
+        } catch (error) {
+          consent.checked = !enabled;
+          if (externalConsentStatus) {
+            externalConsentStatus.textContent = error.message || 'Your external AI preference could not be saved.';
+          }
+        } finally {
+          consent.disabled = false;
+        }
+      })();
+    });
+  }
+
+  const loadCustomerDocuments = async () => {
+    if (!customerApiEnabled || !documentEndpoint || !documentList) return;
+    try {
+      const response = await fetch(documentEndpoint, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.success !== true || !Array.isArray(payload.data)) {
+        throw new Error(payload.error?.message || 'Your private document library could not be loaded.');
+      }
+      documentList.replaceChildren();
+      selectedDocumentIds = [];
+      payload.data.forEach((item) => {
+        const row = document.createElement('li');
+        row.className = 'ai-document-list__item';
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = String(item.id);
+        checkbox.addEventListener('change', () => {
+            const checkedDocuments = Array.from(documentList.querySelectorAll('input[type="checkbox"]:checked'));
+            if (checkedDocuments.length > 3) {
+              checkbox.checked = false;
+              documentStatus.textContent = 'Select up to three documents for chat.';
+              return;
+            }
+            selectedDocumentIds = checkedDocuments.map((input) => Number(input.value));
+            documentStatus.textContent = selectedDocumentIds.length
+              ? `${selectedDocumentIds.length} document(s) selected. Their text stays on the local AI path.`
+              : 'No documents selected for chat.';
+        });
+        const title = document.createElement('span');
+        title.textContent = `${item.filename} · ${item.characters} characters`;
+        label.append(checkbox, title);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'button button--quiet';
+        remove.textContent = 'Delete';
+        remove.setAttribute('aria-label', `Delete ${item.filename}`);
+        remove.addEventListener('click', async () => {
+          remove.disabled = true;
+          try {
+            const deleted = await fetch(`${documentEndpoint}/${encodeURIComponent(item.id)}`, {
+              method: 'DELETE',
+              headers: { 'X-CSRFToken': token, Accept: 'application/json' }
+            });
+            const result = await deleted.json();
+            if (!deleted.ok || result.success !== true) {
+              throw new Error(result.error?.message || 'The document could not be deleted.');
+            }
+            documentStatus.textContent = 'Document deleted from your private library.';
+            await loadCustomerDocuments();
+          } catch (error) {
+            documentStatus.textContent = error.message || 'The document could not be deleted.';
+            remove.disabled = false;
+          }
+        });
+        row.append(label, remove);
+        documentList.appendChild(row);
+      });
+      if (!payload.data.length) {
+        const empty = document.createElement('li');
+        empty.textContent = 'No documents uploaded yet.';
+        documentList.appendChild(empty);
+      }
+    } catch (error) {
+      documentStatus.textContent = error.message || 'Your private document library could not be loaded.';
+    }
+  };
+
+  documentUploadForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const fileInput = document.getElementById('ai-document-file');
+    const file = fileInput?.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      documentStatus.textContent = 'Documents must be no larger than 2 MB.';
+      return;
+    }
+    const submitButton = documentUploadForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    documentStatus.textContent = 'Adding document to your private library…';
+    try {
+      const uploaded = await fetch(documentEndpoint, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': token, Accept: 'application/json' },
+        body: new FormData(documentUploadForm)
+      });
+      const result = await uploaded.json();
+      if (!uploaded.ok || result.success !== true) {
+        throw new Error(result.error?.message || 'The document could not be added.');
+      }
+      documentStatus.textContent = 'Document added. Select it to use its text in a local-only chat.';
+      documentUploadForm.reset();
+      await loadCustomerDocuments();
+    } catch (error) {
+      documentStatus.textContent = error.message || 'The document could not be added.';
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+  loadCustomerDocuments();
 
   const submitForm = async (form, endpoint, mode) => {
     const data = new FormData(form);
@@ -769,17 +940,30 @@
     renderAttachments();
     const responseNode = addTypingIndicator();
     try {
-      const response = await fetch(endpoints.endpoint, {
+      await consentUpdate;
+      const useVersionedApi = customerApiEnabled && selectedDocumentIds.length > 0;
+      const response = await fetch(useVersionedApi ? '/api/v1/ai/chat' : endpoints.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
-        body: JSON.stringify({
+        body: JSON.stringify(useVersionedApi ? {
+          message: finalPrompt,
+          history: priorHistory,
+          document_ids: selectedDocumentIds.length ? selectedDocumentIds : undefined
+        } : {
           prompt: finalPrompt,
           history: priorHistory,
           recent_products: recentProductSlugs.slice(0, 5),
           external_ai_consent: shouldUseExternalAi()
         })
       });
-      const result = await response.json();
+      let result = await response.json();
+      if (useVersionedApi) {
+        if (response.ok && result.success === true) {
+          result = { ok: true, ...result.data };
+        } else {
+          result = { ok: false, answer: result.error?.message || 'The assistant is unavailable.' };
+        }
+      }
       responseNode.remove();
       if (Array.isArray(result.products)) {
         const slugs = [...new Set(result.products
@@ -789,10 +973,15 @@
           recentProductSlugs.splice(0, recentProductSlugs.length, ...slugs);
         }
       }
+      if (externalAssistanceNotice && Array.isArray(result.warnings)
+          && result.warnings.includes('External specialist assistance was used for this response.')) {
+        addMessage(externalAssistanceNotice);
+      }
       const answer = await renderResult(result, prompt);
       history.push({ role: 'assistant', content: String(answer || '').slice(0, 1500) });
       if (history.length > 8) history.splice(0, history.length - 8);
     } catch (_) { responseNode.remove(); addMessage('The assistant is unavailable. You can use the regular catalog search.'); }
+    finally { refreshCustomerUsage(); }
   });
 
   if (voiceToggle) {

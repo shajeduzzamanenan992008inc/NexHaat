@@ -738,6 +738,71 @@
     color: var(--ai-muted);
 }
 
+.ai-document-library {
+    display: grid;
+    gap: 18px;
+    margin-top: 22px;
+    color: var(--ai-ink);
+    background: linear-gradient(145deg, rgba(246, 249, 252, 0.96), rgba(231, 239, 247, 0.96));
+    box-shadow: 10px 10px 24px rgba(180, 194, 214, 0.36), -8px -8px 22px rgba(255, 255, 255, 0.85);
+}
+
+.ai-document-library h2 {
+    margin: 0 0 8px;
+}
+
+.ai-document-library .muted {
+    max-width: 760px;
+}
+
+.ai-document-library form {
+    display: grid;
+    gap: 10px;
+}
+
+.ai-document-library__upload,
+.ai-document-list__item,
+.ai-document-list__item label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ai-document-library__upload {
+    flex-wrap: wrap;
+}
+
+.ai-document-library__upload input[type="file"] {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.ai-document-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ai-document-list__item {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding: 12px;
+    border-radius: 14px;
+    background: #edf2f8;
+    box-shadow: inset 2px 2px 5px #d4dce5, inset -2px -2px 5px #fff;
+}
+
+.ai-document-list__item label {
+    min-width: 0;
+    cursor: pointer;
+}
+
+.ai-document-list__item label span {
+    overflow-wrap: anywhere;
+}
+
 .ai-memory-form {
     display: grid;
     gap: 10px;
@@ -1595,7 +1660,16 @@
     }
 
     .ai-page .ai-chat {
-        min-height: 620px;
+        min-height: 0;
+    }
+
+    .ai-chat__messages {
+        min-height: min(260px, 38svh);
+        max-height: 52svh;
+    }
+
+    .ai-chat__welcome {
+        min-height: 0;
     }
 
     .ai-page .ai-tools {
@@ -1649,7 +1723,7 @@
     }
 
     .ai-page .ai-chat {
-        min-height: 570px;
+        min-height: 0;
         padding: 16px 13px;
         border-radius: 20px;
     }
@@ -1680,14 +1754,14 @@
     }
 
     .ai-chat__messages {
-        min-height: 290px;
+        min-height: min(240px, 36svh);
         max-height: 52vh;
         padding: 14px 9px;
         border-radius: 16px;
     }
 
     .ai-chat__welcome {
-        min-height: 260px;
+        min-height: 0;
         padding: 14px 2px;
     }
 
