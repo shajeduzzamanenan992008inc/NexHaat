@@ -183,6 +183,205 @@ class AIBuilderJob(db.Model):
     )
 
 
+class AIBuilderProject(db.Model):
+    __tablename__ = "ai_builder_projects"
+
+    id = db.Column(db.String(36), primary_key=True)
+    admin_user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name = db.Column(db.String(120), nullable=False)
+    project_type = db.Column(db.String(16), nullable=False)
+    description = db.Column(db.String(1500), nullable=False, default="", server_default="")
+    files_json = db.Column(db.Text, nullable=False)
+    source_sha256 = db.Column(db.String(64), nullable=False)
+    external_code_consent = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    status = db.Column(db.String(16), nullable=False, default="active", server_default="active")
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    admin_user = db.relationship("User", backref=db.backref("ai_builder_projects", cascade="all, delete-orphan"))
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "project_type IN ('flask', 'python', 'static')",
+            name="ck_ai_builder_project_type",
+        ),
+        db.CheckConstraint(
+            "status IN ('active', 'archived')",
+            name="ck_ai_builder_project_status",
+        ),
+        db.Index("ix_ai_builder_projects_admin_updated", "admin_user_id", "updated_at"),
+    )
+
+
+class AIBuilderPatch(db.Model):
+    __tablename__ = "ai_builder_patches"
+
+    id = db.Column(db.String(36), primary_key=True)
+    project_id = db.Column(
+        db.String(36), db.ForeignKey("ai_builder_projects.id", ondelete="CASCADE"), nullable=False
+    )
+    admin_user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    base_sha256 = db.Column(db.String(64), nullable=False)
+    candidate_sha256 = db.Column(db.String(64), nullable=False)
+    diff_text = db.Column(db.Text, nullable=False)
+    candidate_files_json = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(16), nullable=False, default="draft", server_default="draft")
+    test_status = db.Column(db.String(16), nullable=False, default="not_run", server_default="not_run")
+    test_output = db.Column(db.Text, nullable=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    tested_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    project = db.relationship("AIBuilderProject", backref=db.backref("patches", cascade="all, delete-orphan"))
+    admin_user = db.relationship("User", foreign_keys=[admin_user_id])
+    approved_by = db.relationship("User", foreign_keys=[approved_by_id])
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "status IN ('draft', 'tested', 'approved', 'rejected')",
+            name="ck_ai_builder_patch_status",
+        ),
+        db.CheckConstraint(
+            "test_status IN ('not_run', 'passed', 'failed', 'unavailable', 'no_tests')",
+            name="ck_ai_builder_patch_test_status",
+        ),
+        db.Index("ix_ai_builder_patches_project_created", "project_id", "created_at"),
+    )
+
+
+class AIGuardianScan(db.Model):
+    __tablename__ = "ai_guardian_scans"
+
+    id = db.Column(db.String(36), primary_key=True)
+    project_id = db.Column(
+        db.String(36), db.ForeignKey("ai_builder_projects.id", ondelete="CASCADE"), nullable=False
+    )
+    admin_user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    trigger = db.Column(db.String(16), nullable=False)
+    status = db.Column(db.String(16), nullable=False, default="queued", server_default="queued")
+    source_sha256 = db.Column(db.String(64), nullable=False)
+    queue_signature = db.Column(db.String(64), nullable=False)
+    result_summary = db.Column(db.String(1000), nullable=True)
+    scanner_version = db.Column(db.String(32), nullable=False, default="1", server_default="1")
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    project = db.relationship("AIBuilderProject", backref=db.backref("guardian_scans", cascade="all, delete-orphan"))
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "trigger IN ('manual', 'deployment', 'nightly')",
+            name="ck_ai_guardian_scan_trigger",
+        ),
+        db.CheckConstraint(
+            "status IN ('queued', 'running', 'completed', 'warning', 'failed')",
+            name="ck_ai_guardian_scan_status",
+        ),
+        db.Index("ix_ai_guardian_scans_project_created", "project_id", "created_at"),
+        db.Index("ix_ai_guardian_scans_queue", "status", "created_at"),
+    )
+
+
+class AIGuardianFinding(db.Model):
+    __tablename__ = "ai_guardian_findings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.String(36), db.ForeignKey("ai_builder_projects.id", ondelete="CASCADE"), nullable=False
+    )
+    first_scan_id = db.Column(
+        db.String(36), db.ForeignKey("ai_guardian_scans.id", ondelete="CASCADE"), nullable=False
+    )
+    latest_scan_id = db.Column(
+        db.String(36), db.ForeignKey("ai_guardian_scans.id", ondelete="CASCADE"), nullable=False
+    )
+    fingerprint = db.Column(db.String(64), nullable=False)
+    severity = db.Column(db.String(12), nullable=False)
+    rule_id = db.Column(db.String(48), nullable=False)
+    file_path = db.Column(db.String(240), nullable=False)
+    line_number = db.Column(db.Integer, nullable=False)
+    summary = db.Column(db.String(500), nullable=False)
+    status = db.Column(db.String(16), nullable=False, default="open", server_default="open")
+    confirmed = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    confirmed_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    confirmation_note = db.Column(db.String(500), nullable=True)
+    first_notified_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint("project_id", "fingerprint", name="uq_ai_guardian_finding_project_fingerprint"),
+        db.CheckConstraint(
+            "severity IN ('low', 'medium', 'high', 'critical')",
+            name="ck_ai_guardian_finding_severity",
+        ),
+        db.CheckConstraint(
+            "status IN ('open', 'acknowledged', 'fixed', 'false_positive')",
+            name="ck_ai_guardian_finding_status",
+        ),
+        db.CheckConstraint("line_number >= 1", name="ck_ai_guardian_finding_line"),
+        db.Index("ix_ai_guardian_findings_project_status", "project_id", "status"),
+    )
+
+
+class AIGuardianLesson(db.Model):
+    __tablename__ = "ai_guardian_lessons"
+
+    id = db.Column(db.String(36), primary_key=True)
+    admin_user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    patch_id = db.Column(
+        db.String(36), db.ForeignKey("ai_builder_patches.id", ondelete="CASCADE"), nullable=False
+    )
+    title = db.Column(db.String(140), nullable=False)
+    content = db.Column(db.String(2000), nullable=False)
+    content_sha256 = db.Column(db.String(64), nullable=False, unique=True)
+    status = db.Column(db.String(16), nullable=False, default="proposed", server_default="proposed")
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    admin_user = db.relationship("User", foreign_keys=[admin_user_id])
+    patch = db.relationship("AIBuilderPatch", backref=db.backref("lessons", cascade="all, delete-orphan"))
+    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "status IN ('proposed', 'approved', 'rejected')",
+            name="ck_ai_guardian_lesson_status",
+        ),
+        db.Index("ix_ai_guardian_lessons_admin_created", "admin_user_id", "created_at"),
+    )
+
+
 class AIProductPriceHistory(db.Model):
     __tablename__ = "ai_product_price_history"
 

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ _('AI Builder and Project Guardian') }} · {{ app_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261009_builder_guardian2') }}">{% endblock %}
+{% block page_content %}
+<div class="page-shell ai-builder"
+     data-projects-url="{{ url_for('ai_builder_workspace.list_projects') }}"
+     data-create-project-url="{{ url_for('ai_builder_workspace.create_project') }}"
+     data-analyze-input-url="{{ url_for('ai_builder_workspace.analyze_builder_input') }}"
+     data-media-consent-url="{{ url_for('ai_builder_workspace.set_builder_media_consent') }}"
+     data-lessons-url="{{ url_for('ai_builder_workspace.list_guardian_lessons') }}">
+  <header class="page-heading ai-builder__hero">
+    <div><p class="eyebrow">{{ _('Admin workspace') }}</p>
+      <h1>{{ _('AI Builder and Project Guardian') }}</h1>
+      <p>{{ _('Create private project drafts, review changes, run isolated tests, and inspect security findings.') }}</p></div>
+    <a class="button button--secondary" href="{{ url_for('admin.ai_workspace') }}">{{ _('Back to Admin AI') }}</a>
+  </header>
+  <p class="ai-builder__notice" role="status">{{ _('Projects are saved only when you opt in. Uploaded files are processed in memory. Generated code is never merged or deployed automatically.') }}</p>
+  {% if not sandbox_configured %}
+  <p class="ai-builder__warning" role="status">{{ _('Sandbox testing is unavailable until an immutable Docker image digest is configured. Patch approval and export remain locked until a test passes.') }}</p>
+  {% endif %}
+
+  <section class="ai-builder__grid">
+    <section class="surface surface-card ai-builder__card" aria-labelledby="ai-builder-create-title">
+      <p class="eyebrow">{{ _('Start safely') }}</p><h2 id="ai-builder-create-title">{{ _('Create a project starter') }}</h2>
+      <form id="ai-builder-create-form" class="ai-builder__form">
+        <label for="ai-builder-name">{{ _('Project name') }}</label><input id="ai-builder-name" name="name" maxlength="120" required>
+        <label for="ai-builder-type">{{ _('Project type') }}</label>
+        <select id="ai-builder-type" name="project_type">
+          <option value="flask">{{ _('Flask application') }}</option><option value="python">{{ _('Python project') }}</option><option value="static">{{ _('Static web project') }}</option>
+        </select>
+        <label for="ai-builder-description">{{ _('Project description') }}</label><textarea id="ai-builder-description" name="description" maxlength="1500" rows="3"></textarea>
+        <label class="ai-builder__check"><input id="ai-builder-persist" type="checkbox"><span>{{ _('Save this project to my private Admin workspace') }}</span></label>
+        <label class="ai-builder__check"><input id="ai-builder-project-external" type="checkbox" {% if not external_ai_consent %}disabled{% endif %}><span>{{ _('Allow this project’s source to be sent to an external specialist when separately requested') }}</span></label>
+        <button class="button" type="submit">{{ _('Create starter') }}</button>
+      </form>
+    </section>
+    <section class="surface surface-card ai-builder__card" aria-labelledby="ai-builder-input-title">
+      <p class="eyebrow">{{ _('Transient analysis') }}</p><h2 id="ai-builder-input-title">{{ _('Analyze an attachment') }}</h2>
+      <p class="muted">{{ _('ZIP, source text, PDF, DOCX, image, and audio inputs are bounded and not saved as files.') }}</p>
+      <form id="ai-builder-input-form" class="ai-builder__form" enctype="multipart/form-data">
+        <label for="ai-builder-attachment">{{ _('Project or document file') }}</label>
+        <input id="ai-builder-attachment" name="attachment" type="file" accept=".zip,.py,.js,.ts,.html,.css,.json,.md,.txt,.pdf,.docx,.png,.jpg,.jpeg,.webp,.ogg,.wav,.webm,.mp3,.m4a" required>
+        <label for="ai-builder-input-prompt">{{ _('What should the analysis check?') }}</label><textarea id="ai-builder-input-prompt" name="prompt" maxlength="1500" rows="3" required></textarea>
+        <label class="ai-builder__check"><input id="ai-builder-input-code-consent" name="allow_external_code" type="checkbox"><span>{{ _('Allow external processing of this source code') }}</span></label>
+        <label class="ai-builder__check"><input id="ai-builder-input-media-consent" name="allow_external_media" type="checkbox"><span>{{ _('Allow external processing of this document or locally analyzed media') }}</span></label>
+        <label class="ai-builder__check"><input id="ai-builder-session-media-consent" type="checkbox" {% if media_external_consent %}checked{% endif %}><span>{{ _('Enable external media consent for this browser session') }}</span></label>
+        <button class="button button--secondary" type="submit">{{ _('Analyze privately') }}</button>
+      </form>
+    </section>
+  </section>
+
+  <section class="ai-builder__grid ai-builder__grid--workspace">
+    <section class="surface surface-card ai-builder__card" aria-labelledby="ai-builder-projects-title">
+      <div class="ai-builder__section-heading"><div><p class="eyebrow">{{ _('Private projects') }}</p><h2 id="ai-builder-projects-title">{{ _('Your saved projects') }}</h2></div>
+        <button class="button button--quiet" id="ai-builder-refresh" type="button">{{ _('Refresh') }}</button></div>
+      <ul id="ai-builder-project-list" class="ai-builder__project-list">
+        {% for project in projects %}<li><button type="button" data-project-id="{{ project.id }}">{{ project.name }}</button></li>
+        {% else %}<li class="muted">{{ _('No project has been saved yet.') }}</li>{% endfor %}
+      </ul>
+    </section>
+    <section class="surface surface-card ai-builder__card ai-builder__detail" aria-labelledby="ai-builder-detail-title">
+      <div class="ai-builder__section-heading"><div><p class="eyebrow">{{ _('Review before applying') }}</p><h2 id="ai-builder-detail-title">{{ _('Select a project') }}</h2></div>
+        <a id="ai-builder-export-project" class="button button--quiet" href="#" hidden>{{ _('Export project ZIP') }}</a></div>
+      <p id="ai-builder-detail-status" class="muted" role="status">{{ _('Choose one of your saved projects to review its files and scans.') }}</p>
+      <div id="ai-builder-detail-content"></div>
+      <div id="ai-builder-actions" hidden>
+        <form id="ai-builder-analyze-form" class="ai-builder__inline-form">
+          <label for="ai-builder-analysis-prompt">{{ _('Analysis request') }}</label><textarea id="ai-builder-analysis-prompt" maxlength="1500" rows="2" required></textarea>
+          <label class="ai-builder__check"><input id="ai-builder-analysis-external" type="checkbox" {% if not external_ai_consent %}disabled{% endif %}><span>{{ _('Allow external processing (requires Admin and project consent)') }}</span></label>
+          <button class="button button--secondary" type="submit">{{ _('Analyze project') }}</button>
+        </form>
+        <form id="ai-builder-patch-form" class="ai-builder__inline-form">
+          <label for="ai-builder-patch-prompt">{{ _('Requested code change') }}</label><textarea id="ai-builder-patch-prompt" maxlength="1500" rows="2" required></textarea>
+          <label class="ai-builder__check"><input id="ai-builder-patch-external" type="checkbox" {% if not external_ai_consent %}disabled{% endif %}><span>{{ _('Allow external patch generation (requires Admin and project consent)') }}</span></label>
+          <button class="button button--secondary" type="submit">{{ _('Generate reviewable patch') }}</button>
+        </form>
+        <form id="ai-builder-manual-patch-form" class="ai-builder__inline-form">
+          <label for="ai-builder-manual-changes">{{ _('Manual changes as JSON path/content entries') }}</label>
+          <textarea id="ai-builder-manual-changes" rows="5" required placeholder='[{"path":"main.py","content":"def main():&#10;    return 1&#10;"}]'></textarea>
+          <button class="button button--secondary" type="submit">{{ _('Create manual patch candidate') }}</button>
+        </form>
+        <button class="button button--quiet" id="ai-builder-scan" type="button">{{ _('Run Guardian scan') }}</button>
+        <button class="button button--quiet" id="ai-builder-delete-project" type="button">{{ _('Delete project') }}</button>
+      </div>
+    </section>
+  </section>
+
+  <section class="surface surface-card ai-builder__card" aria-labelledby="ai-builder-output-title">
+    <p class="eyebrow">{{ _('Results') }}</p><h2 id="ai-builder-output-title">{{ _('Builder and Guardian activity') }}</h2>
+    <div id="ai-builder-result" class="ai-builder__result" aria-live="polite"></div>
+    <div id="ai-builder-patch-actions" class="ai-builder__patch-actions" hidden></div>
+    <div id="ai-builder-lesson-form-wrap" hidden>
+      <form id="ai-builder-lesson-form" class="ai-builder__form">
+        <label for="ai-builder-lesson-title">{{ _('Test-backed reusable lesson') }}</label><input id="ai-builder-lesson-title" maxlength="140" required>
+        <label for="ai-builder-lesson-content">{{ _('Sanitized lesson') }}</label><textarea id="ai-builder-lesson-content" maxlength="2000" rows="3" required></textarea>
+        <button class="button button--secondary" type="submit">{{ _('Propose lesson for Admin review') }}</button>
+      </form>
+    </div>
+    <div id="ai-builder-lessons" class="ai-builder__lessons"></div>
+  </section>
+  <input id="ai-builder-csrf" type="hidden" value="{{ csrf_token() }}">
+</div>
+<script src="{{ url_for('static', filename='js/ai-builder.js', v='20261009_builder_guardian') }}" defer></script>
+{% endblock %}

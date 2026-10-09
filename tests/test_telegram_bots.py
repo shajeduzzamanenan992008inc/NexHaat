@@ -3,9 +3,10 @@ from unittest.mock import patch
 from app.extensions import db
 from app.models import (
     AIProductPriceAlert, AIProductPriceHistory, AuditEvent, Category,
-    CustomerCartItem, CustomerProfile, Notification, Order, Product,
+    CustomerCartItem, CustomerProfile, Notification, Order, Product, Review,
     ProductVariant, ProcessedTelegramUpdate, TelegramAccountLinkChallenge,
-    SellerProfile, TelegramIdentity, TelegramRateLimit, TelegramSecurityAlert, User,
+    SellerProfile, TelegramIdentity, TelegramRateLimit, TelegramSecurityAlert,
+    TelegramSecurityAlertRecipient, TelegramShoppingContext, User,
 )
 from app.services.audit import record_audit
 from app.services.telegram_alerts import deliver_telegram_security_alerts
@@ -33,6 +34,21 @@ def configure_bots(app):
         TELEGRAM_RATE_LIMIT_PER_MINUTE=30,
         PUBLIC_BASE_URL="https://shop.example.test",
     )
+    bind_security_admin(app)
+
+
+def bind_security_admin(app, telegram_user_id=9001, role="admin"):
+    email = f"telegram-{telegram_user_id}-admin@example.test"
+    user = db.session.query(User).filter_by(email=email).one_or_none()
+    if user is None:
+        user = User(email=email, role=role)
+        user.set_password("password123")
+        db.session.add(user)
+        db.session.flush()
+    app.config["TELEGRAM_SECURITY_ADMIN_USER_MAP"] = (
+        f"{telegram_user_id}:{user.id}"
+    )
+    return user.id
 
 
 def test_customer_webhook_requires_secret_and_deduplicates_updates(client, app):
@@ -120,6 +136,376 @@ def test_customer_telegram_ai_uses_shared_catalog_and_validates_variant_callback
         assert cart_item.variant_id == variant_id
         assert cart_item.product_id == product_id
         assert cart_item.quantity == 1
+
+
+def test_customer_telegram_ai_sends_unicode_emoji_in_answer(client, app):
+    configure_bots(app)
+    answer = "A quick tip for you 🌱✨"
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+
+    with patch(
+        "app.ai.marketplace_tools.handle_marketplace_ai_query",
+        return_value={"answer": answer, "products": []},
+    ), patch("app.telegram.customer.send_message", return_value=True) as send:
+        response = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1013, 7713, "Tell me a quick tip"),
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    assert send.call_args.args[2] == answer
+
+
+def test_customer_natural_language_routes_to_visible_catalog_and_support_replies(client, app):
+    configure_bots(app)
+    with app.app_context():
+        category = Category(name="Phones", slug="phones", is_active=True)
+        db.session.add(category)
+        db.session.flush()
+        db.session.add(Product(
+            category_id=category.id, name="Nova Phone", slug="nova-phone",
+            description="A currently available phone.", price=4500, stock_quantity=4,
+            is_available=True, moderation_status="approved",
+        ))
+        db.session.commit()
+
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    prompts = [
+        (1201, "Hello"),
+        (1202, "Show me products"),
+        (1203, "Search for a phone"),
+        (1204, "Show me categories"),
+        (1205, "I need help"),
+    ]
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        responses = [
+            client.post(
+                "/telegram/customer/webhook",
+                json=telegram_payload(update_id, 7811, prompt),
+                headers=headers,
+            )
+            for update_id, prompt in prompts
+        ]
+
+    assert all(response.status_code == 200 for response in responses)
+    messages = [call.args[2] for call in send.call_args_list]
+    assert "Hello! 👋" in messages[0]
+    assert "Nova Phone" in messages[1] and "BDT 4500.00" in messages[1]
+    assert "Nova Phone" in messages[2] and "BDT 4500.00" in messages[2]
+    assert "Phones" in messages[3]
+    assert "Open the configured NexHaat support page." in messages[4]
+    category_markup = (
+        send.call_args_list[3].kwargs.get("reply_markup")
+        or send.call_args_list[3].args[3]
+    )
+    assert category_markup["inline_keyboard"][0][0]["text"] == "Phones"
+
+
+def test_customer_cart_and_order_questions_return_owned_marketplace_data(client, app):
+    configure_bots(app)
+    telegram_id = 7812
+    with app.app_context():
+        customer = User(email="telegram-conversation@example.test", role="customer")
+        customer.set_password("password123")
+        category = Category(name="Gadgets", slug="gadgets", is_active=True)
+        db.session.add_all([customer, category])
+        db.session.flush()
+        product = Product(
+            category_id=category.id, name="Pocket Speaker", slug="pocket-speaker",
+            description="Portable speaker.", price=1200, stock_quantity=4,
+            is_available=True, moderation_status="approved",
+        )
+        db.session.add(product)
+        db.session.add(TelegramIdentity(user_id=customer.id, telegram_user_id=telegram_id))
+        db.session.flush()
+        from app.services.cart import add_customer_cart_item
+        add_customer_cart_item(customer.id, product.id, quantity=1)
+        db.session.add(Order(
+            order_number="NH-TELEGRAM-TRACK", user_id=customer.id,
+            customer_name="Private Customer", phone="01234567890",
+            address="Private address", total=1200, status="preparing",
+            delivery_status="out_for_delivery",
+        ))
+        db.session.commit()
+
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    prompts = [
+        (1206, "What is in my cart?"),
+        (1207, "Where is my order?"),
+    ]
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        responses = [
+            client.post(
+                "/telegram/customer/webhook",
+                json=telegram_payload(update_id, telegram_id, prompt),
+                headers=headers,
+            )
+            for update_id, prompt in prompts
+        ]
+
+    assert all(response.status_code == 200 for response in responses)
+    cart_text, order_text = [call.args[2] for call in send.call_args_list]
+    assert "Pocket Speaker" in cart_text and "BDT 1200.00" in cart_text
+    assert "NH-TELEGRAM-TRACK" in order_text
+    assert "Delivery: out_for_delivery" in order_text
+    assert "01234567890" not in order_text
+    assert "Private address" not in order_text
+
+
+def test_customer_add_to_cart_prompt_shows_product_selection_without_mutating_cart(client, app):
+    configure_bots(app)
+    telegram_id = 7813
+    with app.app_context():
+        customer = User(email="telegram-add-flow@example.test", role="customer")
+        customer.set_password("password123")
+        category = Category(name="Audio", slug="audio", is_active=True)
+        db.session.add_all([customer, category])
+        db.session.flush()
+        product = Product(
+            category_id=category.id, name="Pocket Speaker", slug="pocket-speaker-add",
+            description="Portable speaker.", price=1200, stock_quantity=4,
+            is_available=True, moderation_status="approved",
+        )
+        db.session.add(product)
+        db.session.add(TelegramIdentity(user_id=customer.id, telegram_user_id=telegram_id))
+        db.session.commit()
+        product_id = product.id
+
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        response = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1208, telegram_id, "Add a product to my cart"),
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    assert "Pocket Speaker" in send.call_args.args[2]
+    markup = send.call_args.kwargs.get("reply_markup") or send.call_args.args[3]
+    buttons = markup["inline_keyboard"]
+    assert any(
+        button.get("callback_data") == f"product-add|{product_id}"
+        for row in buttons for button in row
+    )
+    with app.app_context():
+        assert db.session.query(CustomerCartItem).count() == 0
+
+
+def test_customer_bangla_budget_recommendation_shows_grounded_products_and_approved_ratings(client, app):
+    configure_bots(app)
+    with app.app_context():
+        category = Category(name="Phones", slug="phones-budget", is_active=True)
+        db.session.add(category)
+        db.session.flush()
+        products = [
+            Product(
+                category_id=category.id, name="Nova Phone", slug="nova-phone-budget",
+                description="Affordable phone.", price=4500, stock_quantity=3,
+                is_available=True, moderation_status="approved",
+            ),
+            Product(
+                category_id=category.id, name="Orbit Phone", slug="orbit-phone-budget",
+                description="Phone under the requested budget.", price=3990, stock_quantity=2,
+                is_available=True, moderation_status="approved",
+            ),
+            Product(
+                category_id=category.id, name="Premium Phone", slug="premium-phone-budget",
+                description="Higher-priced phone.", price=5800, stock_quantity=2,
+                is_available=True, moderation_status="approved",
+            ),
+        ]
+        db.session.add_all(products)
+        db.session.flush()
+        db.session.add_all([
+            Review(product_id=products[0].id, rating=5, author_name="Reviewer", status="approved"),
+            Review(product_id=products[0].id, rating=1, author_name="Reviewer", status="pending"),
+        ])
+        db.session.commit()
+
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        response = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(
+                1211, 7815, "আমার বাজেট ৫০০০ টাকা, ভালো একটা product suggest করো"
+            ),
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    answer = send.call_args.args[2]
+    assert "Nova Phone" in answer and "৳4500.00" in answer
+    assert "Orbit Phone" in answer and "৳3990.00" in answer
+    assert "Premium Phone" not in answer
+    assert "⭐ 5.0 (1 reviews)" in answer
+    assert "কোনটি সম্পর্কে বিস্তারিত জানতে চান?" in answer
+
+
+def test_customer_compare_prompt_asks_for_names_then_compares_verified_ratings(client, app):
+    configure_bots(app)
+    with app.app_context():
+        category = Category(name="Phones", slug="phones-compare", is_active=True)
+        db.session.add(category)
+        db.session.flush()
+        first = Product(
+            category_id=category.id, name="Nova Phone", slug="nova-phone-compare",
+            description="First phone.", price=4500, stock_quantity=3,
+            is_available=True, moderation_status="approved",
+        )
+        second = Product(
+            category_id=category.id, name="Orbit Phone", slug="orbit-phone-compare",
+            description="Second phone.", price=4900, stock_quantity=2,
+            is_available=True, moderation_status="approved",
+        )
+        db.session.add_all([first, second])
+        db.session.flush()
+        db.session.add(Review(
+            product_id=first.id, rating=5, author_name="Reviewer", status="approved",
+        ))
+        db.session.add(Review(
+            product_id=second.id, rating=3, author_name="Reviewer", status="pending",
+        ))
+        db.session.commit()
+
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        clarify = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1209, 7814, "Compare two products"),
+            headers=headers,
+        )
+        compared = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1210, 7814, "Compare Nova Phone vs Orbit Phone"),
+            headers=headers,
+        )
+
+    assert clarify.status_code == 200
+    assert "Which two product names" in send.call_args_list[0].args[2]
+    assert compared.status_code == 200
+    comparison = send.call_args_list[1].args[2]
+    assert "Nova Phone — BDT 4500.00 | ⭐ 5.0/5 (1 reviews)" in comparison
+    assert "Orbit Phone — BDT 4900.00" in comparison
+    assert "⭐" not in comparison.split("Orbit Phone", 1)[1]
+
+
+def test_telegram_shopping_context_is_private_expires_and_resolves_followups(client, app):
+    from datetime import datetime, timedelta, timezone
+    from app.services.telegram_shopping_context import (
+        get_shopping_context, save_shopping_context,
+    )
+
+    configure_bots(app)
+    with app.app_context():
+        category = Category(name="Phones", slug="phones-context", is_active=True)
+        db.session.add(category)
+        db.session.flush()
+        products = [
+            Product(category_id=category.id, name=name, slug=slug,
+                    description=f"{name} details.", price=price, stock_quantity=3,
+                    is_available=True, moderation_status="approved")
+            for name, slug, price in (
+                ("Nova Phone", "nova-phone-context", 4500),
+                ("Orbit Phone", "orbit-phone-context", 4900),
+                ("Pixel Phone", "pixel-phone-context", 5200),
+            )
+        ]
+        db.session.add_all(products)
+        db.session.commit()
+        save_shopping_context(7815, products)
+        assert get_shopping_context(7816) == {"products": [], "selected_product": None}
+        assert get_shopping_context(7815)["products"] == [
+            "nova-phone-context", "orbit-phone-context", "pixel-phone-context",
+        ]
+        context = db.session.query(TelegramShoppingContext).one()
+        context.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        db.session.commit()
+        assert get_shopping_context(7815) == {"products": [], "selected_product": None}
+        save_shopping_context(7815, products)
+
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        detail = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1211, 7815, "second product ta koto?"),
+            headers=headers,
+        )
+        compared = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1212, 7815, "compare first and third"),
+            headers=headers,
+        )
+
+    assert detail.status_code == 200
+    assert "Orbit Phone" in send.call_args_list[0].args[2]
+    assert "BDT 4900.00" in send.call_args_list[0].args[2]
+    assert compared.status_code == 200
+    comparison = send.call_args_list[1].args[2]
+    assert "Nova Phone" in comparison and "Pixel Phone" in comparison
+    assert "Orbit Phone" not in comparison
+
+
+def test_telegram_contextual_add_to_cart_requires_explicit_callback_confirmation(client, app):
+    configure_bots(app)
+    telegram_id = 7817
+    with app.app_context():
+        customer = User(email="telegram-context-cart@example.test", role="customer")
+        customer.set_password("password123")
+        category = Category(name="Phones", slug="phones-context-cart", is_active=True)
+        db.session.add_all([customer, category])
+        db.session.flush()
+        product = Product(
+            category_id=category.id, name="Nova Phone", slug="nova-phone-context-cart",
+            description="Available phone listing.", price=4500, stock_quantity=3,
+            is_available=True, moderation_status="approved",
+        )
+        db.session.add(product)
+        db.session.flush()
+        db.session.add(TelegramIdentity(user_id=customer.id, telegram_user_id=telegram_id))
+        db.session.commit()
+        from app.services.telegram_shopping_context import save_shopping_context
+
+        save_shopping_context(telegram_id, [product], selected_product=product.slug)
+        product_id = product.id
+
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        response = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1213, telegram_id, "eta cart e dao"),
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    assert "Nova Phone" in send.call_args.args[2]
+    markup = send.call_args.kwargs.get("reply_markup") or send.call_args.args[3]
+    confirmation = next(
+        button["callback_data"]
+        for row in markup["inline_keyboard"] for button in row
+        if button.get("callback_data", "").startswith("cart-confirm|")
+    )
+    with app.app_context():
+        assert db.session.query(CustomerCartItem).count() == 0
+    callback = {
+        "update_id": 1214,
+        "callback_query": {
+            "id": "callback-1214", "from": {"id": telegram_id},
+            "message": {
+                "message_id": 1214,
+                "chat": {"id": telegram_id, "type": "private"},
+            },
+            "data": confirmation,
+        },
+    }
+    with patch("app.telegram.customer.answer_callback", return_value=True), \
+            patch("app.telegram.customer.send_message", return_value=True):
+        confirmed = client.post(
+            "/telegram/customer/webhook", json=callback, headers=headers,
+        )
+    assert confirmed.status_code == 200
+    with app.app_context():
+        assert db.session.query(CustomerCartItem).count() == 1
 
 
 def test_customer_telegram_price_history_and_target_alert_are_account_scoped(client, app):
@@ -384,6 +770,7 @@ def test_security_telegram_voice_stays_private_and_uses_local_scope(app, monkeyp
     from app.telegram.security import handle_security_update
 
     app.config.update(TELEGRAM_SECURITY_ADMIN_IDS="9001", TELEGRAM_SECURITY_BOT_TOKEN="security-test-token")
+    bind_security_admin(app)
     captured = {}
 
     class LocalVoice:
@@ -559,17 +946,70 @@ def test_telegram_rate_limit_is_per_user_and_persists_in_database(client, app):
     app.config["TELEGRAM_RATE_LIMIT_PER_MINUTE"] = 1
     endpoint = "/telegram/customer/webhook"
     headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
-    with patch("app.telegram.customer.send_message", return_value=True) as send:
+    with patch("app.telegram.customer.send_message", return_value=True) as send, patch(
+        "app.telegram.common.send_message", return_value=True
+    ) as limit_notice:
         first = client.post(endpoint, json=telegram_payload(501, 7001, "/help"), headers=headers)
         limited = client.post(endpoint, json=telegram_payload(502, 7001, "/help"), headers=headers)
+        still_limited = client.post(
+            endpoint, json=telegram_payload(503, 7001, "/help"), headers=headers
+        )
     assert first.status_code == 200
     assert limited.status_code == 200
+    assert still_limited.status_code == 200
     assert send.call_count == 1
+    limit_notice.assert_called_once()
+    assert "Too many requests" in limit_notice.call_args.args[2]
     with app.app_context():
         row = db.session.query(TelegramRateLimit).one()
         assert row.telegram_user_hash != "7001"
         assert len(row.telegram_user_hash) == 64
-        assert row.request_count == 2
+        assert row.request_count == 3
+
+
+def test_security_bot_uses_stricter_limit_and_only_notifies_once(client, app):
+    configure_bots(app)
+    app.config.update(
+        TELEGRAM_RATE_LIMIT_PER_MINUTE=30,
+        TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE=1,
+    )
+    endpoint = "/telegram/security/webhook"
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "security-test-secret"}
+    with patch("app.telegram.security.send_message", return_value=True) as send, patch(
+        "app.telegram.common.send_message", return_value=True
+    ) as limit_notice:
+        first = client.post(
+            endpoint, json=telegram_payload(701, 9001, "/status"), headers=headers
+        )
+        limited = client.post(
+            endpoint, json=telegram_payload(702, 9001, "/status"), headers=headers
+        )
+        still_limited = client.post(
+            endpoint, json=telegram_payload(703, 9001, "/status"), headers=headers
+        )
+    assert first.status_code == limited.status_code == still_limited.status_code == 200
+    assert send.call_count == 1
+    limit_notice.assert_called_once()
+    assert "Too many requests" in limit_notice.call_args.args[2]
+
+
+def test_security_bot_requires_active_mapped_website_admin(client, app):
+    configure_bots(app)
+    customer = User(email="telegram-customer-binding@example.test", role="customer")
+    customer.set_password("password123")
+    db.session.add(customer)
+    db.session.flush()
+    app.config["TELEGRAM_SECURITY_ADMIN_USER_MAP"] = f"9001:{customer.id}"
+
+    with patch("app.telegram.security.send_message", return_value=True) as send:
+        response = client.post(
+            "/telegram/security/webhook",
+            json=telegram_payload(704, 9001, "/audit"),
+            headers={"X-Telegram-Bot-Api-Secret-Token": "security-test-secret"},
+        )
+
+    assert response.status_code == 200
+    assert "Access denied" in send.call_args.args[2]
 
 
 def test_customer_link_code_is_digest_only_and_one_time(client, app):
@@ -614,6 +1054,28 @@ def test_customer_link_code_is_digest_only_and_one_time(client, app):
         assert identity.telegram_user_id == 7606
         assert db.session.query(TelegramIdentity).count() == 1
         assert db.session.query(Order).count() == 0
+
+
+def test_customer_group_chat_cannot_start_link_or_change_ai_consent(client, app):
+    from app.ai.core.consent import external_consent_enabled, set_external_consent
+
+    configure_bots(app)
+    principal = "telegram:customer:7007"
+    set_external_consent(True, principal=principal)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        for update_id, text in ((708, "/link"), (709, "/ai-revoke")):
+            payload = telegram_payload(update_id, 7007, text)
+            payload["message"]["chat"] = {"id": -1007, "type": "group"}
+            response = client.post(
+                "/telegram/customer/webhook", json=payload, headers=headers,
+            )
+            assert response.status_code == 200
+
+    assert send.call_count == 2
+    assert all("private chat" in call.args[2].lower() for call in send.call_args_list)
+    assert db.session.query(TelegramAccountLinkChallenge).count() == 0
+    assert external_consent_enabled(principal=principal)
 
 
 def test_webhook_registration_uses_private_settings_without_printing_secrets(app):
@@ -678,6 +1140,33 @@ def test_security_audit_queues_and_delivers_redacted_alert(app):
         alert = db.session.query(TelegramSecurityAlert).one()
         assert alert.status == "sent"
         assert alert.attempts == 1
+        assert db.session.query(TelegramSecurityAlertRecipient).count() == 2
+
+
+def test_security_alert_retry_skips_recipients_already_delivered(app):
+    configure_bots(app)
+    app.config["TELEGRAM_SECURITY_ADMIN_IDS"] = "9001,9002"
+    with app.test_request_context("/"):
+        record_audit(
+            "auth.admin_login_denied",
+            target_id="private-admin@example.com",
+            detail="sensitive internal details",
+        )
+    with app.app_context():
+        alert = db.session.query(TelegramSecurityAlert).one()
+        with patch(
+            "app.services.telegram_alerts.send_message", side_effect=[True, False]
+        ) as send:
+            assert deliver_telegram_security_alerts() == 0
+        assert [call.args[1] for call in send.call_args_list] == [9001, 9002]
+        assert alert.status == "pending"
+        assert db.session.query(TelegramSecurityAlertRecipient).count() == 1
+
+        with patch("app.services.telegram_alerts.send_message", return_value=True) as retry:
+            assert deliver_telegram_security_alerts() == 1
+        assert [call.args[1] for call in retry.call_args_list] == [9002]
+        assert alert.status == "sent"
+        assert db.session.query(TelegramSecurityAlertRecipient).count() == 2
 
 
 def test_admin_ai_action_notice_is_metadata_only_and_links_to_protected_workspace(app):
@@ -758,6 +1247,7 @@ def test_security_bot_approvals_require_mapped_active_admin_and_update_website(c
         db.session.add_all([admin, seller, seller_profile])
         db.session.commit()
         admin_id, seller_profile_id = admin.id, seller_profile.id
+    app.config["TELEGRAM_SECURITY_ADMIN_USER_MAP"] = ""
 
     endpoint = "/telegram/security/webhook"
     headers = {"X-Telegram-Bot-Api-Secret-Token": "security-test-secret"}
@@ -821,3 +1311,174 @@ def test_security_bot_approvals_require_mapped_active_admin_and_update_website(c
         assert db.session.query(AuditEvent).filter_by(
             action="seller.review", target_id=str(seller_profile_id)
         ).count() == 1
+
+
+def test_telegram_natural_languages_call_grounded_search_tool(client, app, monkeypatch):
+    import json
+    from app.ai.core.provider import OpenAICompatibleProvider
+
+    configure_bots(app)
+    with app.app_context():
+        phones = Category(name="Phones", slug="phones-nl-search", is_active=True)
+        audio = Category(name="Audio", slug="audio-nl-search", is_active=True)
+        db.session.add_all([phones, audio])
+        db.session.flush()
+        db.session.add_all([
+            Product(
+                category_id=phones.id, name="Nova Phone", slug="nova-phone-nl-search",
+                description="Available phone.", price=4500, stock_quantity=4,
+                is_available=True, moderation_status="approved",
+            ),
+            Product(
+                category_id=audio.id, name="Gaming Headphones",
+                slug="gaming-headphones-nl-search",
+                description="Gaming headset.", price=4200, stock_quantity=3,
+                is_available=True, moderation_status="approved",
+            ),
+        ])
+        db.session.commit()
+
+    requests_by_prompt = {
+        "show me a good phone": {
+            "query": "phone", "category": "Phones", "max_price": 5000, "limit": 5,
+        },
+        "আমার ৫ হাজারের মধ্যে ভালো একটা headphone দেখাও": {
+            "query": "headphone", "category": "Audio", "max_price": 5000, "limit": 5,
+        },
+        "amar 5k budget er moddhe valo headphone lagbe": {
+            "query": "headphone", "category": "Audio", "max_price": 5000, "limit": 5,
+        },
+    }
+    turn_counts = {}
+    submitted_tools = []
+
+    def generate(self, *, prompt, **kwargs):
+        submitted_tools.append(kwargs["tools"])
+        turn_counts[prompt] = turn_counts.get(prompt, 0) + 1
+        if turn_counts[prompt] == 1:
+            return {
+                "content": "",
+                "tool_calls": [{
+                    "id": f"search-{turn_counts[prompt]}",
+                    "function": {
+                        "name": "search_products",
+                        "arguments": json.dumps(requests_by_prompt[prompt]),
+                    },
+                }],
+            }
+        return {"content": "I found verified marketplace matches.", "tool_calls": []}
+
+    monkeypatch.setattr(OpenAICompatibleProvider, "generate", generate)
+    app.config.update(
+        AI_ENABLED=True,
+        AI_PROVIDER="openai_compatible",
+        AI_API_KEY="test-key",
+        AI_MODEL="test-model",
+        AI_BASE_URL="https://provider.example/v1",
+        AI_LOCAL_ENABLED=False,
+        AI_EXTERNAL_ENABLED=False,
+    )
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        responses = [
+            client.post(
+                "/telegram/customer/webhook",
+                json=telegram_payload(1400 + index, 7900, prompt),
+                headers=headers,
+            )
+            for index, prompt in enumerate(requests_by_prompt)
+        ]
+
+    assert all(response.status_code == 200 for response in responses)
+    messages = [call.args[2] for call in send.call_args_list]
+    assert "Nova Phone" in messages[0] and "BDT 4500.00" in messages[0]
+    assert "Gaming Headphones" in messages[1]
+    assert "Gaming Headphones" in messages[2]
+    assert all(
+        "search_products" in {tool["function"]["name"] for tool in turn_tools}
+        for turn_tools in submitted_tools
+    )
+
+
+def test_telegram_followup_uses_recent_real_product_results(client, app, monkeypatch):
+    import json
+    from app.ai.core.provider import OpenAICompatibleProvider
+    from app.services.telegram_shopping_context import get_shopping_context
+
+    configure_bots(app)
+    telegram_id = 7901
+    with app.app_context():
+        category = Category(name="Phones", slug="phones-followup-ai", is_active=True)
+        db.session.add(category)
+        db.session.flush()
+        db.session.add_all([
+            Product(
+                category_id=category.id, name=name, slug=slug,
+                description=f"{name} listing.", price=price, stock_quantity=3,
+                is_available=True, moderation_status="approved",
+            )
+            for name, slug, price in (
+                ("Nova Phone", "nova-phone-followup-ai", 4500),
+                ("Orbit Phone", "orbit-phone-followup-ai", 4900),
+                ("Pixel Phone", "pixel-phone-followup-ai", 5200),
+            )
+        ])
+        db.session.commit()
+
+    seen_context = []
+    turn_counts = {}
+
+    def generate(self, *, prompt, context, **kwargs):
+        turn_counts[prompt] = turn_counts.get(prompt, 0) + 1
+        seen_context.append(context)
+        if turn_counts[prompt] == 1 and prompt == "show me phones":
+            arguments = {"query": "phone", "category": "Phones", "limit": 5}
+            function = "search_products"
+        elif turn_counts[prompt] == 1:
+            recent = context["recent_products"]
+            arguments = {"slug": recent[1]}
+            function = "get_product"
+        else:
+            return {"content": "Here are the verified phone details.", "tool_calls": []}
+        return {
+            "content": "",
+            "tool_calls": [{
+                "id": f"followup-{turn_counts[prompt]}",
+                "function": {
+                    "name": function, "arguments": json.dumps(arguments),
+                },
+            }],
+        }
+
+    monkeypatch.setattr(OpenAICompatibleProvider, "generate", generate)
+    app.config.update(
+        AI_ENABLED=True,
+        AI_PROVIDER="openai_compatible",
+        AI_API_KEY="test-key",
+        AI_MODEL="test-model",
+        AI_BASE_URL="https://provider.example/v1",
+        AI_LOCAL_ENABLED=False,
+        AI_EXTERNAL_ENABLED=False,
+    )
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "customer-test-secret"}
+    with patch("app.telegram.customer.send_message", return_value=True) as send:
+        first = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1410, telegram_id, "show me phones"),
+            headers=headers,
+        )
+        followup = client.post(
+            "/telegram/customer/webhook",
+            json=telegram_payload(1411, telegram_id, "second product ta koto?"),
+            headers=headers,
+        )
+
+    assert first.status_code == followup.status_code == 200
+    assert len(seen_context[2]["recent_products"]) == 3
+    assert "Orbit Phone" in send.call_args_list[-1].args[2]
+    assert "BDT 4900.00" in send.call_args_list[-1].args[2]
+    with app.app_context():
+        assert get_shopping_context(telegram_id)["products"] == [
+            "nova-phone-followup-ai", "orbit-phone-followup-ai",
+            "pixel-phone-followup-ai",
+        ]

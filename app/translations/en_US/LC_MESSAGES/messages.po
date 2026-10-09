@@ -3263,6 +3263,10 @@ msgstr ""
 msgid "Your wishlist is empty"
 msgstr ""
 
+#: app/templates/ai/customer.html
+msgid "Private voice transcription is not connected. You can type your question instead."
+msgstr ""
+
 #: app/templates/wishlist/index.html:22
 msgid "Save products you like and they will appear here."
 msgstr ""
@@ -3595,4 +3599,3 @@ msgstr ""
 
 #~ msgid "Submit a new listing for review."
 #~ msgstr ""
-

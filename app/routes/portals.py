@@ -325,6 +325,14 @@ def ai_workspace():
         "admin.ai.query.started", "admin.ai.query.completed", "admin.ai.query.failed",
         "admin.ai_builder.job.started", "admin.ai_builder.job.completed",
         "admin.ai_builder.job.failed", "admin.ai_builder.job.deleted",
+        "admin.ai_builder.project.created", "admin.ai_builder.project.updated",
+        "admin.ai_builder.project.deleted", "admin.ai_builder.project.exported",
+        "admin.ai_builder.patch.created", "admin.ai_builder.patch.tested",
+        "admin.ai_builder.patch.approved", "admin.ai_builder.patch.rejected",
+        "admin.ai_builder.patch.applied", "admin.ai_builder.patch.exported",
+        "admin.ai_guardian.finding", "admin.ai_guardian.finding.confirmed",
+        "admin.ai_guardian.finding.reviewed", "admin.ai_guardian.lesson.proposed",
+        "admin.ai_guardian.lesson.approved", "admin.ai_guardian.lesson.rejected",
     )
     activity_labels = {
         "admin.ai.query.started": "Admin AI query started",
@@ -334,6 +342,22 @@ def ai_workspace():
         "admin.ai_builder.job.completed": "Project analysis completed",
         "admin.ai_builder.job.failed": "Project analysis failed",
         "admin.ai_builder.job.deleted": "Analysis record deleted",
+        "admin.ai_builder.project.created": "Builder project created",
+        "admin.ai_builder.project.updated": "Builder project updated",
+        "admin.ai_builder.project.deleted": "Builder project deleted",
+        "admin.ai_builder.project.exported": "Builder project exported",
+        "admin.ai_builder.patch.created": "Patch candidate created",
+        "admin.ai_builder.patch.tested": "Patch candidate tested",
+        "admin.ai_builder.patch.approved": "Patch candidate approved",
+        "admin.ai_builder.patch.rejected": "Patch candidate rejected",
+        "admin.ai_builder.patch.applied": "Approved patch applied",
+        "admin.ai_builder.patch.exported": "Approved patch exported",
+        "admin.ai_guardian.finding": "Guardian finding detected",
+        "admin.ai_guardian.finding.confirmed": "Guardian finding confirmed",
+        "admin.ai_guardian.finding.reviewed": "Guardian finding reviewed",
+        "admin.ai_guardian.lesson.proposed": "Guardian lesson proposed",
+        "admin.ai_guardian.lesson.approved": "Guardian lesson approved",
+        "admin.ai_guardian.lesson.rejected": "Guardian lesson rejected",
     }
     recent_ai_activity = [
         {

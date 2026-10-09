@@ -27,6 +27,22 @@ TELEGRAM_ALERT_ACTIONS = frozenset({
     "admin.ai_builder.job.completed",
     "admin.ai_builder.job.failed",
     "admin.ai_builder.job.deleted",
+    "admin.ai_builder.project.created",
+    "admin.ai_builder.project.updated",
+    "admin.ai_builder.project.deleted",
+    "admin.ai_builder.project.exported",
+    "admin.ai_builder.patch.created",
+    "admin.ai_builder.patch.tested",
+    "admin.ai_builder.patch.approved",
+    "admin.ai_builder.patch.rejected",
+    "admin.ai_builder.patch.applied",
+    "admin.ai_builder.patch.exported",
+    "admin.ai_guardian.finding",
+    "admin.ai_guardian.finding.confirmed",
+    "admin.ai_guardian.finding.reviewed",
+    "admin.ai_guardian.lesson.proposed",
+    "admin.ai_guardian.lesson.approved",
+    "admin.ai_guardian.lesson.rejected",
 })
 
 

@@ -4,7 +4,9 @@ from urllib.parse import urlsplit, urlunsplit
 from sqlalchemy import select
 
 from ..extensions import db
-from ..models import AuditEvent, TelegramSecurityAlert
+from ..models import (
+    AuditEvent, TelegramSecurityAlert, TelegramSecurityAlertRecipient,
+)
 from ..telegram.common import send_message
 
 MAX_ALERT_ATTEMPTS = 5
@@ -31,6 +33,22 @@ def _alert_text(event):
         "admin.ai_builder.job.completed": ("Admin AI project analysis completed", "NOTICE"),
         "admin.ai_builder.job.failed": ("Admin AI project analysis failed", "ATTENTION"),
         "admin.ai_builder.job.deleted": ("Admin deleted an AI analysis record", "NOTICE"),
+        "admin.ai_builder.project.created": ("Admin created a Builder project", "NOTICE"),
+        "admin.ai_builder.project.updated": ("Admin updated a Builder project", "NOTICE"),
+        "admin.ai_builder.project.deleted": ("Admin deleted a Builder project", "NOTICE"),
+        "admin.ai_builder.project.exported": ("Admin exported a Builder project", "NOTICE"),
+        "admin.ai_builder.patch.created": ("Admin created a patch candidate", "NOTICE"),
+        "admin.ai_builder.patch.tested": ("Admin tested a patch candidate", "NOTICE"),
+        "admin.ai_builder.patch.approved": ("Admin approved a test-backed patch", "NOTICE"),
+        "admin.ai_builder.patch.rejected": ("Admin rejected a patch candidate", "NOTICE"),
+        "admin.ai_builder.patch.applied": ("Admin applied an approved project patch", "NOTICE"),
+        "admin.ai_builder.patch.exported": ("Admin exported an approved patch", "NOTICE"),
+        "admin.ai_guardian.finding": ("Guardian found a high-risk issue", "ATTENTION"),
+        "admin.ai_guardian.finding.confirmed": ("Admin confirmed a Guardian risk", "ATTENTION"),
+        "admin.ai_guardian.finding.reviewed": ("Admin reviewed a Guardian finding", "NOTICE"),
+        "admin.ai_guardian.lesson.proposed": ("Admin proposed a tested Guardian lesson", "NOTICE"),
+        "admin.ai_guardian.lesson.approved": ("Admin approved a Guardian lesson for private retrieval", "NOTICE"),
+        "admin.ai_guardian.lesson.rejected": ("Admin rejected a Guardian lesson", "NOTICE"),
     }
     summary, severity = messages.get(event.action, ("A recorded security event occurred", "NOTICE"))
     created_at = event.created_at
@@ -44,7 +62,9 @@ def _alert_text(event):
 
 
 def _alert_markup(event):
-    if not event.action.startswith(("admin.ai.query.", "admin.ai_builder.job.")):
+    if not event.action.startswith((
+        "admin.ai.query.", "admin.ai_builder.", "admin.ai_guardian.",
+    )):
         return None
     from flask import current_app
 
@@ -56,7 +76,12 @@ def _alert_markup(event):
         or current_app.config.get("ENVIRONMENT") == "production" and parsed.scheme != "https"
     ):
         return None
-    path = f"{parsed.path.rstrip('/')}/admin/ai"
+    destination = (
+        "/admin/ai-builder"
+        if event.action.startswith(("admin.ai_guardian.", "admin.ai_builder.project.", "admin.ai_builder.patch."))
+        else "/admin/ai"
+    )
+    path = f"{parsed.path.rstrip('/')}{destination}"
     return {"inline_keyboard": [[{
         "text": "Open Admin AI workspace",
         "url": urlunsplit((parsed.scheme, parsed.netloc, path, "", "")),
@@ -88,12 +113,24 @@ def deliver_telegram_security_alerts(limit=50, *, alert_id=None):
             continue
         message = _alert_text(event)
         markup = _alert_markup(event)
-        results = [
-            send_message("security", admin_id, message, markup)
-            for admin_id in admin_ids
-        ]
+        delivered_to = set(db.session.scalars(
+            select(TelegramSecurityAlertRecipient.telegram_user_id).where(
+                TelegramSecurityAlertRecipient.alert_id == record.id
+            )
+        ).all())
+        for admin_id in admin_ids:
+            if admin_id in delivered_to:
+                continue
+            if send_message("security", admin_id, message, markup):
+                db.session.add(TelegramSecurityAlertRecipient(
+                    alert_id=record.id,
+                    telegram_user_id=admin_id,
+                    sent_at=datetime.now(timezone.utc),
+                ))
+                db.session.commit()
+                delivered_to.add(admin_id)
         record.attempts += 1
-        if all(results):
+        if all(admin_id in delivered_to for admin_id in admin_ids):
             record.status = "sent"
             record.sent_at = datetime.now(timezone.utc)
             delivered += 1

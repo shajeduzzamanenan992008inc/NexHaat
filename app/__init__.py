@@ -42,6 +42,7 @@ def create_app(config_object=None):
     from .routes.auth import admin_login, auth_bp
     from .routes.ai import ai_bp
     from .routes.ai_builder import ai_builder_bp
+    from .routes.ai_builder_workspace import ai_builder_workspace_bp
     from .routes.main import main_bp
     from .routes.notifications import notifications_bp
     from .routes.orders import orders_bp
@@ -56,6 +57,7 @@ def create_app(config_object=None):
     app.register_blueprint(main_bp)
     app.register_blueprint(ai_bp)
     app.register_blueprint(ai_builder_bp)
+    app.register_blueprint(ai_builder_workspace_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(seller_bp)
     app.register_blueprint(support_bp)
@@ -293,6 +295,59 @@ def create_app(config_object=None):
         delivered = deliver_telegram_security_alerts(limit=limit)
         delivered += deliver_pending_external_call_notices(limit=limit)
         click.echo(f"Telegram security notices delivered: {delivered}.")
+
+    @app.cli.command("guardian-scan")
+    @click.option(
+        "--trigger",
+        type=click.Choice(["nightly", "deployment"]),
+        default="nightly",
+        show_default=True,
+    )
+    @click.option("--project-id", default=None, help="Scan one saved Admin Builder project.")
+    def guardian_scan(trigger, project_id):
+        """Run signed local Guardian scans for nightly monitoring or deployment review."""
+        from .routes.ai_builder_workspace import run_guardian_sweep
+
+        result = run_guardian_sweep(trigger=trigger, project_id=project_id)
+        click.echo(
+            f"Guardian projects: {result['projects']}; completed: {result['completed']}; "
+            f"warnings: {result['warnings']}; confirmed blocking findings: {result['blocking_findings']}."
+        )
+        if trigger == "deployment" and result["blocking_findings"]:
+            raise click.ClickException("Deployment blocked by an Admin-confirmed high-risk Guardian finding.")
+
+    @app.cli.command("benchmark-builder")
+    @click.option("--minimum-pass-rate", default=70, show_default=True, type=click.IntRange(min=1, max=100))
+    def benchmark_builder(minimum_pass_rate):
+        """Measure one coding task against hidden tests in the restricted sandbox."""
+        if not (
+            app.config.get("AI_LOCAL_ENABLED")
+            and app.config.get("AI_LOCAL_BASE_URL")
+            and app.config.get("AI_LOCAL_MODEL")
+        ):
+            raise click.ClickException(
+                "Configure the private local AI endpoint and model before running the Builder benchmark."
+            )
+        from .ai.builder.benchmark import BuilderBenchmarkUnavailable, run_builder_benchmark
+        from .ai.core.provider import AIService
+
+        service = AIService(app.config)
+        try:
+            result = run_builder_benchmark(
+                service=service,
+                image=app.config.get("AI_BUILDER_SANDBOX_IMAGE", ""),
+                timeout_seconds=app.config.get("AI_BUILDER_TEST_TIMEOUT_SECONDS", 60),
+            )
+        except BuilderBenchmarkUnavailable as error:
+            raise click.ClickException(str(error)) from error
+        click.echo(
+            f"Hidden coding tests: {result['passed']}/{result['total']} passed "
+            f"({result['score_percent']}%)."
+        )
+        if result["score_percent"] < minimum_pass_rate:
+            raise click.ClickException(
+                f"Builder benchmark did not reach the {minimum_pass_rate}% acceptance threshold."
+            )
 
     @app.cli.command("smart-ai-notification-digest")
     @click.option("--limit", default=200, show_default=True, type=click.IntRange(min=1, max=1000))

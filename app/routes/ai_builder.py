@@ -79,7 +79,7 @@ def create_project_analysis_job():
         ), 403
 
     context_limit = int(current_app.config.get("AI_MAX_CONTEXT_SIZE", 12000))
-    source_limit = max(0, min(MAX_ANALYSIS_SOURCE_CHARS, context_limit - 1000))
+    source_limit = max(0, min(MAX_ANALYSIS_SOURCE_CHARS, context_limit - 2500))
     external_source_limit = min(source_limit, 6000)
     source_parts = []
     source_chars = 0

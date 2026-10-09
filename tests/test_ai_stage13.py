@@ -116,6 +116,277 @@ def test_external_specialists_require_consent_and_monthly_budget(app, monkeypatc
         assert consent.principal_hash != user.email
 
 
+def test_configured_api_is_local_failure_fallback_only_after_consent_and_budget(app, monkeypatch):
+    direct_calls = []
+
+    class FailedLocalModel:
+        def generate(self, **kwargs):
+            raise RuntimeError("private local endpoint is unavailable")
+
+    class DirectAPI:
+        def generate(self, **kwargs):
+            direct_calls.append(kwargs)
+            return {"content": "A safe general answer from the API.", "tool_calls": []}
+
+    monkeypatch.setattr("app.ai.core.provider.AIService._build_direct_provider",
+                        lambda _service: DirectAPI())
+    monkeypatch.setattr("app.services.ai_external_notices.send_message",
+                        lambda *_args: True)
+    with app.app_context():
+        user = _user("customer", "local-api-fallback")
+        config = {
+            "AI_LOCAL_ENABLED": True,
+            "AI_LOCAL_BASE_URL": "https://gpu.internal/v1",
+            "AI_LOCAL_MODEL": "local-model",
+            "AI_ENABLED": True,
+            "AI_PROVIDER": "openai_compatible",
+            "AI_API_KEY": "api-test-key",
+            "AI_MODEL": "api-model",
+            "AI_BASE_URL": "https://api.example.test/v1",
+            "AI_EXTERNAL_ENABLED": True,
+            "AI_EXTERNAL_MONTHLY_BUDGET_USD": "0.05",
+            "AI_API_INPUT_USD_PER_MILLION": "1",
+            "AI_API_OUTPUT_USD_PER_MILLION": "1",
+            "AI_SPECIALISTS": {},
+            "AI_MAX_TOOL_CALLS": 0,
+            "TELEGRAM_SECURITY_BOT_TOKEN": "security-test-token",
+            "TELEGRAM_SECURITY_ADMIN_IDS": "9001",
+        }
+        app.config.update({
+            "TELEGRAM_SECURITY_BOT_TOKEN": config["TELEGRAM_SECURITY_BOT_TOKEN"],
+            "TELEGRAM_SECURITY_ADMIN_IDS": config["TELEGRAM_SECURITY_ADMIN_IDS"],
+        })
+
+        denied = AIService(config, provider=FailedLocalModel()).respond(
+            "Explain recursion", scope=AI_SCOPE_CUSTOMER, user=user,
+        )
+        assert denied["ok"] is False
+        assert direct_calls == []
+
+        set_external_consent(True, user=user)
+        no_budget_config = {**config, "AI_EXTERNAL_MONTHLY_BUDGET_USD": "0"}
+        no_budget = AIService(no_budget_config, provider=FailedLocalModel()).respond(
+            "Explain recursion", scope=AI_SCOPE_CUSTOMER, user=user,
+        )
+        assert no_budget["ok"] is False
+        assert direct_calls == []
+
+        allowed = AIService(config, provider=FailedLocalModel()).respond(
+            "Explain recursion", scope=AI_SCOPE_CUSTOMER, user=user,
+        )
+        assert allowed["ok"] is True
+        assert allowed["provider"] == "openai_compatible-fallback"
+        assert allowed["external_assistance"] is True
+        assert allowed["answer"] == "A safe general answer from the API."
+        assert len(direct_calls) == 1
+        assert direct_calls[0]["model"] == "api-model"
+        assert direct_calls[0]["messages"][-1]["content"] == "Explain recursion"
+        assert len(direct_calls[0]["messages"]) == 2
+        assert AIExternalCallNotice.query.count() == 1
+        assert AIExternalCallRecipient.query.filter_by(status="sent").count() == 1
+        assert AIExternalSpend.query.one().reserved_usd > 0
+
+
+def test_single_configured_specialist_answers_when_local_endpoint_is_missing(app, monkeypatch):
+    specialist_calls = []
+
+    class Specialist:
+        def generate(self, **kwargs):
+            specialist_calls.append(kwargs)
+            notice = AIExternalCallNotice.query.filter_by(provider="openai").one()
+            assert notice.status == "started"
+            assert notice.recipients[0].status == "sent"
+            return {"content": "A cautious answer from the configured specialist.", "tool_calls": []}
+
+    monkeypatch.setattr(
+        "app.ai.core.provider._specialist_provider",
+        lambda name, _spec, _timeout: Specialist(),
+    )
+    monkeypatch.setattr("app.services.ai_external_notices.send_message",
+                        lambda *_args: True)
+    with app.app_context():
+        user = _user("customer", "single-specialist-fallback")
+        set_external_consent(True, user=user)
+        config = {
+            "AI_LOCAL_ENABLED": True,
+            "AI_LOCAL_BASE_URL": "",
+            "AI_LOCAL_MODEL": "",
+            "AI_ENABLED": False,
+            "AI_EXTERNAL_ENABLED": True,
+            "AI_EXTERNAL_MONTHLY_BUDGET_USD": "0.05",
+            "AI_EXTERNAL_MAX_TOKENS": 256,
+            "AI_SPECIALISTS": {"openai": _provider_spec()},
+            "AI_MAX_TOOL_CALLS": 0,
+            "TELEGRAM_SECURITY_BOT_TOKEN": "security-test-token",
+            "TELEGRAM_SECURITY_ADMIN_IDS": "9001",
+        }
+        app.config.update({
+            "TELEGRAM_SECURITY_BOT_TOKEN": config["TELEGRAM_SECURITY_BOT_TOKEN"],
+            "TELEGRAM_SECURITY_ADMIN_IDS": config["TELEGRAM_SECURITY_ADMIN_IDS"],
+        })
+
+        result = AIService(config).respond(
+            "Explain recursion in simple terms",
+            scope=AI_SCOPE_CUSTOMER,
+            user=user,
+        )
+
+        assert result["ok"] is True
+        assert result["provider"] == "openai-fallback"
+        assert result["answer"] == "A cautious answer from the configured specialist."
+        assert result["external_assistance"] is True
+        assert len(specialist_calls) == 1
+        assert len(specialist_calls[0]["messages"]) == 2
+        assert AIExternalCallNotice.query.count() == 1
+        assert AIExternalSpend.query.one().reserved_usd > 0
+
+
+def test_external_fallback_never_handles_customer_marketplace_facts(app, monkeypatch):
+    external_calls = []
+
+    class ExternalProvider:
+        def generate(self, **kwargs):
+            external_calls.append(kwargs)
+            return {"content": "Unverified product answer.", "tool_calls": []}
+
+    monkeypatch.setattr(
+        "app.ai.core.provider._specialist_provider",
+        lambda *_args: ExternalProvider(),
+    )
+    monkeypatch.setattr("app.services.ai_external_notices.send_message",
+                        lambda *_args: True)
+    monkeypatch.setattr(
+        "app.ai.core.provider.AIService._build_direct_provider",
+        lambda _service: ExternalProvider(),
+    )
+    with app.app_context():
+        user = _user("customer", "marketplace-fallback-boundary")
+        set_external_consent(True, user=user)
+        config = {
+            "AI_LOCAL_ENABLED": True,
+            "AI_LOCAL_BASE_URL": "https://gpu.internal/v1",
+            "AI_LOCAL_MODEL": "local-model",
+            "AI_ENABLED": True,
+            "AI_PROVIDER": "openai_compatible",
+            "AI_API_KEY": "api-test-key",
+            "AI_MODEL": "api-model",
+            "AI_BASE_URL": "https://api.example.test/v1",
+            "AI_API_INPUT_USD_PER_MILLION": "1",
+            "AI_API_OUTPUT_USD_PER_MILLION": "1",
+            "AI_EXTERNAL_ENABLED": True,
+            "AI_EXTERNAL_MONTHLY_BUDGET_USD": "0.05",
+            "AI_SPECIALISTS": {"openai": _provider_spec()},
+            "AI_MAX_TOOL_CALLS": 0,
+            "TELEGRAM_SECURITY_BOT_TOKEN": "security-test-token",
+            "TELEGRAM_SECURITY_ADMIN_IDS": "9001",
+        }
+        app.config.update({
+            "TELEGRAM_SECURITY_BOT_TOKEN": config["TELEGRAM_SECURITY_BOT_TOKEN"],
+            "TELEGRAM_SECURITY_ADMIN_IDS": config["TELEGRAM_SECURITY_ADMIN_IDS"],
+        })
+        class FailedLocalModel:
+            def generate(self, **kwargs):
+                raise RuntimeError("local unavailable")
+
+        result = AIService(config, provider=FailedLocalModel()).respond(
+            "Show Samsung phones under BDT 30000",
+            scope=AI_SCOPE_CUSTOMER,
+            user=user,
+            context={"allow_external_fallback": False},
+            allow_external=True,
+        )
+
+        assert result["ok"] is False
+        assert external_calls == []
+        assert AIExternalCallNotice.query.count() == 0
+
+
+def test_local_response_remains_primary_when_direct_api_is_configured(monkeypatch):
+    direct_calls = []
+
+    class LocalModel:
+        def generate(self, **kwargs):
+            return {"content": "The private local answer.", "tool_calls": []}
+
+    class DirectAPI:
+        def generate(self, **kwargs):
+            direct_calls.append(kwargs)
+            return {"content": "This should not be used.", "tool_calls": []}
+
+    monkeypatch.setattr("app.ai.core.provider.AIService._build_direct_provider",
+                        lambda _service: DirectAPI())
+    config = {
+        "AI_LOCAL_ENABLED": True,
+        "AI_LOCAL_BASE_URL": "https://gpu.internal/v1",
+        "AI_LOCAL_MODEL": "local-model",
+        "AI_ENABLED": True,
+        "AI_PROVIDER": "openai_compatible",
+        "AI_API_KEY": "api-test-key",
+        "AI_MODEL": "api-model",
+        "AI_BASE_URL": "https://api.example.test/v1",
+        "AI_EXTERNAL_ENABLED": True,
+    }
+
+    result = AIService(config, provider=LocalModel()).respond(
+        "Explain recursion", scope=AI_SCOPE_CUSTOMER, allow_external=True,
+    )
+
+    assert result["ok"] is True
+    assert result["answer"] == "The private local answer."
+    assert result["external_assistance"] is False
+    assert direct_calls == []
+
+
+def test_missing_local_endpoint_does_not_make_api_an_ungated_primary(app, monkeypatch):
+    direct_calls = []
+
+    class DirectAPI:
+        def generate(self, **kwargs):
+            direct_calls.append(kwargs)
+            return {"content": "Paid fallback answer.", "tool_calls": []}
+
+    monkeypatch.setattr("app.ai.core.provider.AIService._build_direct_provider",
+                        lambda _service: DirectAPI())
+    monkeypatch.setattr("app.services.ai_external_notices.send_message",
+                        lambda *_args: True)
+    with app.app_context():
+        user = _user("customer", "missing-local-endpoint")
+        config = {
+            "AI_LOCAL_ENABLED": True,
+            "AI_LOCAL_BASE_URL": "",
+            "AI_LOCAL_MODEL": "",
+            "AI_ENABLED": True,
+            "AI_PROVIDER": "openai_compatible",
+            "AI_API_KEY": "api-test-key",
+            "AI_MODEL": "api-model",
+            "AI_BASE_URL": "https://api.example.test/v1",
+            "AI_EXTERNAL_ENABLED": True,
+            "AI_EXTERNAL_MONTHLY_BUDGET_USD": "0.05",
+            "AI_API_INPUT_USD_PER_MILLION": "1",
+            "AI_API_OUTPUT_USD_PER_MILLION": "1",
+            "TELEGRAM_SECURITY_BOT_TOKEN": "security-test-token",
+            "TELEGRAM_SECURITY_ADMIN_IDS": "9001",
+        }
+        app.config.update({
+            "TELEGRAM_SECURITY_BOT_TOKEN": config["TELEGRAM_SECURITY_BOT_TOKEN"],
+            "TELEGRAM_SECURITY_ADMIN_IDS": config["TELEGRAM_SECURITY_ADMIN_IDS"],
+        })
+
+        blocked = AIService(config).respond(
+            "Explain recursion", scope=AI_SCOPE_CUSTOMER, user=user,
+        )
+        assert blocked["ok"] is False
+        assert direct_calls == []
+
+        set_external_consent(True, user=user)
+        allowed = AIService(config).respond(
+            "Explain recursion", scope=AI_SCOPE_CUSTOMER, user=user,
+        )
+        assert allowed["ok"] is True
+        assert allowed["provider"] == "openai_compatible-fallback"
+        assert len(direct_calls) == 1
+
+
 def test_budget_exhaustion_prevents_external_requests(app):
     with app.app_context():
         specs = [_provider_spec(rate="1000"), _provider_spec(rate="1000")]
@@ -428,11 +699,18 @@ def test_external_call_notice_retries_without_storing_prompt_or_code(app, monkey
 
 
 def test_security_telegram_general_question_uses_local_core(app, monkeypatch):
+    from app.extensions import db
+    from app.models import User
     from app.telegram.security import handle_security_update
 
     delivered = {}
     app.config["TELEGRAM_SECURITY_ADMIN_IDS"] = "9001"
     app.config["AI_LOCAL_BASE_URL"] = "https://gpu.internal/v1"
+    admin = User(email="stage13-security-admin@example.test", role="admin")
+    admin.set_password("password123")
+    db.session.add(admin)
+    db.session.flush()
+    app.config["TELEGRAM_SECURITY_ADMIN_USER_MAP"] = f"9001:{admin.id}"
 
     def local_answer(self, prompt, **kwargs):
         assert prompt == "Explain recursion in simple terms"
@@ -490,10 +768,17 @@ def test_customer_telegram_free_text_uses_shared_general_core(app, monkeypatch):
 
 
 def test_security_telegram_free_text_routes_to_security_local_core(app, monkeypatch):
+    from app.extensions import db
+    from app.models import User
     from app.telegram.security import handle_security_update
 
     app.config["TELEGRAM_SECURITY_ADMIN_IDS"] = "9001"
     app.config["AI_LOCAL_BASE_URL"] = "https://gpu.internal/v1"
+    admin = User(email="stage13-security-query-admin@example.test", role="admin")
+    admin.set_password("password123")
+    db.session.add(admin)
+    db.session.flush()
+    app.config["TELEGRAM_SECURITY_ADMIN_USER_MAP"] = f"9001:{admin.id}"
     captured = {}
 
     def local_answer(self, prompt, **kwargs):

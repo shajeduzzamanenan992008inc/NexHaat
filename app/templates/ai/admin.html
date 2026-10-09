@@ -6,6 +6,7 @@
   <header class="page-heading"><div><p class="eyebrow">{{ _('Local AI Core · Read-only operations') }}</p><h1>{{ _('Admin AI Copilot') }}</h1>
     <p>{{ _('Ask general questions, coding questions, or about read-only sales, orders, inventory, customer activity, reviews, and support cases.') }}</p></div>
     <a class="button button--secondary" href="{{ url_for('admin.dashboard') }}">{{ _('Admin dashboard') }}</a></header>
+  <p><a class="button button--quiet" href="{{ url_for('ai_builder_workspace.builder_workspace') }}">{{ _('Open AI Builder and Project Guardian') }}</a></p>
   <section class="ai-admin-responsibility surface surface-card" aria-labelledby="ai-admin-responsibility-title">
     <div>
       <p class="eyebrow">{{ _('Human-led decisions') }}</p>

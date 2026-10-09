@@ -1,6 +1,7 @@
 (() => {
   const messages = document.getElementById('ai-messages');
   if (!messages) return;
+  const comparisonContainer = document.getElementById('ai-comparison');
   const promptInput = document.getElementById('ai-prompt');
   const initialPrompt = (promptInput ? promptInput.value.trim() : '').trim();
   if (initialPrompt && promptInput && !promptInput.dataset.aiAutoSubmitted) {
@@ -12,7 +13,7 @@
     }, 120);
   }
   const token = document.getElementById('ai-csrf').value;
-  const endpoints = Object.fromEntries(['endpoint', 'cart-proposal-endpoint', 'cart-confirm-endpoint', 'voice-endpoint', 'image-endpoint', 'consent-endpoint', 'speak-endpoint'].map((key) => [key, document.getElementById(`ai-${key}`).value]));
+  const endpoints = Object.fromEntries(['endpoint', 'health-endpoint', 'cart-proposal-endpoint', 'cart-confirm-endpoint', 'voice-endpoint', 'image-endpoint', 'consent-endpoint', 'speak-endpoint'].map((key) => [key, document.getElementById(`ai-${key}`)?.value]));
   const attachmentInput = document.getElementById('ai-attachment-input');
   const attachButton = document.getElementById('ai-attach-button');
   const attachmentList = document.getElementById('ai-attachment-list');
@@ -20,10 +21,40 @@
   const voiceMenu = document.getElementById('ai-voice-menu');
   const voiceRecordOption = document.getElementById('ai-voice-record');
   const voiceTalkOption = document.getElementById('ai-voice-talk');
+  const voiceForm = document.getElementById('ai-voice-form');
+  const recordButton = document.getElementById('ai-record-button');
+  const recordStatus = document.getElementById('ai-record-status');
+  const voiceTranscriptionConfigured = document.getElementById('ai-voice-transcription-configured')?.value === 'true';
+  const speechOutputConfigured = document.getElementById('ai-speech-output-configured')?.value === 'true';
+  const aiServiceStatus = document.getElementById('ai-service-status');
+  const customerCartEnabled = document.getElementById('ai-customer-cart-enabled')?.value === 'true';
+  const cartUrl = document.getElementById('ai-cart-url')?.value || '/cart';
+  const checkoutUrl = document.getElementById('ai-checkout-url')?.value || '/checkout';
   const history = [];
+  const recentProductSlugs = [];
+  const comparisonSelections = new Map();
   let attachedFiles = [];
   let activeVoiceRecorder = null;
   let activeVoiceStream = null;
+  let activeVoiceMode = null;
+  let pendingCartConfirmation = null;
+
+  if (aiServiceStatus && endpoints['health-endpoint']) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 5000);
+    fetch(endpoints['health-endpoint'], {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      signal: controller.signal
+    }).then(async (response) => {
+      const result = await response.json();
+      aiServiceStatus.textContent = result.message || 'AI service health is unavailable.';
+      aiServiceStatus.dataset.status = result.status || 'unknown';
+    }).catch(() => {
+      aiServiceStatus.textContent = 'AI service status could not be checked. Catalog search and account tools remain available.';
+      aiServiceStatus.dataset.status = 'unknown';
+    }).finally(() => window.clearTimeout(timeout));
+  }
 
   const closeVoiceMenu = () => {
     if (!voiceMenu) return;
@@ -41,6 +72,14 @@
     promptInput.value = promptText;
     form.requestSubmit();
   };
+
+  document.querySelectorAll('[data-ai-prompt]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const prompt = button.getAttribute('data-ai-prompt') || '';
+      if (promptInput) promptInput.value = prompt;
+      document.getElementById('ai-chat-form')?.requestSubmit();
+    });
+  });
 
   const renderAttachments = () => {
     if (!attachmentList) return;
@@ -70,6 +109,10 @@
   };
 
   const runVoiceSearch = async (blob, filename = 'voice-message.webm') => {
+    if (!voiceTranscriptionConfigured) {
+      addMessage('Private voice transcription is not configured. You can type your question instead.');
+      return false;
+    }
     const formData = new FormData();
     formData.append('csrf_token', token);
     formData.append('audio', blob, filename);
@@ -82,9 +125,11 @@
       responseNode.remove();
       if (result.transcript) addMessage(`Voice search: ${result.transcript}`, 'customer');
       await renderResult(result);
+      return Boolean(result.transcript);
     } catch (_) {
       responseNode.remove();
       addMessage('Voice search is temporarily unavailable. Try a file upload or a typed question instead.');
+      return false;
     }
   };
 
@@ -107,10 +152,143 @@
     }
   };
 
+  const appendInlineMarkdown = (parent, text) => {
+    const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g;
+    let cursor = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      parent.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+      const token = match[0];
+      if (token.startsWith('**')) {
+        const strong = document.createElement('strong');
+        strong.textContent = token.slice(2, -2);
+        parent.appendChild(strong);
+      } else if (token.startsWith('`')) {
+        const code = document.createElement('code');
+        code.textContent = token.slice(1, -1);
+        parent.appendChild(code);
+      } else if (token.startsWith('*')) {
+        const emphasis = document.createElement('em');
+        emphasis.textContent = token.slice(1, -1);
+        parent.appendChild(emphasis);
+      } else {
+        const linkMatch = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
+        const href = linkMatch?.[2]?.trim() || '';
+        const safeHref = (href.startsWith('/') && !href.startsWith('//'))
+          || href.startsWith('https://') || href.startsWith('mailto:');
+        if (!safeHref || !linkMatch) {
+          parent.appendChild(document.createTextNode(token));
+        } else {
+          const link = document.createElement('a');
+          link.href = href;
+          link.textContent = linkMatch[1];
+          if (href.startsWith('https://')) {
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+          }
+          parent.appendChild(link);
+        }
+      }
+      cursor = match.index + token.length;
+    }
+    parent.appendChild(document.createTextNode(text.slice(cursor)));
+  };
+
+  const renderMessageMarkdown = (container, value) => {
+    const lines = String(value || '').replace(/\r\n?/g, '\n').split('\n');
+    let index = 0;
+    while (index < lines.length) {
+      const line = lines[index];
+      if (!line.trim()) { index += 1; continue; }
+      if (/^\s*```/.test(line)) {
+        const codeLines = [];
+        index += 1;
+        while (index < lines.length && !/^\s*```/.test(lines[index])) {
+          codeLines.push(lines[index++]);
+        }
+        if (index < lines.length) index += 1;
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.textContent = codeLines.join('\n');
+        pre.appendChild(code);
+        container.appendChild(pre);
+        continue;
+      }
+      const heading = /^(#{1,6})\s+(.+)$/.exec(line);
+      if (heading) {
+        const node = document.createElement(`h${heading[1].length}`);
+        appendInlineMarkdown(node, heading[2]);
+        container.appendChild(node);
+        index += 1;
+        continue;
+      }
+      const listMatch = /^\s*(?:[-*]\s+|\d+[.)]\s+)/.exec(line);
+      if (listMatch) {
+        const ordered = /^\s*\d+[.)]\s+/.test(line);
+        const list = document.createElement(ordered ? 'ol' : 'ul');
+        while (index < lines.length) {
+          const itemMatch = /^\s*(?:[-*]\s+|\d+[.)]\s+)(.+)$/.exec(lines[index]);
+          if (!itemMatch || /^\s*\d+[.)]\s+/.test(lines[index]) !== ordered) break;
+          const item = document.createElement('li');
+          appendInlineMarkdown(item, itemMatch[1]);
+          list.appendChild(item);
+          index += 1;
+        }
+        container.appendChild(list);
+        continue;
+      }
+      if (line.includes('|') && index + 1 < lines.length
+          && /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[index + 1])) {
+        const cells = (row) => row.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim());
+        const headings = cells(line);
+        const table = document.createElement('table');
+        const head = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        headings.forEach((label) => {
+          const cell = document.createElement('th');
+          appendInlineMarkdown(cell, label);
+          headRow.appendChild(cell);
+        });
+        head.appendChild(headRow);
+        table.appendChild(head);
+        index += 2;
+        const body = document.createElement('tbody');
+        while (index < lines.length && lines[index].includes('|') && lines[index].trim()) {
+          const row = document.createElement('tr');
+          cells(lines[index]).forEach((value) => {
+            const cell = document.createElement('td');
+            appendInlineMarkdown(cell, value);
+            row.appendChild(cell);
+          });
+          body.appendChild(row);
+          index += 1;
+        }
+        table.appendChild(body);
+        container.appendChild(table);
+        continue;
+      }
+      const paragraph = document.createElement('p');
+      const paragraphLines = [];
+      while (index < lines.length && lines[index].trim()
+          && !/^\s*```/.test(lines[index])
+          && !/^(#{1,6})\s+/.test(lines[index])
+          && !/^\s*(?:[-*]\s+|\d+[.)]\s+)/.test(lines[index])
+          && !(lines[index].includes('|') && index + 1 < lines.length
+            && /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[index + 1]))) {
+        paragraphLines.push(lines[index++]);
+      }
+      appendInlineMarkdown(paragraph, paragraphLines.join(' '));
+      container.appendChild(paragraph);
+    }
+  };
+
   const addMessage = (text, kind = 'assistant') => {
-    const node = document.createElement('p');
+    const node = document.createElement('div');
     node.className = `ai-message ai-message--${kind}`;
-    node.textContent = String(text || '');
+    const content = document.createElement('div');
+    content.className = 'ai-message__content';
+    renderMessageMarkdown(content, text);
+    node.appendChild(content);
     messages.appendChild(node);
     messages.scrollTop = messages.scrollHeight;
     return node;
@@ -125,6 +303,157 @@
     return node;
   };
 
+  const appendComparison = () => {
+    if (!comparisonContainer) return;
+    comparisonContainer.replaceChildren();
+    comparisonContainer.hidden = comparisonSelections.size !== 2;
+    if (comparisonContainer.hidden) return;
+    const selected = [...comparisonSelections.values()];
+    const section = document.createElement('section');
+    section.className = 'ai-product-comparison';
+    section.setAttribute('aria-label', 'Product comparison');
+    const heading = document.createElement('h3');
+    heading.textContent = 'Product comparison';
+    const table = document.createElement('table');
+    const caption = document.createElement('caption');
+    caption.textContent = 'Marketplace details for the selected products';
+    table.appendChild(caption);
+    const head = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    const featureHeader = document.createElement('th');
+    featureHeader.scope = 'col';
+    featureHeader.textContent = 'Feature';
+    headerRow.appendChild(featureHeader);
+    selected.forEach((product) => {
+      const cell = document.createElement('th');
+      cell.scope = 'col';
+      cell.textContent = product.name || 'Catalog product';
+      headerRow.appendChild(cell);
+    });
+    head.appendChild(headerRow);
+    table.appendChild(head);
+    const body = document.createElement('tbody');
+    [
+      ['Price', (product) => `BDT ${product.price || '—'}`],
+      ['Available stock', (product) => String(product.stock ?? 0)],
+      ['Category', (product) => product.category || 'Not listed'],
+      ['Brand', (product) => product.brand || 'Not listed'],
+      ['Approved rating', (product) => product.rating != null && product.review_count
+        ? `${product.rating}/5 (${product.review_count} reviews)` : 'No approved reviews'],
+    ].forEach(([label, value]) => {
+      const row = document.createElement('tr');
+      const headingCell = document.createElement('th');
+      headingCell.scope = 'row';
+      headingCell.textContent = label;
+      row.appendChild(headingCell);
+      selected.forEach((product) => {
+        const cell = document.createElement('td');
+        cell.textContent = value(product);
+        row.appendChild(cell);
+      });
+      body.appendChild(row);
+    });
+    table.appendChild(body);
+    section.append(heading, table);
+    comparisonContainer.appendChild(section);
+  };
+
+  const appendCartAction = (product, actions, variantSelect) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button button--secondary';
+    button.textContent = 'Add to cart';
+    button.addEventListener('click', async () => {
+      const variantId = variantSelect?.value || null;
+      if (variantSelect && !variantId) {
+        addMessage(`Choose an available option for ${product.name} first.`);
+        variantSelect.focus();
+        return;
+      }
+      button.disabled = true;
+      button.textContent = 'Checking current price…';
+      pendingCartConfirmation?.remove();
+      pendingCartConfirmation = null;
+      try {
+        const response = await fetch(endpoints['cart-proposal-endpoint'], {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+          body: JSON.stringify({
+            action: 'add', product_slug: product.slug, quantity: 1,
+            ...(variantId ? { variant_id: Number(variantId) } : {}),
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok || !result.proposal) {
+          throw new Error(result.answer || 'The cart suggestion could not be prepared.');
+        }
+        const proposal = result.proposal;
+        const review = document.createElement('div');
+        review.className = 'ai-cart-review';
+        review.setAttribute('role', 'group');
+        review.setAttribute('aria-label', 'Review cart addition');
+        const summary = document.createElement('p');
+        summary.textContent = `Add ${proposal.product} × ${proposal.quantity} at BDT ${proposal.price} each? Checkout is a separate step.`;
+        const confirm = document.createElement('button');
+        confirm.type = 'button';
+        confirm.className = 'button';
+        confirm.textContent = 'Confirm add to cart';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'button button--secondary';
+        cancel.textContent = 'Cancel';
+        cancel.addEventListener('click', () => {
+          review.remove();
+          if (pendingCartConfirmation === review) pendingCartConfirmation = null;
+          button.disabled = false;
+          button.textContent = 'Add to cart';
+        });
+        confirm.addEventListener('click', async () => {
+          confirm.disabled = true;
+          cancel.disabled = true;
+          try {
+            const confirmedResponse = await fetch(endpoints['cart-confirm-endpoint'], {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+              body: JSON.stringify({ proposal_id: result.proposal_id }),
+            });
+            const confirmed = await confirmedResponse.json();
+            if (!confirmedResponse.ok || !confirmed.ok) {
+              throw new Error(confirmed.answer || 'The cart could not be updated.');
+            }
+            review.remove();
+            if (pendingCartConfirmation === review) pendingCartConfirmation = null;
+            addMessage(confirmed.answer || 'Your cart was updated. Checkout remains a separate step.');
+            const links = document.createElement('div');
+            links.className = 'ai-message-actions';
+            [[cartUrl, 'Open cart'], [checkoutUrl, 'Continue to checkout']].forEach(([href, label]) => {
+              const link = document.createElement('a');
+              link.className = 'button button--secondary';
+              link.href = href;
+              link.textContent = label;
+              links.appendChild(link);
+            });
+            messages.appendChild(links);
+            button.textContent = 'Added to cart';
+          } catch (error) {
+            addMessage(error.message || 'The cart could not be updated.');
+            confirm.disabled = false;
+            cancel.disabled = false;
+          }
+        });
+        review.append(summary, confirm, cancel);
+        actions.appendChild(review);
+        pendingCartConfirmation = review;
+        button.textContent = 'Review pending';
+      } catch (error) {
+        addMessage(error.message || 'The cart suggestion could not be prepared.');
+        button.disabled = false;
+        button.textContent = 'Add to cart';
+      }
+    });
+    actions.appendChild(button);
+  };
+
   const appendProducts = (products) => {
     if (!Array.isArray(products) || !products.length) return;
     const list = document.createElement('div');
@@ -133,18 +462,107 @@
       if (!product || !product.slug) return;
       const card = document.createElement('article');
       card.className = 'ai-product-card';
+      if (typeof product.image === 'string' && product.image.trim()) {
+        try {
+          const imageUrl = new URL(product.image, window.location.origin);
+          if (imageUrl.protocol === 'https:'
+              || (imageUrl.protocol === 'http:' && imageUrl.origin === window.location.origin)) {
+            const image = document.createElement('img');
+            image.src = imageUrl.href;
+            image.alt = product.name ? `${product.name} product image` : 'Product image';
+            image.loading = 'lazy';
+            image.decoding = 'async';
+            image.className = 'ai-product-card__image';
+            card.appendChild(image);
+          }
+        } catch (_) { /* Invalid catalog image references are not rendered. */ }
+      }
       const link = document.createElement('a');
       link.href = `/food/${encodeURIComponent(product.slug)}`;
       link.textContent = product.name || 'Catalog product';
+      const title = document.createElement('h3');
+      title.appendChild(link);
       const details = document.createElement('p');
-      details.textContent = `BDT ${product.price || '—'} · ${product.stock || 0} in stock`;
-      card.append(link, details);
+      const rating = product.rating != null && product.review_count
+        ? ` · ⭐ ${product.rating}/5 (${product.review_count} approved reviews)` : '';
+      details.textContent = `BDT ${product.price || '—'} · ${product.stock || 0} in stock${rating}`;
+      const actions = document.createElement('div');
+      actions.className = 'ai-product-card__actions';
+      const viewDetails = document.createElement('a');
+      viewDetails.className = 'button button--secondary';
+      viewDetails.href = `/food/${encodeURIComponent(product.slug)}`;
+      viewDetails.textContent = 'View details';
+      actions.appendChild(viewDetails);
+      const compare = document.createElement('button');
+      compare.type = 'button';
+      compare.className = 'button button--secondary';
+      compare.textContent = comparisonSelections.has(product.slug) ? 'Remove from compare' : 'Select to compare';
+      compare.setAttribute('aria-pressed', String(comparisonSelections.has(product.slug)));
+      compare.addEventListener('click', () => {
+        if (comparisonSelections.has(product.slug)) {
+          comparisonSelections.delete(product.slug);
+        } else {
+          if (comparisonSelections.size === 2) {
+            comparisonSelections.clear();
+            addMessage('Comparison selection restarted. Choose two products.');
+          }
+          comparisonSelections.set(product.slug, product);
+        }
+        compare.setAttribute('aria-pressed', String(comparisonSelections.has(product.slug)));
+        compare.textContent = comparisonSelections.has(product.slug) ? 'Remove from compare' : 'Select to compare';
+        appendComparison();
+      });
+      actions.appendChild(compare);
+      const activeVariants = Array.isArray(product.variants)
+        ? product.variants.filter((variant) => variant && variant.available && variant.id)
+        : [];
+      if (customerCartEnabled && (activeVariants.length || Number(product.stock) > 0)) {
+        let variantSelect = null;
+        if (activeVariants.length) {
+          const label = document.createElement('label');
+          label.textContent = `Choose an option for ${product.name}`;
+          variantSelect = document.createElement('select');
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Choose an option';
+          variantSelect.appendChild(placeholder);
+          activeVariants.forEach((variant) => {
+            const option = document.createElement('option');
+            option.value = String(variant.id);
+            option.textContent = `${variant.label} · BDT ${variant.price}`;
+            variantSelect.appendChild(option);
+          });
+          label.appendChild(variantSelect);
+          label.className = 'ai-product-card__variant';
+          card.appendChild(label);
+        }
+        appendCartAction(product, actions, variantSelect);
+      }
+      card.prepend(title);
+      card.append(details, actions);
       list.appendChild(card);
     });
     messages.appendChild(list);
   };
 
+  const appendCategories = (result) => {
+    if (!result.tools_used?.includes('get_categories') || !Array.isArray(result.data)) return;
+    const list = document.createElement('div');
+    list.className = 'ai-message-actions';
+    list.setAttribute('aria-label', 'Browse categories');
+    result.data.slice(0, 12).forEach((category) => {
+      if (!category || typeof category.name !== 'string' || typeof category.slug !== 'string') return;
+      const link = document.createElement('a');
+      link.className = 'button button--secondary';
+      link.href = `/category/${encodeURIComponent(category.slug)}`;
+      link.textContent = category.name;
+      list.appendChild(link);
+    });
+    if (list.childElementCount) messages.appendChild(list);
+  };
+
   const appendVerifiedDetails = (result) => {
+    if (result.tools_used?.includes('get_categories')) return;
     const details = result.data && typeof result.data !== 'string'
       ? result.data
       : (Array.isArray(result.tool_results) ? result.tool_results
@@ -188,12 +606,12 @@
     if (group.childElementCount > 1) messages.appendChild(group);
   };
 
-  const appendSpeechButton = (answer) => {
-    if (!answer) return;
+  const appendSpeechButton = (answer, synthesizeOnRequest = false) => {
+    if (!answer || !speechOutputConfigured) return;
     const group = document.createElement('div'); group.className = 'ai-message-actions';
     const button = document.createElement('button'); button.type = 'button';
     button.className = 'button button--secondary'; button.textContent = 'Listen';
-    button.addEventListener('click', async () => {
+    const prepareSpeech = async (showPlayer) => {
       button.disabled = true; button.textContent = 'Preparing voice…';
       try {
         const response = await fetch(endpoints['speak-endpoint'], {
@@ -202,13 +620,27 @@
         });
         if (!response.ok) throw new Error('Local speech is unavailable.');
         const objectUrl = URL.createObjectURL(await response.blob());
+        if (showPlayer) {
+          const player = document.createElement('audio');
+          player.controls = true;
+          player.preload = 'none';
+          player.src = objectUrl;
+          player.setAttribute('aria-label', 'Spoken AI response');
+          player.addEventListener('ended', () => URL.revokeObjectURL(objectUrl), { once: true });
+          group.appendChild(player);
+          button.textContent = 'Audio ready';
+          button.disabled = false;
+          return;
+        }
         const audio = new Audio(objectUrl);
         audio.addEventListener('ended', () => URL.revokeObjectURL(objectUrl), { once: true });
         await audio.play(); button.textContent = 'Playing';
         audio.addEventListener('ended', () => { button.textContent = 'Listen'; button.disabled = false; }, { once: true });
       } catch (_) { button.textContent = 'Voice unavailable'; button.disabled = false; }
-    });
+    };
+    button.addEventListener('click', () => prepareSpeech(false));
     group.appendChild(button); messages.appendChild(group);
+    if (synthesizeOnRequest) prepareSpeech(true);
   };
 
   const maybeProposal = async (result) => {
@@ -247,11 +679,19 @@
     messages.appendChild(button);
   };
 
-  const renderResult = async (result) => {
+  const wantsAudioOutput = (prompt) => {
+    const text = String(prompt || '').toLowerCase();
+    return /\b(?:read (?:this|it|that|the answer)(?: aloud)?|read aloud|speak(?: it| this| your answer| the answer| your response| the response)?|say (?:it|this|that) out loud|voice response)\b/.test(text)
+      || /(?:পড়ে শোনাও|পড়ে শোনাও|শুনিয়ে দাও|শুনিয়ে দাও|কথা বলে শোনাও|শুনতে চাই)/.test(text)
+      || /\b(?:pore shonao|pore shunao|shuniye dao|voice e bolo)\b/.test(text);
+  };
+
+  const renderResult = async (result, prompt = '') => {
     const answer = result.answer || result.fallback || 'The assistant could not verify that request.';
     addMessage(answer);
-    appendSpeechButton(answer);
+    appendSpeechButton(answer, wantsAudioOutput(prompt));
     appendProducts(result.products);
+    appendCategories(result);
     appendVerifiedDetails(result);
     appendSupport(result.support_contact);
     appendSources(result.sources);
@@ -294,7 +734,8 @@
 
   const consent = document.getElementById('ai-external-consent');
   const shouldUseExternalAi = () => {
-    if (!consent) return true;
+    if (!consent) return false;
+    if (consent.type === 'checkbox') return consent.checked;
     return String(consent.value).toLowerCase() !== 'false';
   };
 
@@ -319,6 +760,7 @@
     const attachmentSummary = attachedFiles.length ? ` Attachments: ${attachedFiles.map((file) => file.name).join(', ')}` : '';
     const finalPrompt = (prompt + attachmentSummary).trim();
     if (!finalPrompt) return;
+    messages.querySelector('.ai-chat__welcome')?.remove();
     addMessage(finalPrompt, 'customer');
     const priorHistory = history.slice(-8);
     history.push({ role: 'user', content: finalPrompt.slice(0, 1500) });
@@ -330,11 +772,24 @@
       const response = await fetch(endpoints.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
-        body: JSON.stringify({ prompt: finalPrompt, history: priorHistory, external_ai_consent: shouldUseExternalAi() })
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          history: priorHistory,
+          recent_products: recentProductSlugs.slice(0, 5),
+          external_ai_consent: shouldUseExternalAi()
+        })
       });
       const result = await response.json();
       responseNode.remove();
-      const answer = await renderResult(result);
+      if (Array.isArray(result.products)) {
+        const slugs = [...new Set(result.products
+          .filter((product) => product && typeof product.slug === 'string' && product.slug.trim())
+          .map((product) => product.slug.trim()))].slice(0, 5);
+        if (slugs.length || result.tools_used?.includes('search_products')) {
+          recentProductSlugs.splice(0, recentProductSlugs.length, ...slugs);
+        }
+      }
+      const answer = await renderResult(result, prompt);
       history.push({ role: 'assistant', content: String(answer || '').slice(0, 1500) });
       if (history.length > 8) history.splice(0, history.length - 8);
     } catch (_) { responseNode.remove(); addMessage('The assistant is unavailable. You can use the regular catalog search.'); }
@@ -360,106 +815,126 @@
     });
   }
 
-  const startVoiceRecording = async () => {
+  const resetVoiceControls = (mode) => {
+    if (mode === 'chat' && voiceToggle) {
+      voiceToggle.classList.remove('is-recording');
+      voiceToggle.textContent = '🎙️';
+      voiceToggle.setAttribute('aria-label', 'Voice options');
+    }
+    if (mode === 'catalog' && recordButton) {
+      recordButton.classList.remove('is-recording');
+      recordButton.textContent = 'Start voice recording';
+      recordButton.disabled = false;
+    }
+  };
+
+  const startVoiceRecording = async (mode = 'chat') => {
     closeVoiceMenu();
+    if (!voiceTranscriptionConfigured) {
+      if (mode === 'catalog' && recordStatus) {
+        recordStatus.textContent = 'Private voice transcription is not configured. You can type instead.';
+      } else {
+        addMessage('Private voice transcription is not configured. You can type your question instead.');
+      }
+      return;
+    }
     if (activeVoiceRecorder) {
-      activeVoiceRecorder.stop();
+      if (activeVoiceMode === mode && activeVoiceRecorder.state === 'recording') {
+        activeVoiceRecorder.stop();
+      } else if (mode === 'catalog' && recordStatus) {
+        recordStatus.textContent = 'Finish the current voice recording before starting another.';
+      }
+      return;
+    }
+    if (activeVoiceMode) {
+      if (mode === 'catalog' && recordStatus) {
+        recordStatus.textContent = 'Another voice input is starting. Please wait and try again.';
+      }
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      addMessage('Voice recording is unavailable in this browser. Please choose an audio file instead.');
+      const message = 'Voice recording is unavailable in this browser. You can type your question instead.';
+      if (mode === 'catalog' && recordStatus) recordStatus.textContent = message;
+      else addMessage(message);
       return;
     }
+
+    activeVoiceMode = mode;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (activeVoiceMode !== mode) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       const recorder = new MediaRecorder(stream);
       const chunks = [];
       activeVoiceRecorder = recorder;
       activeVoiceStream = stream;
-      voiceToggle.classList.add('is-recording');
-      voiceToggle.textContent = '■';
-      voiceToggle.setAttribute('aria-label', 'Stop voice recording');
+      if (mode === 'chat' && voiceToggle) {
+        voiceToggle.classList.add('is-recording');
+        voiceToggle.textContent = '■';
+        voiceToggle.setAttribute('aria-label', 'Stop voice recording');
+      }
+      if (mode === 'catalog' && recordButton) {
+        recordButton.classList.add('is-recording');
+        recordButton.textContent = 'Stop and send';
+      }
       recorder.ondataavailable = (event) => {
         if (event.data.size) chunks.push(event.data);
       };
       recorder.onstop = async () => {
         const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-        if (activeVoiceStream) {
-          activeVoiceStream.getTracks().forEach((track) => track.stop());
-        }
-        activeVoiceRecorder = null;
-        activeVoiceStream = null;
-        voiceToggle.classList.remove('is-recording');
-        voiceToggle.textContent = '🎙️';
-        voiceToggle.setAttribute('aria-label', 'Voice options');
+        stream.getTracks().forEach((track) => track.stop());
+        if (activeVoiceStream === stream) activeVoiceStream = null;
+        if (activeVoiceRecorder === recorder) activeVoiceRecorder = null;
+        if (activeVoiceMode === mode) activeVoiceMode = null;
+        resetVoiceControls(mode);
         if (!blob.size) {
-          addMessage('No voice clip was captured. Please try again.');
+          const message = 'No voice clip was captured. Please try again or type your question.';
+          if (mode === 'catalog' && recordStatus) recordStatus.textContent = message;
+          else addMessage(message);
           return;
         }
-        await runVoiceSearch(blob, 'voice-message.webm');
+        if (mode === 'catalog' && recordStatus) {
+          recordStatus.textContent = 'Transcribing with the private local service…';
+        }
+        const succeeded = await runVoiceSearch(blob, 'voice-message.webm');
+        if (mode === 'catalog' && recordStatus) {
+        recordStatus.textContent = succeeded
+            ? 'Voice transcribed by the private local service.'
+            : 'Voice transcription is unavailable. You can type your question instead.';
+        }
       };
       recorder.start();
-      addMessage('Voice chat is recording… say your question and click the mic again to stop.', 'customer');
-      window.setTimeout(() => {
-        if (activeVoiceRecorder && activeVoiceRecorder.state === 'recording') {
-          activeVoiceRecorder.stop();
-        }
-      }, 15000);
-    } catch (_) {
-      addMessage('Microphone access was blocked. Please allow mic access or choose an audio file.');
-    }
-  };
-
-  const startDirectTalkToAi = () => {
-    closeVoiceMenu();
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      addMessage('Direct voice-to-text is not supported in this browser. Please record audio or upload a file instead.');
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = false;
-
-    recognition.onstart = () => {
-      voiceToggle.classList.add('is-recording');
-      voiceToggle.textContent = '🎧';
-      voiceToggle.setAttribute('aria-label', 'Listening to AI voice input');
-      addMessage('Listening… speak your question and I will send it to the assistant.', 'customer');
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0]?.transcript || '')
-        .join(' ')
-        .trim();
-      if (transcript) {
-        if (event.results[event.results.length - 1]?.isFinal) {
-          voiceToggle.classList.remove('is-recording');
-          voiceToggle.textContent = '🎙️';
-          voiceToggle.setAttribute('aria-label', 'Voice options');
-          sendPromptToAi(transcript);
-        }
+      if (mode === 'catalog' && recordStatus) {
+        recordStatus.textContent = 'Recording… select Stop and send when ready (maximum 15 seconds).';
+      } else {
+        addMessage('Recording with the private voice path… click the mic again to stop.', 'customer');
       }
-    };
-
-    recognition.onerror = () => {
-      voiceToggle.classList.remove('is-recording');
-      voiceToggle.textContent = '🎙️';
-      voiceToggle.setAttribute('aria-label', 'Voice options');
-      addMessage('Direct voice input was interrupted. Please try again or record your voice instead.');
-    };
-
-    recognition.onend = () => {
-      voiceToggle.classList.remove('is-recording');
-      voiceToggle.textContent = '🎙️';
-      voiceToggle.setAttribute('aria-label', 'Voice options');
-    };
-
-    recognition.start();
+      window.setTimeout(() => {
+        if (activeVoiceRecorder === recorder && recorder.state === 'recording') recorder.stop();
+      }, 15000);
+    } catch (error) {
+      if (activeVoiceMode === mode) activeVoiceMode = null;
+      if (activeVoiceRecorder && activeVoiceRecorder.state !== 'inactive') {
+        activeVoiceRecorder.onstop = null;
+        try { activeVoiceRecorder.stop(); } catch (_) { /* Ignore an already-stopped recorder. */ }
+      }
+      activeVoiceRecorder = null;
+      if (activeVoiceStream) {
+        activeVoiceStream.getTracks().forEach((track) => track.stop());
+        activeVoiceStream = null;
+      }
+      resetVoiceControls(mode);
+      const message = error?.name === 'NotAllowedError'
+        ? 'Microphone access was blocked. Allow microphone access or type your question.'
+        : 'Microphone access is unavailable. You can type your question instead.';
+      if (mode === 'catalog' && recordStatus) recordStatus.textContent = message;
+      else addMessage(message);
+    }
   };
+
+  const startDirectTalkToAi = () => startVoiceRecording('chat');
 
   if (voiceRecordOption) {
     voiceRecordOption.addEventListener('click', startVoiceRecording);
@@ -468,46 +943,17 @@
   if (voiceTalkOption) {
     voiceTalkOption.addEventListener('click', startDirectTalkToAi);
   }
-  const voiceForm = document.getElementById('ai-voice-form');
-  const recordButton = document.getElementById('ai-record-button');
-  const recordStatus = document.getElementById('ai-record-status');
-  let recording = null;
   if (voiceForm && recordButton && recordStatus) {
     voiceForm.addEventListener('submit', (event) => {
       event.preventDefault();
+      if (!voiceTranscriptionConfigured) {
+        recordStatus.textContent = 'Private voice transcription is not configured. You can type instead.';
+        return;
+      }
       if (!voiceForm.elements.audio.files.length) { recordStatus.textContent = 'Choose a voice recording or use Start voice recording.'; return; }
       submitForm(voiceForm, endpoints['voice-endpoint'], 'upload');
     });
-    recordButton.addEventListener('click', async () => {
-      if (recording) { recording.stop(); return; }
-      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-        recordStatus.textContent = 'Voice recording is unavailable in this browser. Choose an audio file instead.'; return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const chunks = [];
-        const recorder = new MediaRecorder(stream);
-        recording = recorder;
-        recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-        recorder.onstop = async () => {
-          stream.getTracks().forEach((track) => track.stop());
-          recording = null;
-          recordButton.classList.remove('is-recording');
-          recordButton.textContent = 'Start voice recording';
-          recordButton.disabled = false;
-          const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-          if (!blob.size) { recordStatus.textContent = 'No audio was captured. Try again or choose a file.'; return; }
-          recordStatus.textContent = 'Transcribing your voice and searching the catalog…';
-          await runVoiceSearch(blob, 'voice.webm');
-          recordStatus.textContent = 'Voice recording was processed in memory and not stored.';
-        };
-        recorder.start();
-        recordButton.classList.add('is-recording');
-        recordButton.textContent = 'Stop and search';
-        recordStatus.textContent = 'Recording… select Stop and search when ready (maximum 15 seconds).';
-        window.setTimeout(() => { if (recording === recorder && recorder.state === 'recording') recorder.stop(); }, 15000);
-      } catch (_) { recordStatus.textContent = 'Microphone access was unavailable. Choose an audio file instead.'; }
-    });
+    recordButton.addEventListener('click', () => startVoiceRecording('catalog'));
   }
   const imageForm = document.getElementById('ai-image-form');
   const imageInput = document.getElementById('ai-image');

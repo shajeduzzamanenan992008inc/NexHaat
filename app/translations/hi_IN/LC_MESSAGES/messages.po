@@ -3331,6 +3331,10 @@ msgstr ""
 msgid "Your wishlist is empty"
 msgstr ""
 
+#: app/templates/ai/customer.html
+msgid "Private voice transcription is not connected. You can type your question instead."
+msgstr "निजी वॉइस ट्रांसक्रिप्शन कनेक्ट नहीं है। आप अपना सवाल लिखकर भेज सकते हैं।"
+
 #: app/templates/wishlist/index.html:22
 msgid "Save products you like and they will appear here."
 msgstr ""
@@ -3642,4 +3646,3 @@ msgstr ""
 
 #~ msgid "Use lowercase letters, numbers, and hyphens."
 #~ msgstr "छोटे अक्षर, अंक और हाइफ़न इस्तेमाल करें।"
-

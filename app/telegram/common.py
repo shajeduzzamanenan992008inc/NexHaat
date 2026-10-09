@@ -128,7 +128,7 @@ def _within_rate_limit(bot_name, telegram_user_id):
             index_elements=["bot_name", "telegram_user_hash"], set_=updates
         )
     else:
-        return True
+        return True, False
     db.session.execute(statement)
     db.session.commit()
     count = db.session.scalar(
@@ -137,8 +137,14 @@ def _within_rate_limit(bot_name, telegram_user_id):
             TelegramRateLimit.telegram_user_hash == telegram_user_hash,
         )
     )
-    limit = max(1, int(current_app.config.get("TELEGRAM_RATE_LIMIT_PER_MINUTE", 30)))
-    return bool(count and count <= limit)
+    setting = (
+        "TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE"
+        if bot_name == "security"
+        else "TELEGRAM_RATE_LIMIT_PER_MINUTE"
+    )
+    default = 10 if bot_name == "security" else 30
+    limit = max(1, int(current_app.config.get(setting, default)))
+    return bool(count and count <= limit), count == limit + 1
 
 
 def send_message(bot_name, chat_id, text, reply_markup=None):
@@ -180,7 +186,7 @@ def synthesize_local_speech(text):
     headers = {"Content-Type": "application/json"}
     key = str(config.get("AI_LOCAL_API_KEY") or "").strip()
     if key:
-        headers["Authorization"] = f"Bearer {key}"
+        headers["Authorization"] = "Bearer " + key
     try:
         response = requests.post(
             f"{base_url}/audio/speech",
@@ -321,7 +327,14 @@ def receive_update(bot_name, handler):
     try:
         if not _claim_update(bot_name, update_id):
             return jsonify(ok=True, duplicate=True), 200
-        if not _within_rate_limit(bot_name, telegram_user_id):
+        allowed, notify_rate_limit = _within_rate_limit(bot_name, telegram_user_id)
+        if not allowed:
+            if notify_rate_limit:
+                send_message(
+                    bot_name,
+                    chat_id,
+                    "Too many requests. Please wait a minute before trying again.",
+                )
             _finish_update(bot_name, update_id, True)
             return jsonify(ok=True), 200
         succeeded = bool(handler(payload, telegram_user_id, chat_id))

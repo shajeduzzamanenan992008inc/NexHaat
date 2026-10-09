@@ -4,7 +4,8 @@ from .user import (
 )
 from .audit import AuditEvent
 from .ai import (
-    AIBuilderJob, AIExternalCallNotice, AIExternalCallRecipient, AIExternalConsent,
+    AIGuardianFinding, AIGuardianLesson, AIGuardianScan, AIBuilderJob, AIBuilderPatch,
+    AIBuilderProject, AIExternalCallNotice, AIExternalCallRecipient, AIExternalConsent,
     AIExternalSpend, AIKnowledgeChunk, AIProductPriceAlert, AIProductPriceHistory,
     AIRequestWindow, AIPreferences, AIUserMemory,
 )
@@ -24,6 +25,7 @@ from .payment import Payment, PaymentAttempt, PaymentRefund, SellerLedgerEntry, 
 from .telegram import (
     CustomerCartItem, ProcessedTelegramUpdate, TelegramAccountLinkChallenge,
     TelegramIdentity, TelegramRateLimit, TelegramSecurityAlert,
+    TelegramSecurityAlertRecipient, TelegramShoppingContext,
 )
 
 __all__ = [
@@ -32,6 +34,11 @@ __all__ = [
     "AIExternalConsent", "AIExternalSpend", "AIKnowledgeChunk", "AIUserMemory",
     "AIExternalCallNotice", "AIExternalCallRecipient",
     "AIBuilderJob",
+    "AIBuilderProject",
+    "AIBuilderPatch",
+    "AIGuardianScan",
+    "AIGuardianFinding",
+    "AIGuardianLesson",
     "AIProductPriceAlert", "AIProductPriceHistory",
     "SupportConversation", "SupportMessage",
     "DELIVERY_STATUSES", "DELIVERY_TRANSITIONS", "delivery_transition_valid",
@@ -43,4 +50,6 @@ __all__ = [
     "ProcessedTelegramUpdate", "TelegramRateLimit",
     "CustomerCartItem", "TelegramAccountLinkChallenge", "TelegramIdentity",
     "TelegramSecurityAlert",
+    "TelegramSecurityAlertRecipient",
+    "TelegramShoppingContext",
 ]

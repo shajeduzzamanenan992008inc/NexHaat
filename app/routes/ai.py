@@ -17,7 +17,7 @@ from ..extensions import db
 from ..models import AIPreferences, AIUserMemory
 from ..models import AIProductPriceAlert
 from ..ai.core.consent import external_consent_enabled, set_external_consent
-from ..ai.core.guardrails import sanitize_history
+from ..ai.core.guardrails import sanitize_ai_response, sanitize_history
 from ..security import customer_or_guest_required, current_session_user, role_required
 from ..services.ai_rate_limit import consume_ai_request
 from ..services.ai_price_alerts import cancel_price_alert, observed_price_history, save_price_alert
@@ -65,6 +65,32 @@ def _limit_response():
     return jsonify(ok=False, scope=AI_SCOPE_CUSTOMER, answer=message, fallback=message), 429
 
 
+def _sanitize_customer_ai_result(result):
+    """Enforce the final-answer guard at the customer-facing API boundary."""
+    answer = result.get("answer")
+    if isinstance(answer, str):
+        safe_answer = sanitize_ai_response(answer)
+        if not safe_answer:
+            safe_answer = "The assistant could not verify that response. Please use catalog search."
+            result["ok"] = False
+            result["fallback"] = safe_answer
+            if isinstance(result.get("data"), str):
+                result["data"] = safe_answer
+        result["answer"] = safe_answer
+    for field in ("fallback", "data"):
+        value = result.get(field)
+        if isinstance(value, str):
+            result[field] = sanitize_ai_response(value) or (
+                "The assistant could not verify that response. Please use catalog search."
+            )
+    for field in (
+        "provider", "model", "confidence", "source_metadata", "images", "audio",
+        "usage", "latency_ms", "fallback_used", "response_text",
+    ):
+        result.pop(field, None)
+    return result
+
+
 def _audio_signature_matches(content_type, data):
     if content_type in {"audio/wav", "audio/x-wav"}:
         return data.startswith(b"RIFF") and data[8:12] == b"WAVE"
@@ -86,11 +112,31 @@ def index():
     initial_prompt = (request.args.get("q") or request.args.get("prompt") or "").strip()[:2000]
     return render_template(
         "ai/customer.html", user=user, csrf_value=None,
-        ai_provider_configured=bool(current_app.config.get("AI_LOCAL_BASE_URL")
-                                     and current_app.config.get("AI_LOCAL_MODEL")),
+        voice_transcription_configured=bool(
+            current_app.config.get("AI_ASR_BASE_URL")
+            and current_app.config.get("AI_ASR_MODEL")
+        ),
+        speech_output_configured=bool(
+            current_app.config.get("AI_TTS_BASE_URL")
+            and current_app.config.get("AI_TTS_MODEL")
+        ),
+        external_ai_enabled=bool(current_app.config.get("AI_EXTERNAL_ENABLED")),
         external_ai_consent=external_consent_enabled(user=user),
         initial_prompt=initial_prompt,
     )
+
+
+@ai_bp.get("/health")
+@customer_or_guest_required
+def health():
+    user = _customer_user()
+    if not _consume(user):
+        return _limit_response()
+    result = AIService(current_app.config).health_check()
+    result.pop("provider", None)
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response, 200 if result["ok"] else 503
 
 
 @ai_bp.post("/chat")
@@ -107,12 +153,30 @@ def chat():
         history = sanitize_history(payload.get("history"))
     except ValueError as error:
         return jsonify(ok=False, answer=str(error)), 400
+    recent_products = payload.get("recent_products", [])
+    if (
+        not isinstance(recent_products, list)
+        or len(recent_products) > 5
+        or any(
+            not isinstance(slug, str) or not slug.strip() or len(slug) > 180
+            for slug in recent_products
+        )
+    ):
+        return jsonify(
+            ok=False,
+            answer="Recent product context must contain up to five valid product slugs.",
+        ), 400
+    recent_products = list(dict.fromkeys(slug.strip() for slug in recent_products))
     if not _consume(user):
         return _limit_response()
     if user is None and isinstance(payload.get("external_ai_consent"), bool):
         set_external_consent(payload["external_ai_consent"])
     result = handle_marketplace_ai_query(prompt, user=user, channel="web", rate_limited=True,
-                                         context={"history": history})
+                                         context={
+                                             "history": history,
+                                             "recent_products": recent_products,
+                                         })
+    result = _sanitize_customer_ai_result(result)
     return jsonify(result), 200 if result.get("ok") else 503
 
 
@@ -142,6 +206,8 @@ def role_external_consent():
         return jsonify(ok=False, answer="Choose whether external specialist assistance is enabled."), 400
     if not set_external_consent(enabled, user=user):
         return jsonify(ok=False, answer="The consent setting could not be saved."), 503
+    if not enabled:
+        session.pop("ai_builder_media_external_consent", None)
     if request.is_json:
         return jsonify(ok=True, enabled=enabled)
     destination = ("admin.ai_workspace" if user.role in {"admin", "super_admin"}
@@ -167,6 +233,11 @@ def voice_search():
         return jsonify(ok=False, answer="The voice recording is empty or too large."), 413
     if not _audio_signature_matches(content_type, audio):
         return jsonify(ok=False, answer="The voice recording format does not match its file type."), 415
+    if not (current_app.config.get("AI_ASR_BASE_URL") and current_app.config.get("AI_ASR_MODEL")):
+        return jsonify(
+            ok=False,
+            answer="Private voice transcription is not configured. You can type your question instead.",
+        ), 503
     if not _consume(user):
         return _limit_response()
     try:
@@ -176,6 +247,7 @@ def voice_search():
             prompt, user=user, channel="voice", rate_limited=True,
             context={"input_mode": "voice"},
         )
+        result = _sanitize_customer_ai_result(result)
         result["transcript"] = prompt
         return jsonify(result), 200 if result.get("ok") else 503
     except (AIProviderError, ValueError):
@@ -208,6 +280,7 @@ def image_search():
         description, user=user, channel="image", rate_limited=True,
         context={"input_mode": "image"},
     )
+    result = _sanitize_customer_ai_result(result)
     result["search_description"] = description
     return jsonify(result), 200 if result.get("ok") else 503
 
@@ -235,7 +308,7 @@ def speak():
     headers = {"Content-Type": "application/json"}
     key = str(config.get("AI_LOCAL_API_KEY") or "").strip()
     if key:
-        headers["Authorization"] = f"Bearer {key}"
+        headers["Authorization"] = "Bearer " + key
     try:
         import requests
         response = requests.post(

@@ -36,8 +36,7 @@ endblock %}
       <h1>{{ product.localized_name(current_locale) }}</h1>
       <p>{{ product.localized_description(current_locale) }}</p>
       {% if product.needs_original_language_label(current_locale, 'name') or
-      product.needs_original_language_label(current_locale, 'description') %}<p class="source-caption">{{ _('Original
-        language: %(language)s', language=product.original_language_label) }}</p>{% endif %}
+      product.needs_original_language_label(current_locale, 'description') %}<p class="source-caption">{{ _('Original language: %(language)s', language=product.original_language_label) }}</p>{% endif %}
       <p class="product-detail__price">৳{{ '%.2f'|format(product.display_price) }}{% if product.discount_price
         %}<del>৳{{ '%.2f'|format(product.price) }}</del>{% endif %}</p>
       {% if g.current_user and g.current_user.role == 'customer' %}

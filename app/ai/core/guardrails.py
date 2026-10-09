@@ -23,6 +23,16 @@ _SECRET_VALUE_PATTERNS = (
 _MAX_RESPONSE_CHARS = 6000
 _EMAIL_PATTERN = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
 _PHONE_PATTERN = re.compile(r"(?<!\w)(?:\+?\d[\d ()-]{7,}\d)(?!\w)")
+_INTERNAL_REASONING_MARKERS = (
+    re.compile(r"(?i)\bhere(?:'s| is) (?:a )?(?:thinking|reasoning) process\s*:"),
+    re.compile(r"(?i)\b(?:chain[- ]of[- ]thought|internal reasoning|internal analysis)\s*:"),
+    re.compile(r"(?i)\bdraft response\s*\(\s*internal\s*\)\s*:"),
+    re.compile(r"(?is)<\s*think(?:ing)?\b[^>]*>.*?</\s*think(?:ing)?\s*>"),
+)
+_TOOL_INVOCATION_MARKERS = re.compile(
+    r"(?i)<\s*/?\s*(?:tool_use|tool_call|function_call|dots_function_call|invoke|"
+    r"server_name|tool_name|parameter|platform_[a-z0-9_]+)\b"
+)
 
 
 def redact_personal_data(value):
@@ -44,14 +54,18 @@ def redact_external_prompt(value):
 
 
 def sanitize_ai_response(value, scope=None):
-    """Bound model output and redact secret-shaped values without hiding ordinary words."""
+    """Bound model output, redact secrets, and reject internal control markup."""
     if value is None:
         return ""
     if isinstance(value, (dict, list, tuple)):
         import json
 
         value = json.dumps(value, ensure_ascii=False, default=str)
-    text = _SECRET_ASSIGNMENT.sub(r"\1=[redacted]", str(value))
+    text = str(value)
+    if (any(marker.search(text) for marker in _INTERNAL_REASONING_MARKERS)
+            or _TOOL_INVOCATION_MARKERS.search(text)):
+        return ""
+    text = _SECRET_ASSIGNMENT.sub(r"\1=[redacted]", text)
     text = "".join(character for character in text if character in "\n\t" or ord(character) >= 32)
     return text.strip()[:_MAX_RESPONSE_CHARS] or "I can’t verify that from the marketplace data right now."
 

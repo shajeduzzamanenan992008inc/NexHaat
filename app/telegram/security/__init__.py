@@ -111,6 +111,7 @@ def _dashboard_markup():
 
 def handle_security_update(payload, telegram_user_id, chat_id):
     raw_text = ""
+    voice = None
     callback = payload.get("callback_query")
     if isinstance(callback, dict):
         text_value = callback.get("data", "")
@@ -120,22 +121,10 @@ def handle_security_update(payload, telegram_user_id, chat_id):
         text_value = message.get("text", "")
         raw_text = text_value.strip() if isinstance(text_value, str) else ""
         voice = message.get("voice") if not raw_text else None
-        if isinstance(voice, dict):
-            file_size = voice.get("file_size", 0)
-            if (isinstance(file_size, bool) or not isinstance(file_size, int)
-                    or file_size <= 0 or file_size > 8 * 1024 * 1024):
-                return send_message("security", chat_id, "That voice note is empty or too large. Please send one under 8 MB.")
-            audio = download_telegram_file("security", voice.get("file_id"))
-            if not audio or not audio.startswith(b"OggS"):
-                return send_message("security", chat_id, "I could not read that voice note. Please try again or type your question.")
-            try:
-                from ...ai.core.provider import AIProviderError, AIService
-                raw_text = AIService(current_app.config).transcribe(
-                    audio, filename="telegram-voice.ogg", content_type="audio/ogg"
-                )
-            except (AIProviderError, ValueError):
-                return send_message("security", chat_id, "Local voice transcription is unavailable. Please type your question instead.")
-        command = raw_text.split(maxsplit=1)[0].split("@", 1)[0].lower() if raw_text else "/start"
+        command = (
+            raw_text.split(maxsplit=1)[0].split("@", 1)[0].lower()
+            if raw_text else ""
+        )
     if telegram_user_id not in _allowed_admin_ids():
         record_audit(
             "telegram.security_access_denied",
@@ -152,6 +141,44 @@ def handle_security_update(payload, telegram_user_id, chat_id):
         if isinstance(callback, dict):
             answer_callback("security", callback.get("id"), "Use security commands in a private chat.")
         return send_message("security", chat_id, "Security commands are available only in a private chat.")
+
+    if command not in {"/start", "/help", "/approvals"}:
+        from .approvals import mapped_admin
+
+        if mapped_admin(telegram_user_id) is None:
+            record_audit(
+                "telegram.security_access_denied",
+                target_type="telegram_user",
+                target_id=hmac.digest(
+                    str(current_app.secret_key).encode(),
+                    str(telegram_user_id).encode(),
+                    "sha256",
+                ).hex()[:40],
+                detail="active website Admin binding required",
+            )
+            return send_message(
+                "security", chat_id,
+                "Access denied. This Telegram ID must be bound to an active website Admin account.",
+            )
+
+    if isinstance(voice, dict):
+        file_size = voice.get("file_size", 0)
+        if (isinstance(file_size, bool) or not isinstance(file_size, int)
+                or file_size <= 0 or file_size > 8 * 1024 * 1024):
+            return send_message("security", chat_id, "That voice note is empty or too large. Please send one under 8 MB.")
+        audio = download_telegram_file("security", voice.get("file_id"))
+        if not audio or not audio.startswith(b"OggS"):
+            return send_message("security", chat_id, "I could not read that voice note. Please try again or type your question.")
+        try:
+            from ...ai.core.provider import AIProviderError, AIService
+            raw_text = AIService(current_app.config).transcribe(
+                audio, filename="telegram-voice.ogg", content_type="audio/ogg"
+            )
+        except (AIProviderError, ValueError):
+            return send_message("security", chat_id, "Local voice transcription is unavailable. Please type your question instead.")
+        command = raw_text.split(maxsplit=1)[0].split("@", 1)[0].lower() if raw_text else ""
+    elif not raw_text and not isinstance(callback, dict):
+        command = "/start"
 
     if isinstance(callback, dict) and command.startswith("approval|"):
         from .approvals import decide_approval

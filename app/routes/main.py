@@ -1,4 +1,6 @@
 from decimal import Decimal, InvalidOperation
+from difflib import SequenceMatcher
+import re
 from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, session, url_for
@@ -8,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..extensions import db
 from ..i18n import SUPPORTED_LOCALES
+from ..models import Product
 
 from ..services.catalog import (
     get_active_categories,
@@ -116,28 +119,7 @@ def index():
     )
 
 
-@main_bp.get("/menu")
-def menu():
-    page = max(1, request.args.get("page", 1, type=int))
-    reference_page = max(1, request.args.get("ref_page", 1, type=int))
-    category_id = request.args.get("category_id", type=int)
-    reference_category_id = request.args.get("ref_category_id", type=int)
-    query = request.args.get("q", "").strip()[:current_app.config["MAX_SEARCH_LENGTH"]]
-    min_price = _price_filter("min_price")
-    max_price = _price_filter("max_price")
-    seller_id = request.args.get("seller_id", type=int)
-    brand_name = request.args.get("brand_name", "").strip()[:120]
-    in_stock = request.args.get("in_stock") == "1"
-    variant_value = request.args.get("variant_value", "").strip()[:80]
-    deals_only = request.args.get("deals_only") == "1"
-    if min_price is not None and max_price is not None and min_price > max_price:
-        abort(400)
-    sort = request.args.get("sort", "newest" if deals_only else "featured")
-    allowed_sorts = {"featured", "relevance", "newest", "price_asc", "price_desc"}
-    if deals_only:
-        allowed_sorts = {"featured", "newest", "price_asc", "price_desc"}
-    if sort not in allowed_sorts:
-        abort(400)
+def _menu_response(*, page, reference_page, category_id, reference_category_id, query, min_price, max_price, seller_id, brand_name, in_stock, variant_value, deals_only, sort):
     products, pagination = get_catalog_products(
         page,
         current_app.config["CATALOG_PAGE_SIZE"],
@@ -187,6 +169,73 @@ def menu():
         reference_foods=reference_foods,
         reference_pagination=reference_pagination,
         deals_only=deals_only,
+    )
+
+
+def _search_routes_to_ai(query):
+    term = (query or "").strip()
+    if not term:
+        return False
+    if any(ord(character) > 127 for character in term):
+        return False
+    if " " in term or "-" in term:
+        return True
+    product_names = [
+        name for name in db.session.scalars(
+            select(Product.name).where(
+                Product.is_available.is_(True),
+                Product.moderation_status == "approved",
+            )
+        ).all() if name
+    ]
+    if product_names:
+        lowered = term.lower()
+        catalog_terms = {
+            token
+            for name in product_names
+            for token in re.findall(r"[a-z0-9]+", name.lower())
+        }
+        if any(SequenceMatcher(None, lowered, token).ratio() >= 0.78 for token in catalog_terms):
+            return False
+    return True
+
+
+@main_bp.get("/menu")
+def menu():
+    page = max(1, request.args.get("page", 1, type=int))
+    reference_page = max(1, request.args.get("ref_page", 1, type=int))
+    category_id = request.args.get("category_id", type=int)
+    reference_category_id = request.args.get("ref_category_id", type=int)
+    query = request.args.get("q", "").strip()[:current_app.config["MAX_SEARCH_LENGTH"]]
+    min_price = _price_filter("min_price")
+    max_price = _price_filter("max_price")
+    seller_id = request.args.get("seller_id", type=int)
+    brand_name = request.args.get("brand_name", "").strip()[:120]
+    in_stock = request.args.get("in_stock") == "1"
+    variant_value = request.args.get("variant_value", "").strip()[:80]
+    deals_only = request.args.get("deals_only") == "1"
+    if min_price is not None and max_price is not None and min_price > max_price:
+        abort(400)
+    sort = request.args.get("sort", "newest" if deals_only else "featured")
+    allowed_sorts = {"featured", "relevance", "newest", "price_asc", "price_desc"}
+    if deals_only:
+        allowed_sorts = {"featured", "newest", "price_asc", "price_desc"}
+    if sort not in allowed_sorts:
+        abort(400)
+    return _menu_response(
+        page=page,
+        reference_page=reference_page,
+        category_id=category_id,
+        reference_category_id=reference_category_id,
+        query=query,
+        min_price=min_price,
+        max_price=max_price,
+        seller_id=seller_id,
+        brand_name=brand_name,
+        in_stock=in_stock,
+        variant_value=variant_value,
+        deals_only=deals_only,
+        sort=sort,
     )
 
 
@@ -293,14 +342,59 @@ def search():
     query = request.args.get("q", "").strip()[:current_app.config["MAX_SEARCH_LENGTH"]]
     if not query:
         return redirect(url_for("main.menu"))
-    return redirect(url_for("main.menu", q=query))
+    if _search_routes_to_ai(query):
+        return redirect(url_for("ai.index", q=query))
+    return _menu_response(
+        page=max(1, request.args.get("page", 1, type=int)),
+        reference_page=max(1, request.args.get("ref_page", 1, type=int)),
+        category_id=request.args.get("category_id", type=int),
+        reference_category_id=request.args.get("ref_category_id", type=int),
+        query=query,
+        min_price=_price_filter("min_price"),
+        max_price=_price_filter("max_price"),
+        seller_id=request.args.get("seller_id", type=int),
+        brand_name=request.args.get("brand_name", "").strip()[:120],
+        in_stock=request.args.get("in_stock") == "1",
+        variant_value=request.args.get("variant_value", "").strip()[:80],
+        deals_only=request.args.get("deals_only") == "1",
+        sort=request.args.get("sort", "featured"),
+    )
 
 
 @main_bp.get("/deals")
 def deals():
-    params = request.args.to_dict(flat=True)
-    params["deals_only"] = "1"
-    return redirect(url_for("main.menu", **params))
+    page = max(1, request.args.get("page", 1, type=int))
+    reference_page = max(1, request.args.get("ref_page", 1, type=int))
+    category_id = request.args.get("category_id", type=int)
+    reference_category_id = request.args.get("ref_category_id", type=int)
+    query = request.args.get("q", "").strip()[:current_app.config["MAX_SEARCH_LENGTH"]]
+    min_price = _price_filter("min_price")
+    max_price = _price_filter("max_price")
+    seller_id = request.args.get("seller_id", type=int)
+    brand_name = request.args.get("brand_name", "").strip()[:120]
+    in_stock = request.args.get("in_stock") == "1"
+    variant_value = request.args.get("variant_value", "").strip()[:80]
+    sort = request.args.get("sort", "newest")
+    if min_price is not None and max_price is not None and min_price > max_price:
+        abort(400)
+    allowed_sorts = {"featured", "newest", "price_asc", "price_desc"}
+    if sort not in allowed_sorts:
+        abort(400)
+    return _menu_response(
+        page=page,
+        reference_page=reference_page,
+        category_id=category_id,
+        reference_category_id=reference_category_id,
+        query=query,
+        min_price=min_price,
+        max_price=max_price,
+        seller_id=seller_id,
+        brand_name=brand_name,
+        in_stock=in_stock,
+        variant_value=variant_value,
+        deals_only=True,
+        sort=sort,
+    )
 
 
 @main_bp.get("/api/search-suggestions")

@@ -30,19 +30,26 @@ Configure private application settings:
 - `AI_SEARCH_BASE_URL` for a private SearXNG-compatible `/search?format=json`
   endpoint
 
+The website exposes recording only when both private ASR settings are present,
+and exposes Listen only when local TTS is configured. Voice input uses the
+configured local transcription service; it does not fall back to browser
+`SpeechRecognition`, which may process audio outside the private service.
+
 All provider identifiers must match the deployed provider's current model
 catalog. The app does not assume names such as “GPT-6 Astra” are real IDs.
 
 ## Optional external specialists
 
 External requests are off until `AI_EXTERNAL_ENABLED=true`, the account or
-Telegram user opts in, at least two provider credentials and model IDs are
-configured, per-model input/output rates are entered, and
-`AI_EXTERNAL_MONTHLY_BUDGET_USD` is greater than zero. Rates must match the
-configured model and current provider price list. The app reserves the worst
-case cost for up to three bounded calls before sending any request. Reservations
-are not refunded after partial failures. Configure a matching provider-side
-spending cap as an additional safeguard.
+Telegram user opts in, a positive `AI_EXTERNAL_MONTHLY_BUDGET_USD` is set, and
+the selected provider credentials, model ID, and positive input/output rates
+are configured. Rates must match the configured model and current provider
+price list. One configured specialist can provide a gated customer fallback
+when Local AI is missing or unavailable; a multi-specialist comparison/fusion
+still requires at least two configured specialists. The app reserves the
+worst-case cost before each bounded call. Reservations are not refunded after
+partial failures. Configure a matching provider-side spending cap as an
+additional safeguard.
 
 Settings are grouped by provider. Configure the selected provider's `AI_OPENAI_API_KEY`,
 `AI_OPENAI_MODEL`, `AI_OPENAI_BASE_URL`, `AI_OPENAI_INPUT_USD_PER_MILLION`, and
@@ -54,10 +61,12 @@ limitations. Model identifiers are never guessed by the application. See
 [Anthropic model status](https://platform.claude.com/docs/en/about-claude/model-deprecations),
 and [DeepSeek Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/).
 
-Security Bot remains local-only. External specialist prompts never contain
-security records, tool results, seller/admin database results, chat history,
-images, voice, or retrieved knowledge. Shopping and private delivery facts are
-served by role-scoped local tools.
+Security Bot remains local-only. The single-specialist fallback is restricted
+to general Customer questions; it is blocked for catalog searches, changing
+marketplace facts, and any request that needs role-scoped tools. External
+specialist prompts never contain security records, tool results, seller/admin
+database results, chat history, images, voice, or retrieved knowledge. Shopping
+and private delivery facts are served by role-scoped local tools.
 
 ## Curated retrieval and migration
 
@@ -106,10 +115,12 @@ unverified model output. Any later lesson-learning or code change must be
 sanitized, Admin-approved, tested, and reversible. Model-weight fine-tuning
 requires a separately approved dataset, private training infrastructure, and
 its own evaluation/rollback gate; it is not performed by this application.
-The current indexer is not a lesson approval workflow: Guardian or coding
-results cannot be automatically proposed, approved, or written to persistent
-knowledge. Only operator-reviewed Markdown is indexed. Stage 14 still needs a
-separately designed Admin proposal/review workflow for reusable lessons.
+The curated Markdown index remains separate from the Stage 14 lesson workflow.
+A lesson can be proposed only from a sandbox-passing patch, must pass secret
+and personal-contact screening, and enters only the Admin knowledge scope after
+an Admin explicitly approves it and the private embedding endpoint returns a
+valid vector. No Guardian finding, conversation, upload, or unverified model
+output is learned automatically.
 
 ## Acceptance evidence and remaining operator checks
 

@@ -9,7 +9,7 @@ def test_homepage_renders_personalized_sections_for_a_signed_in_customer(client,
     from datetime import datetime, timezone
 
     from app.extensions import db
-    from app.models import Category, Product, RecentViewedProduct, User
+    from app.models import AIPreferences, Category, Product, RecentViewedProduct, User
 
     with app.app_context():
         user = User(email="homepage-smoke@example.test", role="customer")
@@ -31,6 +31,9 @@ def test_homepage_renders_personalized_sections_for_a_signed_in_customer(client,
         db.session.flush()
         db.session.add(RecentViewedProduct(
             user_id=user.id, product_id=viewed.id, viewed_at=datetime.now(timezone.utc),
+        ))
+        db.session.add(AIPreferences(
+            user_id=user.id, personalized_recommendations_enabled=True,
         ))
         db.session.commit()
         user_id, auth_version = user.id, user.auth_version

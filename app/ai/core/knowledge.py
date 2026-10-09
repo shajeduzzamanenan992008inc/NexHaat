@@ -31,7 +31,7 @@ def embed_text(text):
         return None
     headers = {"Content-Type": "application/json"}
     if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+        headers["Authorization"] = "Bearer " + api_key
     try:
         response = requests.post(f"{root}/embeddings", json={"model": model, "input": text[:4000]},
                                  headers=headers, timeout=min(20, int(current_app.config.get("AI_TIMEOUT", 15))))

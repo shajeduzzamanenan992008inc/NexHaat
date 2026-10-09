@@ -25,7 +25,13 @@ def _authorized(user):
         int(value.strip()) for value in (current_app.config.get("TELEGRAM_SECURITY_ADMIN_IDS", "") or "").split(",")
         if value.strip().isascii() and value.strip().isdigit() and int(value.strip()) > 0
     }
-    if not getattr(user, "security_authorized", False) or user_id not in allowed:
+    from ..telegram.security.approvals import mapped_admin
+
+    if (
+        not getattr(user, "security_authorized", False)
+        or user_id not in allowed
+        or mapped_admin(user_id) is None
+    ):
         raise ValueError("Security scope is not authorized.")
 
 
@@ -160,7 +166,13 @@ def handle_security_ai_query(prompt, *, telegram_user_id, private_chat=True):
         int(value.strip()) for value in (current_app.config.get("TELEGRAM_SECURITY_ADMIN_IDS", "") or "").split(",")
         if value.strip().isascii() and value.strip().isdigit() and int(value.strip()) > 0
     }
-    if not private_chat or telegram_user_id not in allowed:
+    from ..telegram.security.approvals import mapped_admin
+
+    if (
+        not private_chat
+        or telegram_user_id not in allowed
+        or mapped_admin(telegram_user_id) is None
+    ):
         return {"ok": False, "answer": "Access denied.", "scope": AI_SCOPE_SECURITY, "tools_used": []}
     try:
         if not consume_ai_request(AI_SCOPE_SECURITY, principal=f"telegram:{telegram_user_id}"):

@@ -3079,3 +3079,202 @@ msgstr ""
 msgid "Save products you like and they will appear here."
 msgstr ""
 
+#: app/templates/ai/customer.html
+msgid "Private voice transcription is not connected. You can type your question instead."
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "AI Builder and Project Guardian"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Admin workspace"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Create private project drafts, review changes, run isolated tests, and inspect security findings."
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Back to Admin AI"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Projects are saved only when you opt in. Uploaded files are processed in memory. Generated code is never merged or deployed automatically."
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Sandbox testing is unavailable until an immutable Docker image digest is configured. Patch approval and export remain locked until a test passes."
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Start safely"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Create a project starter"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Project name"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Project type"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Flask application"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Python project"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Static web project"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Project description"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Save this project to my private Admin workspace"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Allow this project’s source to be sent to an external specialist when separately requested"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Create starter"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Transient analysis"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Analyze an attachment"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "ZIP, source text, PDF, DOCX, image, and audio inputs are bounded and not saved as files."
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Project or document file"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "What should the analysis check?"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Allow external processing of this source code"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Allow external processing of this document or locally analyzed media"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Enable external media consent for this browser session"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Analyze privately"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Private projects"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Your saved projects"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Refresh"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "No project has been saved yet."
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Review before applying"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Select a project"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Export project ZIP"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Choose one of your saved projects to review its files and scans."
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Analysis request"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Allow external processing (requires Admin and project consent)"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Analyze project"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Requested code change"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Allow external patch generation (requires Admin and project consent)"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Generate reviewable patch"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Manual changes as JSON path/content entries"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Create manual patch candidate"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Run Guardian scan"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Delete project"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Results"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Builder and Guardian activity"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Test-backed reusable lesson"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Sanitized lesson"
+msgstr ""
+
+#: app/templates/ai/builder.html
+msgid "Propose lesson for Admin review"
+msgstr ""

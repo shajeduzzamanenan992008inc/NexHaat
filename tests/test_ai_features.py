@@ -11,7 +11,7 @@ from app.ai.admin_tools import (
     get_support_conversation_summaries_tool, handle_admin_ai_query,
 )
 from app.ai.core.permissions import AI_SCOPE_CUSTOMER, AI_SCOPE_SECURITY, AI_SCOPE_SELLER
-from app.ai.core.provider import AIService, OpenAICompatibleProvider
+from app.ai.core.provider import AIProviderError, AIService, OpenAICompatibleProvider
 from app.ai.core.tools import ToolRegistry
 from app.ai.marketplace_tools import build_customer_tool_registry
 from app.ai.security_tools import build_security_tool_registry
@@ -146,6 +146,61 @@ def test_customer_language_fallback_extracts_banglish_and_hindi_budget(app):
     assert [item["slug"] for item in hindi["products"]] == ["wireless-headphone"]
 
 
+def test_catalog_listing_questions_return_real_products_without_ai(app, monkeypatch):
+    from app.ai.marketplace_tools import handle_marketplace_ai_query
+
+    def fail_if_provider_called(*_args, **_kwargs):
+        raise AssertionError("Catalog listing must use verified marketplace data.")
+
+    monkeypatch.setattr("app.ai.marketplace_tools.AIService.respond", fail_if_provider_called)
+    with app.app_context():
+        _product("Wireless Headphone", "wireless-headphone", price="1800.00")
+        _product("Compact Blender", "compact-blender", price="1250.00")
+        db.session.commit()
+
+        english = handle_marketplace_ai_query("What products do you have?")
+        banglish = handle_marketplace_ai_query("ki ki product ache?")
+
+    expected_slugs = {"wireless-headphone", "compact-blender"}
+    assert {item["slug"] for item in english["products"]} == expected_slugs
+    assert {item["slug"] for item in banglish["products"]} == expected_slugs
+    assert english["tools_used"] == ["search_products"]
+    assert banglish["tools_used"] == ["search_products"]
+
+
+def test_web_ai_followup_resolves_recent_product_and_bounds_context(client, app):
+    with app.app_context():
+        first = _product("Wireless Headphone", "wireless-headphone", price="1800.00")
+        second = _product("Compact Blender", "compact-blender", price="1250.00")
+        db.session.commit()
+        slugs = [first.slug, second.slug]
+
+    search = client.post("/ai/chat", json={"prompt": "What products do you have?"})
+    products = search.get_json()["products"]
+    compared = client.post("/ai/chat", json={
+        "prompt": "Compare them",
+        "recent_products": [item["slug"] for item in products],
+    })
+    followup = client.post("/ai/chat", json={
+        "prompt": "Tell me more about the second one",
+        "recent_products": [item["slug"] for item in products],
+    })
+    invalid_context = client.post("/ai/chat", json={
+        "prompt": "Tell me more about it",
+        "recent_products": slugs * 3,
+    })
+
+    assert search.status_code == 200
+    assert {item["slug"] for item in products} == set(slugs)
+    assert compared.status_code == 200
+    assert compared.get_json()["tools_used"] == ["compare_products"]
+    assert {item["slug"] for item in compared.get_json()["products"]} == set(slugs)
+    assert followup.status_code == 200
+    assert followup.get_json()["tools_used"] == ["get_product"]
+    assert products[1]["name"] in followup.get_json()["answer"]
+    assert invalid_context.status_code == 400
+
+
 def test_bangla_budget_and_gift_prompts_use_grounded_catalog_without_ai(app, monkeypatch):
     from app.ai.marketplace_tools import handle_marketplace_ai_query
 
@@ -166,7 +221,47 @@ def test_bangla_budget_and_gift_prompts_use_grounded_catalog_without_ai(app, mon
     assert budget["products"][0]["price"] == "1250.00"
     assert "মিলে যাওয়া" in budget["answer"]
     assert [item["slug"] for item in gift["products"]] == ["gardening-gloves"]
-    assert "সুপারিশ" in gift["answer"]
+    assert "Gardening Gloves" in gift["answer"]
+    assert "৳500.00" in gift["answer"]
+    assert "🛍️" in gift["answer"]
+
+
+def test_broad_budget_recommendation_returns_matching_products_and_prices(app, monkeypatch):
+    from app.ai.marketplace_tools import handle_marketplace_ai_query
+
+    def fail_if_provider_called(*_args, **_kwargs):
+        raise AssertionError("Catalog recommendations must use verified marketplace data.")
+
+    monkeypatch.setattr("app.ai.marketplace_tools.AIService.respond", fail_if_provider_called)
+    with app.app_context():
+        _product("Budget Earbuds", "budget-earbuds", price="450.00")
+        _product("Premium Headphones", "premium-headphones", price="1800.00")
+        db.session.commit()
+
+        result = handle_marketplace_ai_query(
+            "my budget 500BDT suggest me some product this bujjet"
+        )
+
+    assert [item["slug"] for item in result["products"]] == ["budget-earbuds"]
+    assert "Budget Earbuds" in result["answer"]
+    assert "BDT 450.00" in result["answer"]
+    assert "BDT 1800.00" not in result["answer"]
+
+
+def test_budget_recommendation_explains_when_no_product_fits(app):
+    from app.ai.marketplace_tools import handle_marketplace_ai_query
+
+    with app.app_context():
+        _product("Wireless Headphone", "wireless-headphone", price="1800.00")
+        db.session.commit()
+
+        result = handle_marketplace_ai_query(
+            "suggest me some product under 500 BDT"
+        )
+
+    assert result["products"] == []
+    assert "within BDT 500.00" in result["answer"]
+    assert "higher budget" in result["answer"]
 
 
 def test_seller_listing_tool_is_owner_scoped_and_suggestions_are_read_only(app):
@@ -525,7 +620,8 @@ def test_ai_settings_urls_and_malformed_model_tool_calls_are_safe():
             return None
 
         def json(self):
-            return {"choices": [{"message": {"content": "Verified response", "tool_calls": []}}]}
+            return {"choices": [{"message": {"content": "Verified response", "tool_calls": []}}],
+                    "text": "Recognized test audio"}
 
     class FakeSession:
         def __init__(self):
@@ -541,12 +637,23 @@ def test_ai_settings_urls_and_malformed_model_tool_calls_are_safe():
     result = provider.generate(messages=[{"role": "user", "content": "test"}], model="mock-model")
     assert result["content"] == "Verified response"
     assert session.calls[0][0][0] == "https://ai.example.test/v1/chat/completions"
+    assert session.calls[0][1]["headers"]["Authorization"] == "Bearer mock-only"
+    provider.transcribe(audio=b"audio", filename="voice.wav", content_type="audio/wav")
+    assert session.calls[1][1]["headers"]["Authorization"] == "Bearer mock-only"
+    assert "Content-Type" not in session.calls[1][1]["headers"]
     try:
         provider.generate(prompt="x", base_url="file:///etc/passwd")
     except Exception as error:
         assert "invalid" in str(error).lower()
     else:
         raise AssertionError("Unsafe provider URL was accepted")
+    secure_provider = OpenAICompatibleProvider(
+        api_key="mock-only", model="mock-model", base_url="http://ai.example.test/v1",
+        session=session, require_https=True,
+    )
+    with pytest.raises(AIProviderError, match="HTTPS"):
+        secure_provider.generate(messages=[{"role": "user", "content": "test"}])
+    assert len(session.calls) == 2
 
 
 def test_provider_timeout_and_malformed_tool_arguments_fall_back_safely():
@@ -605,8 +712,23 @@ def test_mocked_vision_and_transcription_never_need_live_provider():
     provider = OpenAICompatibleProvider(api_key="mock-only", model="vision-model",
                                         base_url="https://ai.example.test/v1", session=fake)
     assert provider.describe_image(image_bytes=b"mock image", content_type="image/jpeg") == "black running shoe"
-    assert "data:image/jpeg;base64," in fake.calls[0][1]["json"]["messages"][0]["content"][1]["image_url"]["url"]
+    assert "data:image/jpeg;base64," in fake.calls[0][1]["json"]["messages"][1]["content"][1]["image_url"]["url"]
     assert provider.transcribe(audio=b"mock audio", filename="voice.webm", content_type="audio/webm") == "headphones under 2000"
+
+
+def test_vision_provider_http_errors_become_safe_provider_errors():
+    import requests
+
+    class FailingSession:
+        def post(self, *_args, **_kwargs):
+            raise requests.exceptions.HTTPError("429 private provider detail")
+
+    provider = OpenAICompatibleProvider(
+        api_key="mock-only", model="vision-model",
+        base_url="https://ai.example.test/v1", session=FailingSession(),
+    )
+    with pytest.raises(AIProviderError, match="AI provider request failed"):
+        provider.describe_image(image_bytes=b"mock image", content_type="image/jpeg")
 
 
 def test_private_local_vision_and_asr_can_use_internal_https_without_api_key():
@@ -647,6 +769,11 @@ def test_security_assistant_is_numeric_allowlist_scoped_and_read_only(app):
     from app.ai.security_tools import handle_security_ai_query
     with app.app_context():
         current_app.config.update(TELEGRAM_SECURITY_ADMIN_IDS="34567", AI_ENABLED=False)
+        admin = User(email="security-ai-admin@example.test", role="admin")
+        admin.set_password("password123")
+        db.session.add(admin)
+        db.session.flush()
+        current_app.config["TELEGRAM_SECURITY_ADMIN_USER_MAP"] = f"34567:{admin.id}"
         allowed = handle_security_ai_query("any suspicious login alerts?", telegram_user_id=34567)
         denied = handle_security_ai_query("show health", telegram_user_id=45678)
         assert allowed["ok"] is True
@@ -662,6 +789,11 @@ def test_security_summary_flags_admin_activity_for_human_review(app):
     from app.ai.security_tools import get_security_summary_tool
     with app.app_context():
         current_app.config["TELEGRAM_SECURITY_ADMIN_IDS"] = "34567"
+        admin = User(email="security-summary-admin@example.test", role="admin")
+        admin.set_password("password123")
+        db.session.add(admin)
+        db.session.flush()
+        current_app.config["TELEGRAM_SECURITY_ADMIN_USER_MAP"] = f"34567:{admin.id}"
         now = datetime.now(timezone.utc)
         db.session.add_all([
             AuditEvent(action="admin.settings.updated", actor_role="admin", created_at=now)
@@ -683,6 +815,52 @@ def test_image_and_voice_endpoints_reject_invalid_upload_signatures(client):
     assert audio.status_code == 415
 
 
+def test_image_search_fails_closed_when_provider_errors(client, monkeypatch):
+    from PIL import Image
+
+    image_buffer = BytesIO()
+    Image.new("RGB", (8, 8), color="black").save(image_buffer, format="JPEG")
+    image_buffer.seek(0)
+
+    class FailingService:
+        def __init__(self, _config):
+            pass
+
+        def describe_image(self, *_args, **_kwargs):
+            raise AIProviderError("AI provider request failed.")
+
+    monkeypatch.setattr("app.routes.ai.AIService", FailingService)
+    response = client.post("/ai/image-search", data={
+        "image": (image_buffer, "product.jpg", "image/jpeg")
+    })
+
+    assert response.status_code == 503
+    assert response.get_json()["answer"] == (
+        "Visual search is unavailable. Use the catalog search instead."
+    )
+
+
+def test_voice_search_fails_closed_without_local_transcription_config(client, app, monkeypatch):
+    called = []
+
+    class UnexpectedService:
+        def __init__(self, _config):
+            pass
+
+        def transcribe(self, *_args, **_kwargs):
+            called.append(True)
+            raise AssertionError("Unconfigured voice transcription must not make a provider call.")
+
+    monkeypatch.setattr("app.routes.ai.AIService", UnexpectedService)
+    response = client.post("/ai/voice-search", data={
+        "audio": (BytesIO(bytes.fromhex("1A45DFA3") + b"mock voice"), "voice.webm", "audio/webm")
+    })
+
+    assert response.status_code == 503
+    assert "not configured" in response.get_json()["answer"].lower()
+    assert called == []
+
+
 def test_mocked_image_and_voice_routes_search_catalog_without_persisting_uploads(client, app, monkeypatch):
     image_buffer = BytesIO()
     from PIL import Image
@@ -695,6 +873,7 @@ def test_mocked_image_and_voice_routes_search_catalog_without_persisting_uploads
         assert product.available_stock > 0 and product.category.is_active is True
         direct = handle_marketplace_ai_query("wireless headphone")
         assert direct["products"], direct
+    app.config.update(AI_ASR_BASE_URL="https://asr.example.test/v1", AI_ASR_MODEL="whisper-test")
 
     class MockService:
         def __init__(self, _config):
@@ -768,18 +947,21 @@ def test_migration_reaches_single_head_with_ai_and_support_tables(tmp_path):
         assert {"ai_request_windows", "ai_preferences", "support_conversations", "support_messages",
             "ai_external_consents", "ai_external_spend", "ai_user_memories", "ai_knowledge_chunks",
             "ai_external_call_notices", "ai_external_call_recipients",
-            "ai_product_price_history", "ai_product_price_alerts", "ai_builder_jobs"} <= tables
+            "ai_product_price_history", "ai_product_price_alerts", "ai_builder_jobs",
+            "telegram_shopping_contexts", "telegram_security_alert_recipients"} <= tables
         columns = {item["name"] for item in inspect(db.engine).get_columns("ai_preferences")}
         assert {"last_cart_reminder_at", "last_recommendation_notification_at",
                 "long_term_memory_enabled", "personalized_recommendations_enabled"} <= columns
         heads = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
-        assert heads == ["20261007_30"]
+        assert heads == ["20261009_33"]
 
-    downgraded = migration_app.test_cli_runner().invoke(args=["db", "downgrade", "20261007_29"])
+    downgraded = migration_app.test_cli_runner().invoke(args=["db", "downgrade", "20261007_30"])
     assert downgraded.exit_code == 0, downgraded.output
     with migration_app.app_context():
         inspector = inspect(db.engine)
-        assert not inspector.has_table("ai_builder_jobs")
+        assert inspector.has_table("ai_builder_jobs")
+        assert not inspector.has_table("telegram_shopping_contexts")
+        assert not inspector.has_table("telegram_security_alert_recipients")
         assert inspector.has_table("ai_product_price_history")
         assert inspector.has_table("ai_product_price_alerts")
         columns = {item["name"] for item in inspector.get_columns("ai_preferences")}
@@ -788,4 +970,4 @@ def test_migration_reaches_single_head_with_ai_and_support_tables(tmp_path):
     assert upgraded.exit_code == 0, upgraded.output
     with migration_app.app_context():
         heads = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
-        assert heads == ["20261007_30"]
+        assert heads == ["20261009_33"]

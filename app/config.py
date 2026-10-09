@@ -156,6 +156,9 @@ class Config:
     TELEGRAM_SECURITY_ADMIN_USER_MAP = os.getenv("TELEGRAM_SECURITY_ADMIN_USER_MAP", "")
     TELEGRAM_SUPPORT_URL = os.getenv("TELEGRAM_SUPPORT_URL", "").strip()
     TELEGRAM_RATE_LIMIT_PER_MINUTE = int(os.getenv("TELEGRAM_RATE_LIMIT_PER_MINUTE", "30"))
+    TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE = int(
+        os.getenv("TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE", "10")
+    )
     TELEGRAM_API_TIMEOUT = int(os.getenv("TELEGRAM_API_TIMEOUT", "10"))
     _mail_sender = os.getenv("MAIL_DEFAULT_SENDER", "").strip()
     MAIL_DEFAULT_SENDER = (
@@ -214,6 +217,8 @@ class Config:
     AI_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("AI_RATE_LIMIT_WINDOW_SECONDS", "60"))
     AI_MAX_TOOL_CALLS = int(os.getenv("AI_MAX_TOOL_CALLS", "5"))
     AI_MAX_CONTEXT_SIZE = int(os.getenv("AI_MAX_CONTEXT_SIZE", "12000"))
+    AI_BUILDER_SANDBOX_IMAGE = os.getenv("AI_BUILDER_SANDBOX_IMAGE", "").strip()
+    AI_BUILDER_TEST_TIMEOUT_SECONDS = int(os.getenv("AI_BUILDER_TEST_TIMEOUT_SECONDS", "60"))
     # Local inference is private and is attempted before any specialist API.
     AI_LOCAL_ENABLED = _env_bool("AI_LOCAL_ENABLED", True)
     AI_LOCAL_BASE_URL = os.getenv("AI_LOCAL_BASE_URL", "").strip().rstrip("/")
@@ -231,6 +236,8 @@ class Config:
     AI_EXTERNAL_ENABLED = _env_bool("AI_EXTERNAL_ENABLED", False)
     AI_EXTERNAL_MONTHLY_BUDGET_USD = os.getenv("AI_EXTERNAL_MONTHLY_BUDGET_USD", "0").strip()
     AI_EXTERNAL_MAX_TOKENS = int(os.getenv("AI_EXTERNAL_MAX_TOKENS", "1024"))
+    AI_API_INPUT_USD_PER_MILLION = os.getenv("AI_API_INPUT_USD_PER_MILLION", "0").strip()
+    AI_API_OUTPUT_USD_PER_MILLION = os.getenv("AI_API_OUTPUT_USD_PER_MILLION", "0").strip()
     AI_SPECIALISTS = {
         "openai": {"api_key": os.getenv("AI_OPENAI_API_KEY", "").strip(),
                    "model": os.getenv("AI_OPENAI_MODEL", "").strip(),
