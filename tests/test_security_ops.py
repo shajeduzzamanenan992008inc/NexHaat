@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -100,6 +101,45 @@ def test_restore_rejects_an_invalid_backup(file_app, tmp_path):
     with file_app.app_context():
         with pytest.raises(RuntimeError):
             restore_database(bad)
+
+
+def test_postgres_backup_and_restore_use_available_client_tools(app, monkeypatch, tmp_path):
+    from app.services import backup
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = (
+        "postgresql+psycopg://user:password@db.example.test/nexhaat"
+    )
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append((command, kwargs))
+        if command[0].endswith("pg_dump.exe"):
+            Path(command[3]).write_text("-- mocked PostgreSQL backup")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(backup.shutil, "which", lambda name: f"C:/tools/{name}.exe")
+    monkeypatch.setattr(backup.subprocess, "run", run)
+
+    with app.app_context():
+        destination = tmp_path / "backup.sql"
+        backup.backup_database(destination)
+        backup.restore_database(destination)
+
+    assert commands[0][0] == [
+        "C:/tools/pg_dump.exe",
+        "--no-owner",
+        "--file",
+        str(destination),
+        "postgresql://user:password@db.example.test/nexhaat",
+    ]
+    assert commands[1][0] == [
+        "C:/tools/psql.exe",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-f",
+        str(destination),
+        "postgresql://user:password@db.example.test/nexhaat",
+    ]
 
 
 def test_database_ceiling_is_enforced(file_app):
