@@ -2,10 +2,9 @@
 
 from datetime import datetime, timezone
 from math import ceil
-from uuid import uuid4
 
 from flask import (
-    Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for,
+    Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for,
 )
 from flask_babel import gettext
 from sqlalchemy import func, select
@@ -22,13 +21,11 @@ from ..services.profiles import (
     password_change_error,
 )
 from ..services.audit import record_audit
-from ..services.ai_action_notices import notify_admin_ai_action
 from ..services.notifications import notify
 from ..services.payments import make_seller_ledger_eligible
 from ..security import (
     admin_required, customer_required, current_session_user, role_required, save_raster_upload,
 )
-from ..ai.core.consent import external_consent_enabled
 
 
 customer_bp = Blueprint("customer", __name__, url_prefix="/customer")
@@ -125,40 +122,6 @@ def dashboard():
         active=active,
         completed=completed,
     )
-
-
-@rider_bp.get("/ai")
-@role_required("rider")
-def ai_workspace():
-    user = current_session_user("rider")
-    if not user.rider_profile:
-        abort(403)
-    return render_template("ai/rider.html", user=user, ai_local_configured=bool(
-        current_app.config.get("AI_LOCAL_ENABLED") and current_app.config.get("AI_LOCAL_BASE_URL")
-        and current_app.config.get("AI_LOCAL_MODEL")
-    ), external_ai_consent=external_consent_enabled(user=user))
-
-
-@rider_bp.post("/ai/query")
-@role_required("rider")
-def ai_query():
-    user = current_session_user("rider")
-    payload = request.get_json(silent=True)
-    prompt = payload.get("prompt") if isinstance(payload, dict) else None
-    if not user.rider_profile:
-        abort(403)
-    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 2000:
-        return jsonify(ok=False, answer="Send a question under 2,000 characters."), 400
-    from ..services.ai_rate_limit import consume_ai_request
-    try:
-        if not consume_ai_request("rider_ai", user=user):
-            return jsonify(ok=False, answer="Rider assistant request limit reached. Try again shortly."), 429
-        from ..ai.rider_tools import run_rider_query
-        result = run_rider_query(user, prompt)
-    except Exception:
-        db.session.rollback()
-        return jsonify(ok=False, answer="Rider assistant is temporarily unavailable."), 503
-    return jsonify(result), 200 if result.get("ok") else 503
 
 
 @rider_bp.post("/deliveries/<int:order_id>/status")
@@ -321,62 +284,7 @@ def ai_workspace():
     user = current_session_user()
     if user.role not in {"admin", "super_admin"}:
         abort(403)
-    activity_actions = (
-        "admin.ai.query.started", "admin.ai.query.completed", "admin.ai.query.failed",
-        "admin.ai_builder.job.started", "admin.ai_builder.job.completed",
-        "admin.ai_builder.job.failed", "admin.ai_builder.job.deleted",
-        "admin.ai_builder.project.created", "admin.ai_builder.project.updated",
-        "admin.ai_builder.project.deleted", "admin.ai_builder.project.exported",
-        "admin.ai_builder.patch.created", "admin.ai_builder.patch.tested",
-        "admin.ai_builder.patch.approved", "admin.ai_builder.patch.rejected",
-        "admin.ai_builder.patch.applied", "admin.ai_builder.patch.exported",
-        "admin.ai_guardian.finding", "admin.ai_guardian.finding.confirmed",
-        "admin.ai_guardian.finding.reviewed", "admin.ai_guardian.lesson.proposed",
-        "admin.ai_guardian.lesson.approved", "admin.ai_guardian.lesson.rejected",
-    )
-    activity_labels = {
-        "admin.ai.query.started": "Admin AI query started",
-        "admin.ai.query.completed": "Admin AI query completed",
-        "admin.ai.query.failed": "Admin AI query failed",
-        "admin.ai_builder.job.started": "Project analysis started",
-        "admin.ai_builder.job.completed": "Project analysis completed",
-        "admin.ai_builder.job.failed": "Project analysis failed",
-        "admin.ai_builder.job.deleted": "Analysis record deleted",
-        "admin.ai_builder.project.created": "Builder project created",
-        "admin.ai_builder.project.updated": "Builder project updated",
-        "admin.ai_builder.project.deleted": "Builder project deleted",
-        "admin.ai_builder.project.exported": "Builder project exported",
-        "admin.ai_builder.patch.created": "Patch candidate created",
-        "admin.ai_builder.patch.tested": "Patch candidate tested",
-        "admin.ai_builder.patch.approved": "Patch candidate approved",
-        "admin.ai_builder.patch.rejected": "Patch candidate rejected",
-        "admin.ai_builder.patch.applied": "Approved patch applied",
-        "admin.ai_builder.patch.exported": "Approved patch exported",
-        "admin.ai_guardian.finding": "Guardian finding detected",
-        "admin.ai_guardian.finding.confirmed": "Guardian finding confirmed",
-        "admin.ai_guardian.finding.reviewed": "Guardian finding reviewed",
-        "admin.ai_guardian.lesson.proposed": "Guardian lesson proposed",
-        "admin.ai_guardian.lesson.approved": "Guardian lesson approved",
-        "admin.ai_guardian.lesson.rejected": "Guardian lesson rejected",
-    }
-    recent_ai_activity = [
-        {
-            "label": activity_labels[event.action],
-            "created_at": event.created_at,
-            "reference": event.target_id,
-        }
-        for event in db.session.scalars(
-            select(AuditEvent)
-            .where(AuditEvent.actor_id == user.id, AuditEvent.action.in_(activity_actions))
-            .order_by(AuditEvent.created_at.desc())
-            .limit(20)
-        ).all()
-    ]
-    return render_template("ai/admin.html", user=user, ai_local_configured=bool(
-        current_app.config.get("AI_LOCAL_ENABLED") and current_app.config.get("AI_LOCAL_BASE_URL")
-        and current_app.config.get("AI_LOCAL_MODEL")
-    ), external_ai_consent=external_consent_enabled(user=user),
-        recent_ai_activity=recent_ai_activity)
+    return render_template("ai/admin.html", user=user)
 
 
 @admin_bp.post("/admin/ai/query")
@@ -390,13 +298,5 @@ def ai_query():
     if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 2000:
         return jsonify(ok=False, answer="Send an Admin analytics question under 2,000 characters."), 400
     from ..ai.admin_tools import handle_admin_ai_query
-
-    query_id = str(uuid4())
-    notify_admin_ai_action("admin.ai.query.started", actor=user, target_id=query_id)
     result = handle_admin_ai_query(prompt, user=user)
-    notify_admin_ai_action(
-        "admin.ai.query.completed" if result.get("ok") else "admin.ai.query.failed",
-        actor=user,
-        target_id=query_id,
-    )
     return jsonify(result), 200 if result.get("ok") else 503

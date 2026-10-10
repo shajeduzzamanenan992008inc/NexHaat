@@ -3,13 +3,7 @@ from .user import (
     CustomerProfile, RiderProfile, SellerProfile, User,
 )
 from .audit import AuditEvent
-from .ai import (
-    AICustomerDocument, AIGuardianFinding, AIGuardianLesson, AIGuardianScan,
-    AIBuilderJob, AIBuilderPatch,
-    AIBuilderProject, AIExternalCallNotice, AIExternalCallRecipient, AIExternalConsent,
-    AIExternalSpend, AIKnowledgeChunk, AIProductPriceAlert, AIProductPriceHistory,
-    AIRequestWindow, AIPreferences, AIUserMemory,
-)
+from .ai import AIRequestWindow, AIPreferences
 from .support import SupportConversation, SupportMessage
 from .catalog import Category, Product, ProductTranslation, ProductVariant, PromotionCode, PromotionRedemption, RecentViewedProduct
 from .order import (
@@ -26,21 +20,11 @@ from .payment import Payment, PaymentAttempt, PaymentRefund, SellerLedgerEntry, 
 from .telegram import (
     CustomerCartItem, ProcessedTelegramUpdate, TelegramAccountLinkChallenge,
     TelegramIdentity, TelegramRateLimit, TelegramSecurityAlert,
-    TelegramSecurityAlertRecipient, TelegramShoppingContext,
 )
 
 __all__ = [
     "AccountInvitation", "AdminLoginChallenge", "AdminProfile", "AuditEvent", "AuthThrottle", "Category", "CustomerAddress", "CustomerProfile",
-    "AIRequestWindow", "AIPreferences", "AICustomerDocument",
-    "AIExternalConsent", "AIExternalSpend", "AIKnowledgeChunk", "AIUserMemory",
-    "AIExternalCallNotice", "AIExternalCallRecipient",
-    "AIBuilderJob",
-    "AIBuilderProject",
-    "AIBuilderPatch",
-    "AIGuardianScan",
-    "AIGuardianFinding",
-    "AIGuardianLesson",
-    "AIProductPriceAlert", "AIProductPriceHistory",
+    "AIRequestWindow", "AIPreferences",
     "SupportConversation", "SupportMessage",
     "DELIVERY_STATUSES", "DELIVERY_TRANSITIONS", "delivery_transition_valid",
     "FdcCategory", "FdcFood", "FdcFoodNutrient", "FdcFoodPortion", "FdcNutrient",
@@ -51,6 +35,4 @@ __all__ = [
     "ProcessedTelegramUpdate", "TelegramRateLimit",
     "CustomerCartItem", "TelegramAccountLinkChallenge", "TelegramIdentity",
     "TelegramSecurityAlert",
-    "TelegramSecurityAlertRecipient",
-    "TelegramShoppingContext",
 ]

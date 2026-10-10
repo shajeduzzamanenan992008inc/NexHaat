@@ -28,7 +28,6 @@ from ..security import (
     current_session_user,
     role_required,
 )
-from ..ai.core.consent import external_consent_enabled
 
 
 seller_bp = Blueprint("seller", __name__)
@@ -289,11 +288,7 @@ def ai_workspace():
     products = db.session.scalars(
         select(Product).where(Product.seller_id == seller.id).order_by(Product.name.asc())
     ).all()
-    return render_template("ai/seller.html", seller=seller, products=products,
-                           ai_local_configured=bool(current_app.config.get("AI_LOCAL_ENABLED")
-                               and current_app.config.get("AI_LOCAL_BASE_URL")
-                               and current_app.config.get("AI_LOCAL_MODEL")),
-                           external_ai_consent=external_consent_enabled(user=seller))
+    return render_template("ai/seller.html", seller=seller, products=products)
 
 
 @seller_bp.post("/seller/ai/suggest")

@@ -22,7 +22,6 @@ from ..services.cart import (
     remove_customer_cart_item, update_customer_cart_item,
 )
 from ..services.audit import record_audit
-from ..services.ai_action_notices import notify_admin_ai_action
 from ..services.mail import (
     enqueue_order_emails,
     queue_order_receipt,
@@ -644,10 +643,7 @@ def admin_review_seller(profile_id):
     profile.reviewed_by_id = session["user_id"]
     profile.review_note = note or None
     db.session.commit()
-    notify_admin_ai_action(
-        "seller.review", actor=current_session_user(),
-        target_type="seller_profile", target_id=profile_id, detail=decision,
-    )
+    record_audit("seller.review", target_type="seller_profile", target_id=profile_id, detail=decision)
     if decision == "approved":
         notify(
             profile.user_id,
@@ -682,10 +678,7 @@ def admin_review_product(product_id):
     product.reviewed_at = datetime.now(timezone.utc)
     product.reviewed_by_id = session["user_id"]
     db.session.commit()
-    notify_admin_ai_action(
-        "catalog.product_review", actor=current_session_user(),
-        target_type="product", target_id=product_id, detail=decision,
-    )
+    record_audit("catalog.product_review", target_type="product", target_id=product_id, detail=decision)
     flash(
         gettext("Product listing approved.") if decision == "approved"
         else gettext("Product listing rejected."),
@@ -712,10 +705,7 @@ def admin_moderate_review(review_id):
     review.moderated_at = datetime.now(timezone.utc)
     review.moderated_by_id = session["user_id"]
     db.session.commit()
-    notify_admin_ai_action(
-        "review.moderate", actor=current_session_user(),
-        target_type="review", target_id=review_id, detail=decision,
-    )
+    record_audit("review.moderate", target_type="review", target_id=review_id, detail=decision)
     flash(
         gettext("Review approved.") if decision == "approved" else gettext("Review rejected."),
         "success",
@@ -1112,13 +1102,7 @@ def _set_admin_order_status(order_id, status):
             flash(gettext("That order status transition is not allowed."), "error")
             return redirect(url_for("admin.dashboard"))
         db.session.commit()
-    if status in {"confirmed", "declined"}:
-        notify_admin_ai_action(
-            "order.status", actor=current_session_user(),
-            target_type="order", target_id=order.id, detail=status,
-        )
-    else:
-        record_audit("order.status", target_type="order", target_id=order.id, detail=status)
+    record_audit("order.status", target_type="order", target_id=order.id, detail=status)
     queue_order_status(order)
     if status == "confirmed":
         queue_order_receipt(order)

@@ -19,7 +19,15 @@ def consume_ai_request(scope, user=None, principal=None):
     window_seconds = max(10, min(int(current_app.config.get("AI_RATE_LIMIT_WINDOW_SECONDS", 60)), 3600))
     limit = max(1, min(int(current_app.config.get("AI_RATE_LIMIT", 60)), 10000))
     bucket_start = datetime.fromtimestamp(int(now.timestamp() // window_seconds) * window_seconds, timezone.utc)
-    key_hash = _principal_hash(scope, user=user, principal=principal)
+    if principal is not None:
+        principal = f"channel:{str(principal)[:120]}"
+    else:
+        principal = (f"user:{user.id}" if user is not None else
+                     f"ip:{request.remote_addr or 'unknown'}" if has_request_context() else "ip:internal")
+    key_material = f"ai-rate:{scope}:{principal}".encode("utf-8")
+    secret = current_app.secret_key
+    secret = secret.encode("utf-8") if isinstance(secret, str) else secret
+    key_hash = hmac.new(secret or b"nexhaat-ai-rate-limit", key_material, hashlib.sha256).hexdigest()
 
     table = AIRequestWindow.__table__
     dialect = db.session.get_bind().dialect.name
@@ -51,43 +59,6 @@ def consume_ai_request(scope, user=None, principal=None):
     allowed = bool(record and record.request_count <= limit)
     _cleanup_stale_windows(now)
     return allowed
-
-
-def get_ai_request_usage(scope, user=None, principal=None):
-    """Return the current hashed rate-limit window without consuming a request."""
-    now = datetime.now(timezone.utc)
-    window_seconds = max(10, min(int(current_app.config.get("AI_RATE_LIMIT_WINDOW_SECONDS", 60)), 3600))
-    limit = max(1, min(int(current_app.config.get("AI_RATE_LIMIT", 60)), 10000))
-    bucket_start = datetime.fromtimestamp(int(now.timestamp() // window_seconds) * window_seconds, timezone.utc)
-    key_hash = _principal_hash(scope, user=user, principal=principal)
-    record = db.session.get(AIRequestWindow, key_hash)
-    recorded_bucket = record.window_started_at if record is not None else None
-    if recorded_bucket is not None and recorded_bucket.tzinfo is None:
-        recorded_bucket = recorded_bucket.replace(tzinfo=timezone.utc)
-    used = (
-        min(record.request_count, limit)
-        if record is not None and recorded_bucket == bucket_start
-        else 0
-    )
-    return {
-        "used": used,
-        "limit": limit,
-        "remaining": max(0, limit - used),
-        "window_seconds": window_seconds,
-        "resets_at": (bucket_start + timedelta(seconds=window_seconds)).isoformat(),
-    }
-
-
-def _principal_hash(scope, *, user=None, principal=None):
-    if principal is not None:
-        principal = f"channel:{str(principal)[:120]}"
-    else:
-        principal = (f"user:{user.id}" if user is not None else
-                     f"ip:{request.remote_addr or 'unknown'}" if has_request_context() else "ip:internal")
-    key_material = f"ai-rate:{scope}:{principal}".encode("utf-8")
-    secret = current_app.secret_key
-    secret = secret.encode("utf-8") if isinstance(secret, str) else secret
-    return hmac.new(secret or b"nexhaat-ai-rate-limit", key_material, hashlib.sha256).hexdigest()
 
 
 def _cleanup_stale_windows(now):

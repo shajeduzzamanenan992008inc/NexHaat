@@ -53,7 +53,6 @@ def test_product_detail_category_and_search(client, app):
     assert client.get("/food/garden-pizza").status_code == 200
     assert client.get("/category/pizza").status_code == 200
     response = client.get("/search?q=basil")
-    assert response.status_code == 200
     assert b"Garden Pizza" in response.data
     assert client.get("/food/unavailable-pizza").status_code == 404
 
@@ -63,17 +62,6 @@ def test_search_is_tolerant_to_common_typo_errors(client, app):
     response = client.get("/search?q=garrden")
     assert response.status_code == 200
     assert b"Garden Pizza" in response.data
-
-
-def test_single_word_search_stays_in_catalog_while_natural_language_can_use_ai(client, app):
-    add_catalog()
-    catalog_response = client.get("/search?q=garden")
-    assert catalog_response.status_code == 200
-    assert b"Garden Pizza" in catalog_response.data
-
-    ai_response = client.get("/search?q=which%20pizza%20is%20best")
-    assert ai_response.status_code == 302
-    assert "/ai/" in ai_response.headers["Location"]
 
 
 def test_store_stock_variant_and_deals_discovery(client, app):

@@ -55,17 +55,6 @@ class TelegramIdentity(db.Model):
     user = db.relationship("User", backref=db.backref("telegram_identity", uselist=False))
 
 
-class TelegramShoppingContext(db.Model):
-    __tablename__ = "telegram_shopping_contexts"
-
-    conversation_hash = db.Column(db.String(64), primary_key=True)
-    context = db.Column(db.JSON, nullable=False)
-    updated_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
-    )
-    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
-
-
 class TelegramAccountLinkChallenge(db.Model):
     __tablename__ = "telegram_account_link_challenges"
 
@@ -133,15 +122,3 @@ class TelegramSecurityAlert(db.Model):
         ),
         db.CheckConstraint("attempts >= 0", name="ck_telegram_alert_attempts_nonnegative"),
     )
-
-
-class TelegramSecurityAlertRecipient(db.Model):
-    __tablename__ = "telegram_security_alert_recipients"
-
-    alert_id = db.Column(
-        db.Integer,
-        db.ForeignKey("telegram_security_alerts.id", ondelete="CASCADE"),
-        primary_key=True,
-    )
-    telegram_user_id = db.Column(db.BigInteger, primary_key=True)
-    sent_at = db.Column(db.DateTime(timezone=True), nullable=False)

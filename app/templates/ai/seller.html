@@ -1,22 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Seller AI') }} · {{ app_name }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261007_ai13') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261006_ai1') }}">{% endblock %}
 {% block page_content %}
 <div class="page-shell ai-page">
-  <header class="page-heading"><div><p class="eyebrow">{{ _('Local AI Core · Seller tools') }}</p><h1>{{ _('Seller AI workspace') }}</h1>
-    <p>{{ _('Ask general or coding questions, draft listing content, and understand only your own sales and inventory.') }}</p></div>
+  <header class="page-heading"><div><p class="eyebrow">{{ _('Seller tools') }}</p><h1>{{ _('Seller AI workspace') }}</h1>
+    <p>{{ _('Draft listing content, review similar catalog items, and understand your own sales and inventory.') }}</p></div>
     <a class="button button--secondary" href="{{ url_for('seller.dashboard') }}">{{ _('Seller dashboard') }}</a></header>
   <div class="ai-layout">
-    {% if not ai_local_configured %}<section class="surface surface-card" role="status"><p class="muted">{{ _('The private local AI endpoint is not connected. Owner-scoped sales and listing tools remain available.') }}</p></section>{% endif %}
-    <section class="surface surface-card ai-consent-inline">
-      <form method="post" action="{{ url_for('ai.role_external_consent') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label class="ai-checkbox"><input type="checkbox" name="enabled" value="1" {% if external_ai_consent %}checked{% endif %}>
-          <span><strong>{{ _('Allow paid specialist help for general questions') }}</strong><small>{{ _('External specialists receive only your redacted question, not your listings or sales data. Consent can be revoked here at any time.') }}</small></span>
-        </label>
-        <button class="button button--quiet" type="submit">{{ _('Save AI consent') }}</button>
-      </form>
-    </section>
     <section class="surface surface-card">
       <h2>{{ _('Listing content suggestions') }}</h2>
       <p class="muted">{{ _('Suggestions never change a listing or price. Review and save through the normal product form.') }}</p>
@@ -32,7 +22,7 @@
     </section>
     <section class="surface surface-card">
       <h2>{{ _('Sales and inventory insight') }}</h2>
-      <p class="muted">{{ _('Ask about your own sales, fast-moving products, stock levels, possible stock-outs, general topics, or coding. Forecasts include uncertainty.') }}</p>
+      <p class="muted">{{ _('Ask about sales, fast-moving products, stock levels, and possible stock-out timing. Forecasts include uncertainty.') }}</p>
       <form id="seller-ai-query-form" class="ai-chat__form">
         <label for="seller-ai-query">{{ _('Your question') }}</label><textarea id="seller-ai-query" maxlength="2000" rows="4" required placeholder="{{ _('Which of my products may run out soon?') }}"></textarea>
         <button class="button button--secondary" type="submit">{{ _('Analyze my store') }}</button>
@@ -54,5 +44,5 @@
   <input id="seller-ai-query-endpoint" type="hidden" value="{{ url_for('seller.ai_analytics_query') }}">
   <input id="seller-ai-price-endpoint" type="hidden" value="{{ url_for('seller.ai_price_suggestion') }}">
 </div>
-<script src="{{ url_for('static', filename='js/ai-panels.js', v='20261007_ai13') }}" defer></script>
+<script src="{{ url_for('static', filename='js/ai-panels.js', v='20261006_ai1') }}" defer></script>
 {% endblock %}

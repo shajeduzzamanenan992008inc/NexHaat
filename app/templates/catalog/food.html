@@ -75,38 +75,6 @@ endblock %}
       </form>
       {% endif %}
       <p class="source-caption">{{ _('In stock: %(count)s', count=product.available_stock) }}</p>
-      <section class="product-price-history" aria-labelledby="price-history-title">
-        <h2 id="price-history-title">{{ _('Price history') }}</h2>
-        {% if price_history %}
-        <ul>{% for observation in price_history %}
-          <li><time datetime="{{ observation.recorded_at }}">{{ observation.recorded_at[:10] }}</time>
-            · ৳{{ observation.effective_price }}</li>
-          {% endfor %}
-        </ul>
-        <p class="source-caption">{{ _('Recorded NexHaat listing prices only; this is not a complete market history.')
-          }}</p>
-        {% else %}<p class="source-caption">{{ _('No earlier observed price records are available.') }}</p>{% endif %}
-        {% if g.current_user and g.current_user.role == 'customer' %}
-        {% if active_price_alert %}
-        <p>{{ _('Alert set for ৳%(price)s', price=active_price_alert.target_price) }}</p>
-        <form method="post" action="{{ url_for('ai.price_alert', slug=product.slug) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="action" value="cancel">
-          <button class="button button--secondary" type="submit">{{ _('Turn off price alert') }}</button>
-        </form>
-        {% else %}
-        <form method="post" action="{{ url_for('ai.price_alert', slug=product.slug) }}" class="form-actions">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <label class="quantity-control"><span>{{ _('Notify me at or below (BDT)') }}</span>
-            <input type="number" name="target_price" min="0" max="99999999.99" step="0.01" required>
-          </label>
-          <button class="button button--secondary" type="submit">{{ _('Set price alert') }}</button>
-        </form>
-        {% endif %}
-        {% elif not g.current_user %}
-        <a href="{{ url_for('auth.login') }}">{{ _('Sign in to set a price alert') }}</a>
-        {% endif %}
-      </section>
     </div>
   </article>
 
@@ -118,16 +86,13 @@ endblock %}
       </div>
       <p class="review-summary" aria-live="polite">
         {% if rating.count %}<span class="review-stars" aria-hidden="true">{% for _s in range(rating.average|round(0,
-          'floor')|int) %}★{% endfor %}</span> <strong>{{ '%.1f'|format(rating.average) }}</strong> · {{ _('%(count)s
-        reviews', count=rating.count) }}
+          'floor')|int) %}★{% endfor %}</span> <strong>{{ '%.1f'|format(rating.average) }}</strong> · {{ _('%(count)s reviews', count=rating.count) }}
         {% else %}{{ _('No reviews yet.') }}{% endif %}
       </p>
       {% if rating.count %}<div class="review-ai-summary">
-        <button class="button button--secondary" type="button" id="review-ai-summary-button">{{ _('Summarize approved
-          reviews') }}</button>
+        <button class="button button--secondary" type="button" id="review-ai-summary-button">{{ _('Summarize approved reviews') }}</button>
         <p id="review-ai-summary-output" class="source-caption" aria-live="polite"></p>
-        <input id="review-ai-summary-endpoint" type="hidden"
-          value="{{ url_for('ai.review_summary', slug=product.slug) }}">
+        <input id="review-ai-summary-endpoint" type="hidden" value="{{ url_for('ai.review_summary', slug=product.slug) }}">
       </div>{% endif %}
     </header>
 
@@ -170,6 +135,5 @@ endblock %}
     {% endif %}
   </section>
 </div>
-{% if rating.count %}
-<script src="{{ url_for('static', filename='js/review-summary.js', v='20261006_ai1') }}" defer></script>{% endif %}
+{% if rating.count %}<script src="{{ url_for('static', filename='js/review-summary.js', v='20261006_ai1') }}" defer></script>{% endif %}
 {% endblock %}

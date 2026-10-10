@@ -1,8 +1,8 @@
 # NexHaat Marketplace
 
-NexHaat is being developed in reviewed phases as a multilingual marketplace for customers, sellers, delivery riders, and administrators. **Foundation Phases 1–6 and Stages 7–9 are complete in application code. Stages 10 and 11 remain in progress; Stage 12 is complete in application code and mocked tests; Stage 13 local-first AI remains in progress with private GPU and staging acceptance open; Stage 14 Builder/Guardian code paths are implemented and verified locally, while sandbox-image, private model, Telegram, and full acceptance gates remain open.** Phase 3 delivered the seller catalog, variants, moderation, and the fail-closed image pipeline; Phase 4 added multi-seller checkout, seller-specific invoices, a durable email outbox, and localized order email; Phase 5 added Rider delivery assignment and a validated delivery workflow with proof of delivery; Phase 6 added the audit trail, backup/restore and database-size tooling, and the production readiness review. Enabling live WAF/ingress, media storage, scheduled backups, and live payment callbacks remains an operator step in the hosting account.
+NexHaat is being developed in reviewed phases as a multilingual marketplace for customers, sellers, delivery riders, and administrators. **Foundation Phases 1–6 and Stages 7–9 are complete in application code. Stages 10 and 11 remain in progress; Stage 12's full AI marketplace scope is complete in code and mocked tests.** Phase 3 delivered the seller catalog, variants, moderation, and the fail-closed image pipeline; Phase 4 added multi-seller checkout, seller-specific invoices, a durable email outbox, and localized order email; Phase 5 added Rider delivery assignment and a validated delivery workflow with proof of delivery; Phase 6 added the audit trail, backup/restore and database-size tooling, and the production readiness review. Enabling live WAF/ingress, media storage, scheduled backups, and live payment callbacks remains an operator step in the hosting account.
 
-The canonical marketplace roadmap, stage status, acceptance gates, and AI handoff instructions are in [docs/plans/nexhaat-master-plan.md](docs/plans/nexhaat-master-plan.md). **Stage 9 — stronger product discovery and promotions — and Stage 12 — AI marketplace ecosystem — are complete in application code. Stages 10, 11, 13, and 14 remain active.**
+The canonical marketplace roadmap, stage status, acceptance gates, and AI handoff instructions are in [docs/plans/nexhaat-master-plan.md](docs/plans/nexhaat-master-plan.md). **Stage 9 — stronger product discovery and promotions — and Stage 12 — AI marketplace ecosystem — are complete in application code. Stages 10 and 11 remain active.**
 
 ## Phase plan
 
@@ -34,17 +34,17 @@ Review and translate the `.po` files, then compile them:
 pybabel compile -d app/translations
 ```
 
-Compile the catalogs with `pybabel compile -d app/translations` before deploying when your host does not compile them automatically.
+The Render build compiles these catalogs after installing the application dependencies.
 
 ## Local setup
 
 1. Create and activate a virtual environment: `python -m venv .venv`
-2. Install runtime and test packages locally: `pip install -r requirements-dev.txt` (production hosts install `requirements.txt` only).
+2. Install packages: `pip install -r requirements.txt`
 3. Copy `.env.example` to `.env` and set a random `SECRET_KEY`. Keep `.env` out of source control.
 4. Apply database migrations: `flask --app run.py db upgrade`
 5. Start the development server in the foreground: `flask --app app run --host 127.0.0.1 --port 5009`. Keep its output in the terminal; do not redirect stdout or stderr to files.
 
-Run the automated checks with `python -m pytest`. `.env.example` is a standard dotenv template; `.azure-app-settings.example.json` is only an Azure Advanced Edit template. SQLite is local-only; public deployment must use TLS-enabled PostgreSQL through `DATABASE_URL`. See [the public-launch checklist](docs/operations/public-launch.md) before exposing the site.
+Run the automated checks with `python -m pytest`. SQLite is the local default; deployment uses PostgreSQL through `DATABASE_URL`.
 
 ## Phase 1 details
 
@@ -99,7 +99,7 @@ Run the automated checks with `python -m pytest`. `.env.example` is a standard d
 - **Health probes:** `/health/live` checks that the web process responds without querying the database; `/health/ready` checks database readiness. `/health` and `/health/db` remain readiness aliases for existing deployments. Set `APP_TIMING_ENABLED=1` to expose app handling time in the standard `Server-Timing` response header; it does not write request logs or create log files.
 - **Launch review:** `flask --app run.py production-check` lists remaining production blockers, including secret strength, secure cookies, HTTPS base URL, mail provider, TLS-required PostgreSQL, Admin bootstrap, invoice font, media storage, scan tooling, and live SSLCOMMERZ credentials.
 - **Live media smoke check:** after configuring the deployment's ClamAV scanner and S3-compatible bucket/CDN, run `flask --app run.py catalog-media-smoke-check --confirm-external-write`. It sends one generated 1×1 PNG through the upload scanner and sanitizer, writes it to the configured bucket, verifies the object, and removes it. Run it only after confirming the active deployment environment and bucket permissions; it requires put, head, and delete access.
-- **Operator steps (hosting account, not application code):** configure the chosen host with HTTPS, managed PostgreSQL, WAF/rate limits, scheduled backups and a restore drill; install/configure ClamAV and private quarantine, configure the product media bucket/CDN, and monitor database capacity. Follow [the public-launch checklist](docs/operations/public-launch.md).
+- **Operator steps (hosting account, not application code):** enable Cloudflare WAF/Tunnel in front of a private Render service, schedule backups and rehearse a restore, install the ClamAV scanner and configure the media bucket/CDN, and confirm the database stays inside the 400 MB ceiling.
 
 ## Stage 7 complete — online payments and seller settlement
 
@@ -126,18 +126,6 @@ The focused security/operations/media/configuration suite passes 29 tests, cover
 
 The shared AI Core connects the customer Shopping Assistant and Telegram bot with catalog, comparison, own-cart/order, and support tools; it also provides seller-reviewed listing help, read-only Admin and Security analysis, and bounded visual/voice search. The provider is disabled by default. Verification passed: 46 focused AI/Telegram tests and 257 full-suite tests; the isolated migration and CLI report the single head `20261006_26`. Apply migrations before deployment and keep `AI_API_KEY` plus Telegram credentials in private environment settings. Conversation history and customer image/audio uploads are not persisted. See [the AI marketplace operations guide](docs/operations/ai-marketplace.md) and the Stage 12 scope/acceptance trace in the [master plan](docs/plans/nexhaat-master-plan.md).
 
-## Stage 13 in progress — local-first hybrid AI
-
-Stage 13 adds a shared private local-model path for web and Telegram, opt-in memory and external-provider consent, capped specialist routing, scoped retrieval, local search/media adapters, and a protected Rider assistant. APIs remain disabled unless configured with user consent and a monthly spend cap. Voice recording appears only when private ASR is configured and uses that local transcription path; the page never falls back to browser speech recognition. Listen controls appear only when local TTS is configured. The additive migration is `20261007_27`; apply it with `flask --app run.py db upgrade`. This workspace has no private GPU host or staging bot delivery, so local model, PostgreSQL pgvector, media-service, and live Telegram acceptance remain operator gates. See [Stage 13 AI operations](docs/operations/stage-13-ai.md) and the status record in the [master plan](docs/plans/nexhaat-master-plan.md).
-
-## Stage 14 in progress — Multimodal AI Builder and Project Guardian
-
-Stage 14 adds an Admin-only Builder and Guardian in the existing Flask application. Admins can opt into private saved projects, generate starter or model-backed draft files, analyze bounded ZIP/text/PDF/DOCX/image/audio inputs, review diffs, run manual Guardian scans, and propose lessons from passing test evidence. Patches stay candidates until a restricted Docker sandbox passes and an Admin separately approves them; only then can they be applied to the saved project or exported. Guardian scan jobs are signed, high-risk notices are deduplicated, and deployment checks block only Admin-confirmed high-risk findings. The private-local hidden coding benchmark requires a configured model and the same sandbox. Project files are never extracted to the web root, and code is never run on the host or deployed automatically. The sandbox requires AI_BUILDER_SANDBOX_IMAGE set to an immutable image digest; Docker is unavailable in this workspace, so sandbox execution and patch approval remain blocked here. Private inference, embedding, and live Telegram staging checks are separate operator gates. See [AI Builder and Guardian operations](docs/operations/ai-builder-guardian.md), [AI marketplace operations](docs/operations/ai-marketplace.md), and the [master plan](docs/plans/nexhaat-master-plan.md).
-
-For the **Astra/Luna/Sol/Forge specialist personas**, safe AI configuration checks, and the next “ultra hybrid AI” acceptance gates, see [Ultra Hybrid AI setup (Bangla)](docs/operations/ultra-ai-upgrade-bn.md). Run `python scripts/diagnose_ai.py` to inspect configuration without sending a model request; use `--probe-local` or `--probe-direct` only when you intentionally want to send a minimal test request.
-
-Admin AI queries and Builder analysis runs generate prompt-free audit entries and retryable, metadata-only Security Bot notices, with a link back to the protected Admin AI workspace. The web workspace shows a per-Admin activity history and clearly identifies AI as read-only. In private chat, Security Bot `/approvals` supports only the enumerated marketplace decisions documented in the [Telegram operations guide](docs/operations/telegram-bots.md); each callback requires an allowlisted Telegram ID mapped to an active website Admin and reuses the same server-side decision rules. General Admin AI actions, deployments, and unsupported decisions remain website-only.
-
 ## Account management
 
 - **Customers** can permanently delete their own account from Account Settings; this removes their profile, address, and sign-in.
@@ -151,6 +139,6 @@ The project includes a production entry point and a `Procfile` that starts Gunic
 
 Telegram customer and security bot configuration, account-linking, webhook registration, and Azure App Service deployment steps are documented in [the Telegram bots operations guide](docs/operations/telegram-bots.md). Configure the separate bot tokens and webhook secrets as private App Service settings; after applying the Telegram migrations, run `flask --app run.py set-telegram-webhooks` from the deployed environment. Schedule `flask --app run.py retry-telegram-alerts` if security alerts are enabled.
 
-A public deployment should put a managed WAF/reverse proxy in front of the application where possible. That external account and network configuration is not created by application code. Security uses layered controls; no application can promise to be impossible to hack.
+The Phase 6 design proposes Cloudflare WAF and Tunnel in front of a private Render service. That external account and network configuration is not enabled by this Phase 2 code change. Security uses layered controls; no application can promise to be impossible to hack.
 
 See [the Stage 10 operations runbook](docs/operations/stage-10-runbook.md) for the production setup and acceptance checklist.

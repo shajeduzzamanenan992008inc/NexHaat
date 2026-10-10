@@ -1,42 +1,18 @@
 {% extends "base.html" %}
-{% block title %}{{ _('AI privacy and memory preferences') }} · {{ app_name }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261007_ai13') }}">{% endblock %}
+{% block title %}{{ _('AI notification preferences') }} · {{ app_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261006_ai1') }}">{% endblock %}
 {% block page_content %}
 <div class="page-shell ai-page">
-  <header class="page-heading"><div><p class="eyebrow">{{ _('Your account') }}</p><h1>{{ _('AI privacy and memory preferences') }}</h1>
-    <p>{{ _('Choose whether the assistant can remember notes you save or use opt-in specialist providers.') }}</p></div></header>
+  <header class="page-heading"><div><p class="eyebrow">{{ _('Your account') }}</p><h1>{{ _('AI notification preferences') }}</h1>
+    <p>{{ _('Optional in-app reminders for saved cart items, product availability and price changes, and picks based on your shopping activity.') }}</p></div></header>
   <section class="surface surface-card ai-preferences">
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label class="ai-checkbox"><input type="checkbox" name="smart_notifications_enabled" value="1" {% if enabled %}checked{% endif %}>
         <span><strong>{{ _('Allow relevant shopping alerts') }}</strong><small>{{ _('Cart reminders and personalized picks are limited to once per kind each week, with a maximum of one smart alert per day. Product price or availability changes share the daily limit. You can turn this off at any time.') }}</small></span>
       </label>
-      <label class="ai-checkbox"><input type="checkbox" name="personalized_recommendations_enabled" value="1" {% if personalization_enabled %}checked{% endif %}>
-        <span><strong>{{ _('Personalize product recommendations') }}</strong><small>{{ _('When enabled, recommendations may use your recent views, wishlist, cart, and order history. General popular products remain available when this is off.') }}</small></span>
-      </label>
-      <label class="ai-checkbox"><input type="checkbox" name="external_ai_consent" value="1" {% if external_consent %}checked{% endif %}>
-        <span><strong>{{ _('Allow external specialist providers') }}</strong><small>{{ _('Complex prompts may be sent to up to three configured specialist calls under the site monthly budget. Prompts are redacted where possible. Private database results, cart/order data, and security records are not sent. You may revoke consent at any time.') }}</small></span>
-      </label>
-      <label class="ai-checkbox"><input type="checkbox" name="long_term_memory_enabled" value="1" {% if memory_enabled %}checked{% endif %}>
-        <span><strong>{{ _('Use my saved AI notes') }}</strong><small>{{ _('Only notes you add below are included in your own future assistant requests. Conversation transcripts, images, and voice recordings are never saved as memory.') }}</small></span>
-      </label>
-      <button class="button" type="submit">{{ _('Save preferences') }}</button>
+      <button class="button" type="submit">{{ _('Save preference') }}</button>
     </form>
-  </section>
-  <section class="surface surface-card ai-preferences ai-memory" aria-labelledby="ai-memory-title">
-    <h2 id="ai-memory-title">{{ _('Saved notes') }}</h2>
-    <p class="muted">{{ _('Add a short note only if you want the assistant to remember it. Turn memory off or delete notes at any time.') }}</p>
-    {% if memory_enabled %}
-    <form method="post" action="{{ url_for('ai.add_memory') }}" class="ai-memory-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label for="ai-memory-content">{{ _('Note') }}</label>
-      <textarea id="ai-memory-content" name="content" maxlength="500" required></textarea>
-      <button class="button button--secondary" type="submit">{{ _('Save note') }}</button>
-    </form>
-    {% else %}<p class="muted">{{ _('Turn on saved AI notes above to add a memory.') }}</p>{% endif %}
-    {% if memories %}<ul class="ai-memory-list">{% for memory in memories %}
-      <li><span>{{ memory.content }}</span><form method="post" action="{{ url_for('ai.delete_memory', memory_id=memory.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button button--quiet" type="submit">{{ _('Delete') }}</button></form></li>
-    {% endfor %}</ul>{% else %}<p class="muted">{{ _('You have no saved notes.') }}</p>{% endif %}
   </section>
 </div>
 {% endblock %}

@@ -21,9 +21,6 @@ def upgrade():
     # Older FreshBite deployments ran create_all() at startup. create_all with
     # checkfirst adopts those tables while still creating the full schema on a
     # new database; it never drops or rewrites existing order/customer data.
-    if op.get_bind().dialect.name == "postgresql":
-        # Current model metadata may contain pgvector columns on a clean install.
-        op.execute("CREATE EXTENSION IF NOT EXISTS vector")
     db.metadata.create_all(bind=op.get_bind(), checkfirst=True)
     inspector = inspect(op.get_bind())
     for table_name in ("customers", "admins"):

@@ -1,67 +1,27 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Admin AI Copilot') }} · {{ app_name }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261007_ai13') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261006_ai1') }}">{% endblock %}
 {% block page_content %}
 <div class="page-shell ai-page">
-  <header class="page-heading"><div><p class="eyebrow">{{ _('Local AI Core · Read-only operations') }}</p><h1>{{ _('Admin AI Copilot') }}</h1>
-    <p>{{ _('Ask general questions, coding questions, or about read-only sales, orders, inventory, customer activity, reviews, and support cases.') }}</p></div>
+  <header class="page-heading"><div><p class="eyebrow">{{ _('Read-only operations') }}</p><h1>{{ _('Admin AI Copilot') }}</h1>
+    <p>{{ _('Ask about real sales, orders, product performance, inventory, customer activity, reviews, and support cases.') }}</p></div>
     <a class="button button--secondary" href="{{ url_for('admin.dashboard') }}">{{ _('Admin dashboard') }}</a></header>
-  <p><a class="button button--quiet" href="{{ url_for('ai_builder_workspace.builder_workspace') }}">{{ _('Open AI Builder and Project Guardian') }}</a></p>
-  <section class="ai-admin-responsibility surface surface-card" aria-labelledby="ai-admin-responsibility-title">
-    <div>
-      <p class="eyebrow">{{ _('Human-led decisions') }}</p>
-      <h2 id="ai-admin-responsibility-title">{{ _('AI can advise; Admins stay in control') }}</h2>
-      <p>{{ _('This workspace is read-only. AI can be wrong and does not approve sellers or products, change orders or payments, edit accounts, or deploy code. Verify its advice, then use the protected Admin pages to review and confirm those operations.') }}</p>
-      <p class="muted">{{ _('Admin AI activity is recorded without the question or project source and sent as a metadata-only notice to the allowlisted Security Bot. Telegram notices link back to this signed-in website workspace; Telegram itself cannot execute an Admin change.') }}</p>
-    </div>
-  </section>
   <section class="surface surface-card ai-admin-panel">
-    {% if not ai_local_configured %}<p class="muted" role="status">{{ _('The private local AI endpoint is not connected. Verified analytics tools remain available.') }}</p>{% endif %}
-    <form method="post" action="{{ url_for('ai.role_external_consent') }}" class="ai-consent-inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label class="ai-checkbox"><input type="checkbox" name="enabled" value="1" {% if external_ai_consent %}checked{% endif %}>
-        <span><strong>{{ _('Allow paid specialist help for general questions') }}</strong><small>{{ _('External specialists receive only your redacted question, never Admin database results. Consent can be revoked here at any time.') }}</small></span>
-      </label>
-      <button class="button button--quiet" type="submit">{{ _('Save AI consent') }}</button>
-    </form>
     <input type="hidden" id="ai-csrf" value="{{ csrf_token() }}">
     <form id="admin-ai-query-form" class="ai-chat__form">
       <label for="admin-ai-query">{{ _('Admin question') }}</label>
       <textarea id="admin-ai-query" maxlength="2000" rows="4" required placeholder="{{ _('How did sales perform this week?') }}"></textarea>
-      <button class="button" type="submit">{{ _('Ask Admin Copilot') }}</button>
+      <button class="button" type="submit">{{ _('Analyze marketplace data') }}</button>
     </form>
     <div class="ai-quick-queries">
       <button type="button" data-ai-query="Show this week's sales summary">{{ _('Sales summary') }}</button>
       <button type="button" data-ai-query="Which products have low stock or poor performance?">{{ _('Inventory and products') }}</button>
       <button type="button" data-ai-query="Summarize open customer support conversations">{{ _('Support summary') }}</button>
       <button type="button" data-ai-query="Flag suspicious pending reviews for human review">{{ _('Review risk flags') }}</button>
-      <button type="button" data-ai-query="Write a Python example that validates a marketplace product payload safely">{{ _('Coding help') }}</button>
     </div>
     <div id="admin-ai-result" class="ai-result" aria-live="polite"></div>
   </section>
-  <section class="ai-admin-activity surface surface-card" aria-labelledby="ai-admin-activity-title">
-    <div class="ai-admin-activity__heading">
-      <div>
-        <p class="eyebrow">{{ _('Accountability') }}</p>
-        <h2 id="ai-admin-activity-title">{{ _('Recent AI activity') }}</h2>
-      </div>
-      <span class="ai-admin-activity__note">{{ _('Private prompts and source files are not shown here.') }}</span>
-    </div>
-    {% if recent_ai_activity %}
-    <ol class="ai-admin-activity__list">
-      {% for event in recent_ai_activity %}
-      <li>
-        <strong>{{ _(event.label) }}</strong>
-        <time datetime="{{ event.created_at.isoformat() }}">{{ event.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</time>
-        {% if event.reference %}<small>{{ _('Reference') }}: {{ event.reference }}</small>{% endif %}
-      </li>
-      {% endfor %}
-    </ol>
-    {% else %}
-    <p class="ai-admin-activity__empty">{{ _('No Admin AI activity has been recorded for this account yet.') }}</p>
-    {% endif %}
-  </section>
   <input id="admin-ai-query-endpoint" type="hidden" value="{{ url_for('admin.ai_query') }}">
 </div>
-<script src="{{ url_for('static', filename='js/ai-panels.js', v='20261007_ai13') }}" defer></script>
+<script src="{{ url_for('static', filename='js/ai-panels.js', v='20261006_ai1') }}" defer></script>
 {% endblock %}

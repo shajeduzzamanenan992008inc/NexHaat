@@ -76,39 +76,14 @@ API clients authenticate with the existing session cookie. Signup challenges are
 
 ## AI and Telegram integrations
 
-- `POST /api/v1/ai/chat` — signed-in Customer chat through the shared AI Core; accepts `message`, optional bounded `history`, `mode=auto`, and `privacy_mode=standard|local_only`. `local_only` prevents external specialist routing for that request. Chat history is request-scoped and not persisted; unsupported model selection, tools, streaming, and attachments return a validation error. Successful responses include bounded `provider`, `model`, `fallback_used`, `usage` (prompt/completion token counts only), and `latency_ms` metadata plus a standard `warnings` notice if external specialist assistance was used. Provider-supplied warning text and cost/internal usage fields are not exposed.
-- `GET /api/v1/ai/providers`, `GET /api/v1/ai/models`, and `GET /api/v1/ai/health` — authenticated, redacted AI readiness and configured model metadata. Health probes only the private local service; external health checks never send a request.
-- `GET /api/v1/ai/usage` — signed-in Customer's current request quota, remaining requests, and reset time. It does not consume quota or expose prompts, transcripts, or global spend.
-- The signed-in Customer assistant page displays this quota and refreshes it after chat requests without saving conversation history.
-- `GET|POST /api/v1/ai/documents`, `DELETE /api/v1/ai/documents/{id}` — upload/list/delete owner-scoped PDF, UTF-8 TXT, or Markdown documents; uploads are limited to 2 MB, 40 PDF pages, 24,000 extracted characters, and 10 documents per customer. Only extracted text is retained.
-- `POST /api/v1/ai/documents/search` — search selected or owned documents and return bounded excerpts with document citations; search consumes the normal Customer AI request quota.
-- `POST /api/v1/ai/chat` accepts optional `document_ids` (up to three owned documents); selecting any document forces local-only routing for that request, including when retrieval finds no matching excerpt. Returned document citations identify private filenames. Chat history remains request-scoped and is not persisted.
-- The signed-in Customer assistant page exposes a private document library for upload, selection, and deletion; selecting documents routes that chat through the versioned API. Guests do not see the library.
-- `GET|PATCH /api/v1/ai/settings` — Customer-only, CSRF-protected preference read/update for external-AI consent, long-term memory, personalization, and smart notifications. All preferences default off.
-- `GET|POST /api/v1/ai/memory`, `DELETE /api/v1/ai/memory/{id}` — Customer-owned, opt-in memory notes; capped at 20 notes of up to 500 characters each.
-- `GET /ai/` — customer/guest shopping assistant page; responses use the configured local-first Core and authoritative catalog services
-- `GET /ai/health` — customer/guest-safe configured AI provider connectivity status; does not return private endpoint or model settings
-- `POST /ai/chat` — customer catalog, policy, cart, and order assistance; scope and account identity are selected by the server. Customer responses include only a fixed warning when external specialist assistance was used; provider-supplied warning text and provider/model/usage diagnostics are not returned.
-- `POST /ai/voice-search`, `POST /ai/image-search` — bounded in-memory voice and image search; uploads are not persisted. Voice transcription uses only the configured private ASR endpoint; the UI hides recording controls when it is not configured and never falls back to browser speech recognition.
+- `GET /ai/` — customer/guest shopping assistant page; natural-language answers require an enabled, configured provider
+- `POST /ai/chat` — customer catalog, policy, cart, and order assistance; scope and account identity are selected by the server
+- `POST /ai/voice-search`, `POST /ai/image-search` — bounded in-memory voice and image search; uploads are not persisted
 - `POST /ai/cart/proposal`, `POST /ai/cart/confirm` — signed-in customer cart suggestions and explicit one-use confirmation
-- `GET /ai/price-history/{slug}` — recorded NexHaat listing-price observations only; does not synthesize or backfill history
-- `POST /ai/price-alert/{slug}` — signed-in Customer, CSRF-protected opt-in target alert; `target_price` sets/updates it and `action=cancel` turns it off; price-crossing notifications appear in the in-app inbox
-- `POST /admin/ai-builder/jobs` — Admin-only multipart ZIP project analysis (`archive`, `prompt`, optional `allow_external_code=true`); ZIP is inspected in memory and never extracted or executed. External code disclosure requires existing Admin AI consent plus the per-upload choice and the existing budget/Telegram notice gate.
-- GET /admin/ai-builder — Admin-only Builder/Guardian workspace.
-- GET|POST /admin/ai-builder/projects and GET|PATCH|DELETE /admin/ai-builder/projects/{id} — opt-in, owner-scoped saved projects and metadata updates.
-- GET /admin/ai-builder/projects/{id}/export — export the current saved project as a ZIP.
-- POST /admin/ai-builder/inputs/analyze — bounded multipart ZIP, source text, PDF, DOCX, image, or audio analysis. Inputs are processed transiently; image and audio use configured local vision/ASR services.
-- POST /admin/ai-builder/media-consent — enable or revoke external-media consent for the current browser session.
-- POST /admin/ai-builder/jobs and GET|DELETE /admin/ai-builder/jobs/{id} — owner-scoped transient ZIP analysis and result retrieval/deletion; source files are not persisted.
-- POST /admin/ai-builder/projects/{id}/analyze — local-first saved-source analysis; external code needs Admin, project, and per-request consent.
-- POST /admin/ai-builder/projects/{id}/patches and GET /admin/ai-builder/patches/{id} — create or inspect bounded patch candidates and diffs.
-- POST /admin/ai-builder/patches/{id}/test, /approve, /reject, /apply; GET /admin/ai-builder/patches/{id}/export — test only in the digest-pinned, restricted Docker sandbox; approval requires passing tests and is separate from applying or exporting.
-- POST /admin/ai-builder/projects/{id}/scans, GET /admin/ai-builder/projects/{id}/scans, PATCH /admin/ai-builder/findings/{id} — signed manual Guardian scans, findings review, and explicit risk confirmation.
-- POST /admin/ai-builder/patches/{id}/lessons, GET /admin/ai-builder/lessons, POST /admin/ai-builder/lessons/{id}/review — propose sanitized lessons only from passing test evidence; approved lessons enter Admin-scoped RAG only after the private embedding service returns a valid vector.
 - `POST /telegram/customer/webhook` — Telegram customer bot update endpoint; requires `X-Telegram-Bot-Api-Secret-Token`
 - `POST /telegram/security/webhook` — allowlisted private-chat security bot endpoint; requires its separate `X-Telegram-Bot-Api-Secret-Token`
 
-Provider and Telegram credentials are configured in private runtime settings. The Customer Telegram bot supports the shared shopping assistant, `/price-history <product>`, and `/price-alert <target BDT> <product>`; personal alerts require a linked customer and a private chat. The Telegram webhook registration command first checks the public `/health/live` endpoint; use `flask --app run.py set-telegram-webhooks --bot customer` or `--bot security` to register one bot at a time after deployment is reachable. See [AI operations](docs/operations/ai-marketplace.md) and [Telegram operations](docs/operations/telegram-bots.md).
+Provider and Telegram credentials are configured in private runtime settings. The Telegram webhook registration command first checks the public `/health/live` endpoint; use `flask --app run.py set-telegram-webhooks --bot customer` or `--bot security` to register one bot at a time after deployment is reachable. See [AI operations](docs/operations/ai-marketplace.md) and [Telegram operations](docs/operations/telegram-bots.md).
 
 ## Cart, checkout, and orders
 
@@ -159,20 +134,15 @@ Provider and Telegram credentials are configured in private runtime settings. Th
 
 - `GET /ai/` — customer Shopping Assistant page (guest product discovery or signed-in cart/order help)
 - `POST /ai/chat` — bounded customer question; scope comes from the session, and products/cart/orders come from existing services
-- `POST /ai/image-search`, `POST /ai/voice-search` — validated in-memory product image or short audio search; uploads are not persisted. `/ai/voice-search` returns `503` when private ASR settings are absent; browser speech recognition is not used.
-- `GET /ai/price-history/<slug>` — stored NexHaat price observations for an approved product; no missing history is fabricated or backfilled
-- `POST /ai/price-alert/<slug>` — signed-in Customer saves a BDT `target_price`, or sends `action=cancel` to turn off their own alert
+- `POST /ai/image-search`, `POST /ai/voice-search` — validated in-memory product image or short audio search; uploads are not persisted
 - `POST /ai/cart/proposal`, `POST /ai/cart/confirm` — create a one-use, customer-owned proposal and separately confirm after server-side price/stock checks; these endpoints never place an order
 - `GET /ai/review-summary/<slug>` — summarize approved reviews only
-- `GET|POST /ai/preferences` — separately control personalized recommendations, saved AI notes, external-provider consent, and rate-capped smart alerts
+- `GET|POST /ai/preferences` — opt into or disable rate-capped in-app shopping alerts
 - `GET /seller/ai`, `POST /seller/ai/suggest`, `/seller/ai/query`, `/seller/ai/price` — approved Seller's own drafts and read-only analytics; generated content is not saved automatically
-- `GET /admin/ai`, `POST /admin/ai/query` — Admin/Super-Admin read-only operational copilot; activity is recorded without prompts/results and queued as a metadata-only Security Bot notice; support-role accounts are not authorized
-- `POST /admin/ai-builder/jobs`, `GET|DELETE /admin/ai-builder/jobs/{id}` — transient, owner-scoped ZIP project analysis; each run sends metadata-only start/completion notices and never executes or deploys source
+- `GET /admin/ai`, `POST /admin/ai/query` — Admin/Super-Admin read-only operational copilot; support-role accounts are not authorized
 - `GET|POST /support`, `GET /support/<id>`, `POST /support/<id>/reply`, `GET /admin/support` — customer-owned human support cases and staff replies; AI chat is not stored as a support transcript
 
 AI is disabled unless explicitly configured. When the provider is missing, deterministic catalog and account services remain available where applicable; no provider call is made for ordinary catalog page loads. The separate Security AI is available only through the numeric Telegram allowlist and private chat.
-
-Admin AI remains read-only: Telegram notices link to the protected Admin AI website workspace, where a signed-in Admin can review activity and use existing protected controls. Separately, the Security Bot accepts only the enumerated identity-bound marketplace approval callbacks documented in the [Telegram operations guide](docs/operations/telegram-bots.md); each rechecks pending state and records the mapped active website Admin as actor. It does not expose general Admin AI writes, deployments, or unsupported decisions. Security Bot notices exclude prompts, model answers, source files, and personal data; failed delivery remains in the retryable alert queue.
 
 ## CLI
 
@@ -182,8 +152,6 @@ Admin AI remains read-only: Telegram notices link to the protected Admin AI webs
 - `flask --app run.py import-fdc` / `import-foodon` — reference-data import with the database ceiling
 - `flask --app run.py retry-emails` — resend queued transactional email
 - `flask --app run.py db-size`, `flask --app run.py backup-db --to <file>`, `flask --app run.py restore-db --from <file> --confirm-target` (only after verifying the configured target is isolated)
-- flask --app run.py guardian-scan --trigger nightly — run signed Guardian scans for saved projects
-- flask --app run.py guardian-scan --trigger deployment — block only on Admin-confirmed high-risk findings; scanner warnings do not block
-- flask --app run.py benchmark-builder --minimum-pass-rate 70 — run the private-local coding benchmark in the restricted sandbox
+- `flask --app run.py production-check` — production launch readiness review
 
 Future JSON endpoints should return consistent success/error envelopes and validate input at the boundary.

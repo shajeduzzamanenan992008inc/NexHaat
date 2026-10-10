@@ -1,10 +1,11 @@
 """Customer AI web endpoints. Scope is derived from the authenticated session."""
 
 from io import BytesIO
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
-from flask import Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, session, url_for, send_file
-from sqlalchemy import func, select
+from flask import Blueprint, abort, current_app, g, jsonify, redirect, render_template, request, session, url_for
+from PIL import Image, ImageOps, UnidentifiedImageError
+from sqlalchemy import select
 
 from ..ai.core.permissions import AI_SCOPE_CUSTOMER
 from ..ai.core.provider import AIProviderError, AIService
@@ -14,23 +15,15 @@ from ..ai.marketplace_tools import (
     handle_marketplace_ai_query,
 )
 from ..extensions import db
-from ..models import AIPreferences, AIUserMemory
-from ..models import AIProductPriceAlert
-from ..ai.core.consent import external_consent_enabled, set_external_consent
-from ..ai.core.guardrails import sanitize_ai_response, sanitize_history
-from ..security import customer_or_guest_required, current_session_user, role_required
+from ..models import AIPreferences
+from ..security import customer_or_guest_required
 from ..services.ai_rate_limit import consume_ai_request
-from ..services.ai_price_alerts import cancel_price_alert, observed_price_history, save_price_alert
-from ..services.catalog import get_product_by_slug
-from ..services.product_images import (
-    MAX_PRODUCT_IMAGE_BYTES, ProductImageError, normalize_product_image,
-)
 
 
 ai_bp = Blueprint("ai", __name__, url_prefix="/ai")
+_MAX_IMAGE_BYTES = 5 * 1024 * 1024
 _MAX_AUDIO_BYTES = 8 * 1024 * 1024
 _ALLOWED_AUDIO_TYPES = {"audio/webm", "audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp4", "audio/ogg"}
-_ALLOWED_TTS_TYPES = {"audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp4", "audio/ogg", "audio/webm"}
 
 
 def _customer_user():
@@ -65,38 +58,6 @@ def _limit_response():
     return jsonify(ok=False, scope=AI_SCOPE_CUSTOMER, answer=message, fallback=message), 429
 
 
-def _sanitize_customer_ai_result(result):
-    """Enforce the final-answer guard at the customer-facing API boundary."""
-    answer = result.get("answer")
-    if isinstance(answer, str):
-        safe_answer = sanitize_ai_response(answer)
-        if not safe_answer:
-            safe_answer = "The assistant could not verify that response. Please use catalog search."
-            result["ok"] = False
-            result["fallback"] = safe_answer
-            if isinstance(result.get("data"), str):
-                result["data"] = safe_answer
-        result["answer"] = safe_answer
-    for field in ("fallback", "data"):
-        value = result.get(field)
-        if isinstance(value, str):
-            result[field] = sanitize_ai_response(value) or (
-                "The assistant could not verify that response. Please use catalog search."
-            )
-    external_assistance = result.get("external_assistance") is True
-    for field in (
-        "provider", "model", "confidence", "source_metadata", "images", "audio",
-        "usage", "latency_ms", "fallback_used", "response_text",
-        "external_assistance", "warnings",
-    ):
-        result.pop(field, None)
-    result["warnings"] = (
-        ["External specialist assistance was used for this response."]
-        if external_assistance else []
-    )
-    return result
-
-
 def _audio_signature_matches(content_type, data):
     if content_type in {"audio/wav", "audio/x-wav"}:
         return data.startswith(b"RIFF") and data[8:12] == b"WAVE"
@@ -115,34 +76,10 @@ def _audio_signature_matches(content_type, data):
 @customer_or_guest_required
 def index():
     user = _customer_user()
-    initial_prompt = (request.args.get("q") or request.args.get("prompt") or "").strip()[:2000]
     return render_template(
         "ai/customer.html", user=user, csrf_value=None,
-        voice_transcription_configured=bool(
-            current_app.config.get("AI_ASR_BASE_URL")
-            and current_app.config.get("AI_ASR_MODEL")
-        ),
-        speech_output_configured=bool(
-            current_app.config.get("AI_TTS_BASE_URL")
-            and current_app.config.get("AI_TTS_MODEL")
-        ),
-        external_ai_enabled=bool(current_app.config.get("AI_EXTERNAL_ENABLED")),
-        external_ai_consent=external_consent_enabled(user=user),
-        initial_prompt=initial_prompt,
+        ai_provider_configured=_customer_provider_configured(),
     )
-
-
-@ai_bp.get("/health")
-@customer_or_guest_required
-def health():
-    user = _customer_user()
-    if not _consume(user):
-        return _limit_response()
-    result = AIService(current_app.config).health_check()
-    result.pop("provider", None)
-    response = jsonify(result)
-    response.headers["Cache-Control"] = "no-store"
-    return response, 200 if result["ok"] else 503
 
 
 @ai_bp.post("/chat")
@@ -155,71 +92,10 @@ def chat():
     prompt = payload.get("prompt") or payload.get("message") or payload.get("query") or ""
     if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 2000:
         return jsonify(ok=False, answer="Send a question under 2,000 characters."), 400
-    try:
-        history = sanitize_history(payload.get("history"))
-    except ValueError as error:
-        return jsonify(ok=False, answer=str(error)), 400
-    recent_products = payload.get("recent_products", [])
-    if (
-        not isinstance(recent_products, list)
-        or len(recent_products) > 5
-        or any(
-            not isinstance(slug, str) or not slug.strip() or len(slug) > 180
-            for slug in recent_products
-        )
-    ):
-        return jsonify(
-            ok=False,
-            answer="Recent product context must contain up to five valid product slugs.",
-        ), 400
-    recent_products = list(dict.fromkeys(slug.strip() for slug in recent_products))
     if not _consume(user):
         return _limit_response()
-    if user is None and isinstance(payload.get("external_ai_consent"), bool):
-        set_external_consent(payload["external_ai_consent"])
-    result = handle_marketplace_ai_query(prompt, user=user, channel="web", rate_limited=True,
-                                         context={
-                                             "history": history,
-                                             "recent_products": recent_products,
-                                         })
-    result = _sanitize_customer_ai_result(result)
+    result = handle_marketplace_ai_query(prompt, user=user, channel="web", rate_limited=True)
     return jsonify(result), 200 if result.get("ok") else 503
-
-
-@ai_bp.post("/external-consent")
-@customer_or_guest_required
-def external_consent():
-    user = _customer_user()
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict) or not isinstance(payload.get("enabled"), bool):
-        return jsonify(ok=False, answer="Choose whether external specialist assistance is enabled."), 400
-    if not set_external_consent(payload["enabled"], user=user):
-        return jsonify(ok=False, answer="The consent setting could not be saved."), 503
-    return jsonify(ok=True, enabled=payload["enabled"])
-
-
-@ai_bp.post("/role-external-consent")
-@role_required("seller", "rider", "admin", "super_admin")
-def role_external_consent():
-    """Let authenticated Seller/Admin accounts control paid-provider consent."""
-    user = current_session_user()
-    if request.is_json:
-        payload = request.get_json(silent=True)
-        enabled = payload.get("enabled") if isinstance(payload, dict) else None
-    else:
-        enabled = request.form.get("enabled") == "1"
-    if not isinstance(enabled, bool):
-        return jsonify(ok=False, answer="Choose whether external specialist assistance is enabled."), 400
-    if not set_external_consent(enabled, user=user):
-        return jsonify(ok=False, answer="The consent setting could not be saved."), 503
-    if not enabled:
-        session.pop("ai_builder_media_external_consent", None)
-    if request.is_json:
-        return jsonify(ok=True, enabled=enabled)
-    destination = ("admin.ai_workspace" if user.role in {"admin", "super_admin"}
-                   else "rider.ai_workspace" if user.role == "rider"
-                   else "seller.ai_workspace")
-    return redirect(url_for(destination))
 
 
 @ai_bp.post("/voice-search")
@@ -239,11 +115,6 @@ def voice_search():
         return jsonify(ok=False, answer="The voice recording is empty or too large."), 413
     if not _audio_signature_matches(content_type, audio):
         return jsonify(ok=False, answer="The voice recording format does not match its file type."), 415
-    if not (current_app.config.get("AI_ASR_BASE_URL") and current_app.config.get("AI_ASR_MODEL")):
-        return jsonify(
-            ok=False,
-            answer="Private voice transcription is not configured. You can type your question instead.",
-        ), 503
     if not _consume(user):
         return _limit_response()
     try:
@@ -253,7 +124,6 @@ def voice_search():
             prompt, user=user, channel="voice", rate_limited=True,
             context={"input_mode": "voice"},
         )
-        result = _sanitize_customer_ai_result(result)
         result["transcript"] = prompt
         return jsonify(result), 200 if result.get("ok") else 503
     except (AIProviderError, ValueError):
@@ -267,14 +137,26 @@ def image_search():
     upload = request.files.get("image")
     if upload is None:
         return jsonify(ok=False, answer="Choose a product image first."), 400
-    if request.content_length and request.content_length > MAX_PRODUCT_IMAGE_BYTES + 64 * 1024:
+    if request.content_length and request.content_length > _MAX_IMAGE_BYTES + 64 * 1024:
         return jsonify(ok=False, answer="The image upload is too large."), 413
+    raw = upload.stream.read(_MAX_IMAGE_BYTES + 1)
+    if not raw or len(raw) > _MAX_IMAGE_BYTES:
+        return jsonify(ok=False, answer="The image is empty or larger than 5 MB."), 413
     try:
-        raw = upload.stream.read(MAX_PRODUCT_IMAGE_BYTES + 1)
-        normalized = normalize_product_image(raw)
-    except ProductImageError as error:
-        status = 413 if not raw or len(raw) > MAX_PRODUCT_IMAGE_BYTES else 415
-        return jsonify(ok=False, answer=str(error)), status
+        image = Image.open(BytesIO(raw))
+        image.verify()
+        image = Image.open(BytesIO(raw))
+        image_format = image.format
+        image = ImageOps.exif_transpose(image)
+        if (image_format not in {"JPEG", "PNG", "WEBP"} or image.width > 8000
+                or image.height > 8000 or image.width * image.height > 40_000_000):
+            return jsonify(ok=False, answer="Use a JPEG, PNG, or WebP image under 8,000 × 8,000 pixels."), 415
+        image.thumbnail((1024, 1024))
+        output = BytesIO()
+        image.convert("RGB").save(output, format="JPEG", quality=78, optimize=True)
+        normalized = output.getvalue()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return jsonify(ok=False, answer="The uploaded file is not a valid product image."), 415
     if not _consume(user):
         return _limit_response()
     try:
@@ -286,66 +168,8 @@ def image_search():
         description, user=user, channel="image", rate_limited=True,
         context={"input_mode": "image"},
     )
-    result = _sanitize_customer_ai_result(result)
     result["search_description"] = description
     return jsonify(result), 200 if result.get("ok") else 503
-
-
-@ai_bp.post("/speak")
-@customer_or_guest_required
-def speak():
-    """Synthesize a short answer through the configured private Bengali-capable TTS service."""
-    user = _customer_user()
-    if not _consume(user):
-        return _limit_response()
-    payload = request.get_json(silent=True)
-    text = payload.get("text") if isinstance(payload, dict) else None
-    if not isinstance(text, str) or not text.strip() or len(text) > 1200:
-        return jsonify(ok=False, answer="Send a response under 1,200 characters."), 400
-    config = current_app.config
-    base_url = str(config.get("AI_TTS_BASE_URL") or "").strip().rstrip("/")
-    model = str(config.get("AI_TTS_MODEL") or "").strip()
-    from urllib.parse import urlsplit
-    parsed = urlsplit(base_url)
-    if (not base_url or not model or not parsed.hostname or parsed.username or parsed.password
-            or parsed.query or parsed.fragment
-            or config.get("ENVIRONMENT") == "production" and parsed.scheme != "https"):
-        return jsonify(ok=False, answer="Local speech output is not configured."), 503
-    headers = {"Content-Type": "application/json"}
-    key = str(config.get("AI_LOCAL_API_KEY") or "").strip()
-    if key:
-        headers["Authorization"] = "Bearer " + key
-    try:
-        import requests
-        response = requests.post(
-            f"{base_url}/audio/speech",
-            json={"model": model, "input": text.strip(),
-                  "voice": str(config.get("AI_TTS_VOICE") or "default"), "response_format": "wav"},
-            headers=headers, timeout=min(45, int(config.get("AI_TIMEOUT", 15)) * 2), stream=True,
-        )
-        try:
-            response.raise_for_status()
-            audio_buffer = bytearray()
-            for chunk in response.iter_content(chunk_size=64 * 1024):
-                if not chunk:
-                    continue
-                if len(audio_buffer) + len(chunk) > 10 * 1024 * 1024:
-                    return jsonify(ok=False, answer="Local speech response was too large."), 503
-                audio_buffer.extend(chunk)
-            content_type = response.headers.get("Content-Type", "audio/wav").split(";", 1)[0]
-            if not audio_buffer or content_type not in _ALLOWED_TTS_TYPES:
-                return jsonify(ok=False, answer="Local speech response was invalid."), 503
-            audio = bytes(audio_buffer)
-        finally:
-            response.close()
-        if not audio:
-            return jsonify(ok=False, answer="Local speech response was invalid."), 503
-        result = send_file(BytesIO(audio), mimetype=content_type, download_name="nexhaat-response.wav")
-        result.headers["Cache-Control"] = "no-store"
-        result.headers["X-Content-Type-Options"] = "nosniff"
-        return result
-    except Exception:
-        return jsonify(ok=False, answer="Local speech output is temporarily unavailable."), 503
 
 
 @ai_bp.post("/cart/confirm")
@@ -394,13 +218,6 @@ def confirm_cart_change():
     except (CartError, ValueError, TypeError, KeyError):
         db.session.rollback()
         return jsonify(ok=False, answer="The item or stock changed. Please review your cart and try again."), 409
-    from ..services.ai_action_notices import notify_admin_ai_action
-
-    notify_admin_ai_action(
-        "customer.ai.cart_change.confirmed",
-        actor=user,
-        target_id=user.id,
-    )
     return jsonify(ok=True, answer="Your cart was updated. Checkout remains a separate step.", cart_url=url_for("orders.cart"))
 
 
@@ -462,49 +279,6 @@ def review_summary(slug):
                    average_rating=source["average_rating"], source="approved reviews only")
 
 
-@ai_bp.get("/price-history/<slug>")
-@customer_or_guest_required
-def price_history(slug):
-    _customer_user()
-    product = get_product_by_slug(slug)
-    if (not product or product.moderation_status != "approved" or not product.is_available
-            or not getattr(product.category, "is_active", True)):
-        abort(404)
-    observations = observed_price_history(product.id)
-    return jsonify(ok=True, product=product.name, source="recorded NexHaat listing prices",
-                   history=observations,
-                   answer=("No earlier observed price records are available."
-                           if not observations else "Only stored catalog observations are shown."))
-
-
-@ai_bp.post("/price-alert/<slug>")
-@customer_or_guest_required
-def price_alert(slug):
-    user = _customer_user()
-    if user is None:
-        abort(401)
-    product = get_product_by_slug(slug)
-    if (not product or product.moderation_status != "approved" or not product.is_available
-            or not getattr(product.category, "is_active", True)):
-        abort(404)
-    if request.form.get("action") == "cancel":
-        cancel_price_alert(user, product)
-        flash("Your price alert is off.", "success")
-        return redirect(url_for("main.food", slug=product.slug))
-    raw_target = request.form.get("target_price", "").strip()
-    try:
-        target = Decimal(raw_target)
-    except (InvalidOperation, ValueError):
-        target = Decimal("NaN")
-    if (not target.is_finite() or target < 0 or target > Decimal("99999999.99")
-            or target != target.quantize(Decimal("0.01"))):
-        flash("Enter a valid target price with up to two decimal places.", "error")
-        return redirect(url_for("main.food", slug=product.slug))
-    save_price_alert(user, product, target)
-    flash("Your target-price alert is saved.", "success")
-    return redirect(url_for("main.food", slug=product.slug))
-
-
 @ai_bp.route("/preferences", methods=["GET", "POST"])
 @customer_or_guest_required
 def preferences():
@@ -518,61 +292,7 @@ def preferences():
             preference = AIPreferences(user_id=user.id)
             db.session.add(preference)
         preference.smart_notifications_enabled = enabled
-        preference.personalized_recommendations_enabled = (
-            request.form.get("personalized_recommendations_enabled") == "1"
-        )
-        preference.long_term_memory_enabled = request.form.get("long_term_memory_enabled") == "1"
         db.session.commit()
-        set_external_consent(request.form.get("external_ai_consent") == "1", user=user)
         return redirect(url_for("ai.preferences"))
     return render_template("ai/preferences.html", preference=preference,
-                           enabled=bool(preference and preference.smart_notifications_enabled),
-                           personalization_enabled=bool(
-                               preference and preference.personalized_recommendations_enabled
-                           ),
-                           memory_enabled=bool(preference and preference.long_term_memory_enabled),
-                           external_consent=external_consent_enabled(user=user),
-                           memories=db.session.scalars(
-                               select(AIUserMemory).where(AIUserMemory.user_id == user.id)
-                               .order_by(AIUserMemory.created_at.desc()).limit(20)
-                           ).all())
-
-
-@ai_bp.post("/memory")
-@customer_or_guest_required
-def add_memory():
-    user = _customer_user()
-    if user is None:
-        abort(401)
-    payload = request.get_json(silent=True) if request.is_json else request.form
-    content = payload.get("content") if hasattr(payload, "get") else None
-    preference = db.session.get(AIPreferences, user.id)
-    if not preference or not preference.long_term_memory_enabled:
-        return jsonify(ok=False, answer="Enable opt-in memory in AI preferences first."), 409
-    if not isinstance(content, str) or not content.strip() or len(content.strip()) > 500:
-        return jsonify(ok=False, answer="Save one note under 500 characters."), 400
-    if db.session.scalar(select(func.count(AIUserMemory.id)).where(AIUserMemory.user_id == user.id)) >= 20:
-        return jsonify(ok=False, answer="Delete a saved note before adding another. The limit is 20 notes."), 429
-    memory = AIUserMemory(user_id=user.id, content=content.strip())
-    db.session.add(memory)
-    db.session.commit()
-    if not request.is_json:
-        return redirect(url_for("ai.preferences"))
-    return jsonify(ok=True, id=memory.id, content=memory.content)
-
-
-@ai_bp.route("/memory/<int:memory_id>", methods=["DELETE", "POST"])
-@customer_or_guest_required
-def delete_memory(memory_id):
-    user = _customer_user()
-    if user is None:
-        abort(401)
-    memory = db.session.scalar(select(AIUserMemory).where(
-        AIUserMemory.id == memory_id, AIUserMemory.user_id == user.id
-    ))
-    if memory is not None:
-        db.session.delete(memory)
-        db.session.commit()
-    if request.method == "POST":
-        return redirect(url_for("ai.preferences"))
-    return jsonify(ok=True)
+                           enabled=bool(preference and preference.smart_notifications_enabled))

@@ -1,6 +1,5 @@
 """Database size limits plus simple, verifiable backup and restore helpers."""
 
-import shutil
 import sqlite3
 import subprocess
 from pathlib import Path
