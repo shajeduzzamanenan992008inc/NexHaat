@@ -6,7 +6,7 @@ Telegram is a first-class interface for future feature work, not only AI. For ea
 
 ## Configuration
 
-Set these values as private Azure App Service application settings (or local environment variables). `.env.example` contains the App Service Advanced Edit JSON shape with empty secret values.
+Set these values as private Azure App Service application settings (or local environment variables). `.env.example` is the local dotenv template; `.azure-app-settings.example.json` contains the separate App Service Advanced Edit shape with empty secret fields.
 
 | Setting | Purpose |
 | --- | --- |

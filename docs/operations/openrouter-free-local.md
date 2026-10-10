@@ -5,7 +5,7 @@ The most recent AI provider refactor made direct customer fallback require a pos
 ## Local SQLite run
 
 1. Keep your existing `.env` private. Do not commit it or upload it to a public repository.
-2. Confirm the `.env` JSON-array config has the correct OpenRouter API key, `AI_PROVIDER=openai_compatible`, `AI_BASE_URL=https://openrouter.ai/api/v1`, and `AI_MODEL=openrouter/free`. Never print the key in a terminal screenshot.
+2. Confirm your `.env` dotenv settings (or a legacy Azure JSON-array file) have the correct OpenRouter API key, `AI_PROVIDER=openai_compatible`, `AI_BASE_URL=https://openrouter.ai/api/v1`, and `AI_MODEL=openrouter/free`. Never print the key in a terminal screenshot.
 3. Run `python scripts/enable_openrouter_free_local.py` from the project root. It validates the provider host/model, backs up `.env`, and turns on the dev-only metadata-notice mode. It does not change the key.
 4. Start the project in development with SQLite, then run `flask --app run.py db upgrade` so the external-call notice/spend tables exist. Restart Flask after settings changes.
 5. Open the customer AI page and explicitly enable **Allow external AI assistance**. Only eligible general questions without live-data, shopping, or account-specific needs can use this fallback.

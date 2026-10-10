@@ -20,6 +20,7 @@ ENV/
 env/
 
 # Database files (SQLite & backups)
+backups/
 instance/*.sqlite3
 instance/*.db
 instance/datasets/

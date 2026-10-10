@@ -1,0 +1,527 @@
+[
+  {
+    "name": "FLASK_DEBUG",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "FLASK_TESTING",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "APP_ENV",
+    "value": "production",
+    "slotSetting": false
+  },
+  {
+    "name": "SECRET_KEY",
+    "value": "REPLACE_WITH_RANDOM_64_HEX_CHAR_SECRET_FROM_SECRETS_MANAGER",
+    "slotSetting": true
+  },
+  {
+    "name": "DATABASE_URL",
+    "value": "postgresql+psycopg://DB_USER:URL_ENCODED_PASSWORD@DB_HOST:5432/DB_NAME?sslmode=require",
+    "slotSetting": false
+  },
+  {
+    "name": "PUBLIC_BASE_URL",
+    "value": "https://YOUR_PUBLIC_DOMAIN",
+    "slotSetting": false
+  },
+  {
+    "name": "SSLCOMMERZ_STORE_ID",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SSLCOMMERZ_STORE_PASSWORD",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "SSLCOMMERZ_SANDBOX",
+    "value": "1",
+    "slotSetting": false
+  },
+  {
+    "name": "SSLCOMMERZ_TIMEOUT",
+    "value": "12",
+    "slotSetting": false
+  },
+  {
+    "name": "PAYMENT_SESSION_MINUTES",
+    "value": "15",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_DATABASE_BYTES",
+    "value": "419430400",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_CONTENT_LENGTH",
+    "value": "4194304",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_IMAGE_UPLOAD_BYTES",
+    "value": "2097152",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_RASTER_IMAGE_PIXELS",
+    "value": "20000000",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_SEARCH_LENGTH",
+    "value": "100",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_PAGE_SIZE",
+    "value": "48",
+    "slotSetting": false
+  },
+  {
+    "name": "APP_TIMING_ENABLED",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "SESSION_COOKIE_SECURE",
+    "value": "1",
+    "slotSetting": false
+  },
+  {
+    "name": "BREVO_API_KEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "MAIL_DEFAULT_SENDER",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "MAIL_TIMEOUT",
+    "value": "15",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_EMAIL_ATTEMPTS",
+    "value": "5",
+    "slotSetting": false
+  },
+  {
+    "name": "ADMIN_EMAIL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_CUSTOMER_BOT_TOKEN",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "TELEGRAM_CUSTOMER_WEBHOOK_SECRET",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "TELEGRAM_SECURITY_BOT_TOKEN",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "TELEGRAM_SECURITY_WEBHOOK_SECRET",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "TELEGRAM_SECURITY_ADMIN_IDS",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "TELEGRAM_SECURITY_ADMIN_USER_MAP",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "TELEGRAM_SUPPORT_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_RATE_LIMIT_PER_MINUTE",
+    "value": "30",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE",
+    "value": "10",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_API_TIMEOUT",
+    "value": "10",
+    "slotSetting": false
+  },
+  {
+    "name": "INVOICE_FONT_PATH",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_VIRUS_SCANNER",
+    "value": "clamdscan",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_SCAN_TIMEOUT",
+    "value": "20",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_QUARANTINE_FOLDER",
+    "value": "instance/quarantine/catalog",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_MEDIA_BUCKET",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_MEDIA_REGION",
+    "value": "us-east-1",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_MEDIA_ENDPOINT_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_MEDIA_PUBLIC_BASE_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_MEDIA_KEY_PREFIX",
+    "value": "products",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_CATALOG_IMAGE_BYTES",
+    "value": "3145728",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_CATALOG_IMAGE_PIXELS",
+    "value": "40000000",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_CATALOG_QUARANTINE_BYTES",
+    "value": "104857600",
+    "slotSetting": false
+  },
+  {
+    "name": "CATALOG_QUARANTINE_RETENTION_HOURS",
+    "value": "24",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_ENABLED",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_PROVIDER",
+    "value": "openai_compatible",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_API_KEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "AI_MODEL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_BASE_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_API_INPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_API_OUTPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_API_IS_FREE",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_LOCAL_ENABLED",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_LOCAL_BASE_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_LOCAL_MODEL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_LOCAL_API_KEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "AI_EMBEDDING_BASE_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_EMBEDDING_MODEL",
+    "value": "Qwen/Qwen3-Embedding-0.6B",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_EMBEDDING_API_KEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "AI_ASR_BASE_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_ASR_MODEL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_TTS_BASE_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_TTS_MODEL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_TTS_VOICE",
+    "value": "default",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_SEARCH_BASE_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_BUILDER_SANDBOX_IMAGE",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_BUILDER_TEST_TIMEOUT_SECONDS",
+    "value": "60",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_EXTERNAL_ENABLED",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_EXTERNAL_LOCAL_NOTICE_MODE",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_EXTERNAL_MONTHLY_BUDGET_USD",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_EXTERNAL_MAX_TOKENS",
+    "value": "1024",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_OPENAI_API_KEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "AI_OPENAI_MODEL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_OPENAI_BASE_URL",
+    "value": "https://api.openai.com/v1",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_OPENAI_INPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_OPENAI_OUTPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_ANTHROPIC_API_KEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "AI_ANTHROPIC_MODEL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_ANTHROPIC_BASE_URL",
+    "value": "https://api.anthropic.com/v1",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_ANTHROPIC_INPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_ANTHROPIC_OUTPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_GEMINI_API_KEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "AI_GEMINI_MODEL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_GEMINI_BASE_URL",
+    "value": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_GEMINI_INPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_GEMINI_OUTPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_DEEPSEEK_API_KEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "AI_DEEPSEEK_MODEL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_DEEPSEEK_BASE_URL",
+    "value": "https://api.deepseek.com/v1",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_DEEPSEEK_INPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_DEEPSEEK_OUTPUT_USD_PER_MILLION",
+    "value": "0",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_TIMEOUT",
+    "value": "15",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_MAX_TOKENS",
+    "value": "1024",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_RATE_LIMIT",
+    "value": "60",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_RATE_LIMIT_WINDOW_SECONDS",
+    "value": "60",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_MAX_TOOL_CALLS",
+    "value": "5",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_MAX_CONTEXT_SIZE",
+    "value": "12000",
+    "slotSetting": false
+  },
+  {
+    "name": "SUPPORT_EMAIL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_OPENAI_AGENT_NAME",
+    "value": "Astra",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_ANTHROPIC_AGENT_NAME",
+    "value": "Luna",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_GEMINI_AGENT_NAME",
+    "value": "Sol",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_DEEPSEEK_AGENT_NAME",
+    "value": "Forge",
+    "slotSetting": false
+  }
+]

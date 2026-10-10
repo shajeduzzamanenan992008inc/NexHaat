@@ -2,7 +2,7 @@
 
 The shared AI Core is optional application functionality. Paid external providers are disabled by default; all secrets belong in private local or hosting environment settings. Do not paste API keys or Telegram tokens into source files, issue text, or the shared roadmap.
 
-The local loader accepts the repository's Azure Advanced Edit JSON only when it declares `APP_ENV=development` and a SQLite `DATABASE_URL`. A production/PostgreSQL JSON settings file is deliberately ignored on a developer machine; Azure App Service supplies its Application Settings as environment variables. This avoids a local run accidentally using a production database or production bot credentials.
+`.env.example` is a standard dotenv template for local development. `.azure-app-settings.example.json` separately documents Azure Advanced Edit format. The local loader accepts a JSON array only for backward compatibility when it is deliberately saved as `.env`; production/PostgreSQL JSON settings are ignored on a developer machine to avoid accidentally using a production database or production bot credentials.
 
 When AI appears unavailable, check `AI_LOCAL_ENABLED`, `AI_LOCAL_BASE_URL`, and `AI_LOCAL_MODEL` in the **active runtime settings**, plus GPU endpoint health and app-to-host networking. `AI_ENABLED` is for the legacy/direct compatibility provider and paid external providers have separate consent and budget controls. Reading an Azure settings export from a local `.env` file does not make those settings active locally or prove which values the hosted process currently has. A successful direct provider check also does not imply that a separate deployment has received the setting.
 
@@ -18,7 +18,7 @@ Set these settings only in a private environment when enabling the provider:
 - `AI_MODEL=<provider model that supports the requested capability>`
 - `AI_BASE_URL=https://<provider-host>/v1`
 
-This compatibility provider does not replace Stage 13's private local Core. With Stage 13 configured, ordinary questions use the local endpoint while `AI_ENABLED=false`; without a configured local endpoint, broad answers may fall back to an unavailable message. Catalog search still uses the marketplace database. Keep local development on a development/SQLite settings file and configure production values only in private hosting settings.
+This compatibility provider does not replace Stage 13's private local Core. With Stage 13 configured, ordinary questions use the local endpoint while `AI_ENABLED=false`. If using the direct API as the primary hosted model and no local endpoint exists, set `AI_LOCAL_ENABLED=false`; otherwise the local-first configuration intentionally reports that local AI is not configured rather than silently starting an external call. Catalog search still uses the marketplace database. Keep local development on a development/SQLite settings file and configure production values only in private hosting settings.
 
 ## Configure and verify the local AI service
 
@@ -37,7 +37,7 @@ flask --app app run --host 127.0.0.1 --port 5009
 
 Unset `AI_LOCAL_API_KEY` if the local service does not require a key. Plain HTTP is accepted only for loopback hosts in non-production environments; non-loopback and production endpoints must use HTTPS. Use `GET /ai/health` or the status message on the AI page to distinguish missing settings from a configured but unreachable service. This endpoint is a connectivity check, not proof that the selected model can successfully generate a chat response.
 
-The checked-in `.env.example` is an Azure settings export example, not an active local environment file. The local loader intentionally ignores production/PostgreSQL settings exports; set development values in the active process environment or in the accepted development/SQLite settings file. For a paid direct provider instead, configure `AI_ENABLED`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL` as described above; do not configure secrets in source control.
+The checked-in `.env.example` is a dotenv template, not an active environment file until copied to `.env`. The local loader also retains backward compatibility for JSON settings exports saved as `.env`, but intentionally ignores production/PostgreSQL exports on a development machine. For a paid direct provider instead, configure `AI_ENABLED`, `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL` as described above; do not configure secrets in source control.
 
 When using this direct API instead of the private local endpoint, set `AI_LOCAL_ENABLED=false` to make the selection explicit. To keep local inference primary and use the direct API only when local generation fails, leave `AI_LOCAL_ENABLED=true` and configure both provider paths. The API fallback is restricted to general Customer AI questions; it does not receive chat history, marketplace facts, or tool results, and it never handles Security/Rider requests or live-data queries.
 
@@ -113,7 +113,7 @@ python -m pytest tests/test_ai_core.py tests/test_ai_features.py tests/test_tele
 python -m pytest -q
 ```
 
-The test suite uses mocked provider/Telegram transport; no live provider key or bot token is required. Also run `flask --app run.py db heads` and confirm one head, validate `.env.example` as JSON, and run `git diff --check`. A live provider request is optional operator verification after private settings are configured; do not record secret values or customer prompt content in the shared plan.
+The test suite uses mocked provider/Telegram transport; no live provider key or bot token is required. Also run `flask --app run.py db heads` and confirm one head, run `python scripts/check_env_example.py`, validate `.azure-app-settings.example.json` as JSON, and run `git diff --check`. A live provider request is optional operator verification after private settings are configured; do not record secret values or customer prompt content in the shared plan.
 
 The live provider may be tested safely with an isolated database and a short non-customer prompt. This verifies the configured provider endpoint and key but does not verify a deployed worker's environment. Do not print the answer, key, or provider response body into shared logs.
 

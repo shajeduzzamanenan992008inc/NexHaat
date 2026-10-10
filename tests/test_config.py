@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from app.ai.core.provider import AIService, OpenAICompatibleProvider
-from app.config import _env_bool, _load_local_environment
+from app.config import _env_bool, _env_int, _load_local_environment
 
 
 @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "on"])
@@ -30,6 +30,24 @@ def test_env_bool_falls_back_and_warns_for_unknown_values(monkeypatch):
     warning.assert_called_once()
     assert "Invalid boolean value for %s" in warning.call_args.args[0]
     assert warning.call_args.args[1] == "TEST_BOOLEAN"
+
+
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "expected"),
+    [("15", 15), (" 20 ", 20), ("not-a-number", 12), ("0", 12), ("999", 12)],
+)
+def test_env_int_uses_default_for_invalid_or_out_of_range_values(monkeypatch, raw_value, expected):
+    monkeypatch.setenv("TEST_INTEGER", raw_value)
+    assert _env_int("TEST_INTEGER", 12, minimum=1, maximum=100) == expected
+
+
+def test_env_int_uses_default_when_missing_or_empty(monkeypatch):
+    monkeypatch.delenv("TEST_INTEGER", raising=False)
+    assert _env_int("TEST_INTEGER", 12, minimum=1, maximum=100) == 12
+    monkeypatch.setenv("TEST_INTEGER", " ")
+    assert _env_int("TEST_INTEGER", 12, minimum=1, maximum=100) == 12
 
 
 def test_production_json_imports_only_direct_ai_settings_for_sqlite_development(

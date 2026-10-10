@@ -34,3 +34,8 @@ Script production environment বা PostgreSQL database detect করলে প
 ## Security note
 
 Uploaded ZIP-এ `.env` credential config ও cookie artifact ছিল। Repaired ZIP থেকে `.env`, cookie artifact, `.git` history, virtualenv/cache, local datasets এবং stale logs বাদ দেওয়া হয়েছে। যদি original ZIP কোথাও public বা অন্যের কাছে share করা হয়ে থাকে, exposed API/database/mail/Telegram/payment credentials rotate করো এবং সম্ভাব্য live session revoke/logout করো।
+
+
+## Current-template note (2026-10-10)
+
+This report records the earlier repair snapshot. The current project now uses `.env.example` as a standard dotenv template and `.azure-app-settings.example.json` as the separate Azure Advanced Edit template. Use `python scripts/check_env_example.py` for the current settings-coverage check; do not validate `.env.example` as JSON.

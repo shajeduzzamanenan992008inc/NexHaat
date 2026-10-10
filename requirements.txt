@@ -16,7 +16,4 @@ pypdf>=5.0,<7.0
 psycopg[binary]>=3.2.10,<4.0
 pgvector>=0.3.6,<1.0
 python-dotenv>=1.0,<2.0
-psycopg2-binary
 
-# Test-only dependency. Production packaging excludes the tests directory.
-pytest>=8.0,<9.0

@@ -34,17 +34,17 @@ Review and translate the `.po` files, then compile them:
 pybabel compile -d app/translations
 ```
 
-The Render build compiles these catalogs after installing the application dependencies.
+Compile the catalogs with `pybabel compile -d app/translations` before deploying when your host does not compile them automatically.
 
 ## Local setup
 
 1. Create and activate a virtual environment: `python -m venv .venv`
-2. Install packages: `pip install -r requirements.txt`
+2. Install runtime and test packages locally: `pip install -r requirements-dev.txt` (production hosts install `requirements.txt` only).
 3. Copy `.env.example` to `.env` and set a random `SECRET_KEY`. Keep `.env` out of source control.
 4. Apply database migrations: `flask --app run.py db upgrade`
 5. Start the development server in the foreground: `flask --app app run --host 127.0.0.1 --port 5009`. Keep its output in the terminal; do not redirect stdout or stderr to files.
 
-Run the automated checks with `python -m pytest`. SQLite is the local default; deployment uses PostgreSQL through `DATABASE_URL`.
+Run the automated checks with `python -m pytest`. `.env.example` is a standard dotenv template; `.azure-app-settings.example.json` is only an Azure Advanced Edit template. SQLite is local-only; public deployment must use TLS-enabled PostgreSQL through `DATABASE_URL`. See [the public-launch checklist](docs/operations/public-launch.md) before exposing the site.
 
 ## Phase 1 details
 
@@ -99,7 +99,7 @@ Run the automated checks with `python -m pytest`. SQLite is the local default; d
 - **Health probes:** `/health/live` checks that the web process responds without querying the database; `/health/ready` checks database readiness. `/health` and `/health/db` remain readiness aliases for existing deployments. Set `APP_TIMING_ENABLED=1` to expose app handling time in the standard `Server-Timing` response header; it does not write request logs or create log files.
 - **Launch review:** `flask --app run.py production-check` lists remaining production blockers, including secret strength, secure cookies, HTTPS base URL, mail provider, TLS-required PostgreSQL, Admin bootstrap, invoice font, media storage, scan tooling, and live SSLCOMMERZ credentials.
 - **Live media smoke check:** after configuring the deployment's ClamAV scanner and S3-compatible bucket/CDN, run `flask --app run.py catalog-media-smoke-check --confirm-external-write`. It sends one generated 1×1 PNG through the upload scanner and sanitizer, writes it to the configured bucket, verifies the object, and removes it. Run it only after confirming the active deployment environment and bucket permissions; it requires put, head, and delete access.
-- **Operator steps (hosting account, not application code):** enable Cloudflare WAF/Tunnel in front of a private Render service, schedule backups and rehearse a restore, install the ClamAV scanner and configure the media bucket/CDN, and confirm the database stays inside the 400 MB ceiling.
+- **Operator steps (hosting account, not application code):** configure the chosen host with HTTPS, managed PostgreSQL, WAF/rate limits, scheduled backups and a restore drill; install/configure ClamAV and private quarantine, configure the product media bucket/CDN, and monitor database capacity. Follow [the public-launch checklist](docs/operations/public-launch.md).
 
 ## Stage 7 complete — online payments and seller settlement
 
@@ -134,6 +134,8 @@ Stage 13 adds a shared private local-model path for web and Telegram, opt-in mem
 
 Stage 14 adds an Admin-only Builder and Guardian in the existing Flask application. Admins can opt into private saved projects, generate starter or model-backed draft files, analyze bounded ZIP/text/PDF/DOCX/image/audio inputs, review diffs, run manual Guardian scans, and propose lessons from passing test evidence. Patches stay candidates until a restricted Docker sandbox passes and an Admin separately approves them; only then can they be applied to the saved project or exported. Guardian scan jobs are signed, high-risk notices are deduplicated, and deployment checks block only Admin-confirmed high-risk findings. The private-local hidden coding benchmark requires a configured model and the same sandbox. Project files are never extracted to the web root, and code is never run on the host or deployed automatically. The sandbox requires AI_BUILDER_SANDBOX_IMAGE set to an immutable image digest; Docker is unavailable in this workspace, so sandbox execution and patch approval remain blocked here. Private inference, embedding, and live Telegram staging checks are separate operator gates. See [AI Builder and Guardian operations](docs/operations/ai-builder-guardian.md), [AI marketplace operations](docs/operations/ai-marketplace.md), and the [master plan](docs/plans/nexhaat-master-plan.md).
 
+For the **Astra/Luna/Sol/Forge specialist personas**, safe AI configuration checks, and the next “ultra hybrid AI” acceptance gates, see [Ultra Hybrid AI setup (Bangla)](docs/operations/ultra-ai-upgrade-bn.md). Run `python scripts/diagnose_ai.py` to inspect configuration without sending a model request; use `--probe-local` or `--probe-direct` only when you intentionally want to send a minimal test request.
+
 Admin AI queries and Builder analysis runs generate prompt-free audit entries and retryable, metadata-only Security Bot notices, with a link back to the protected Admin AI workspace. The web workspace shows a per-Admin activity history and clearly identifies AI as read-only. In private chat, Security Bot `/approvals` supports only the enumerated marketplace decisions documented in the [Telegram operations guide](docs/operations/telegram-bots.md); each callback requires an allowlisted Telegram ID mapped to an active website Admin and reuses the same server-side decision rules. General Admin AI actions, deployments, and unsupported decisions remain website-only.
 
 ## Account management
@@ -149,6 +151,6 @@ The project includes a production entry point and a `Procfile` that starts Gunic
 
 Telegram customer and security bot configuration, account-linking, webhook registration, and Azure App Service deployment steps are documented in [the Telegram bots operations guide](docs/operations/telegram-bots.md). Configure the separate bot tokens and webhook secrets as private App Service settings; after applying the Telegram migrations, run `flask --app run.py set-telegram-webhooks` from the deployed environment. Schedule `flask --app run.py retry-telegram-alerts` if security alerts are enabled.
 
-The Phase 6 design proposes Cloudflare WAF and Tunnel in front of a private Render service. That external account and network configuration is not enabled by this Phase 2 code change. Security uses layered controls; no application can promise to be impossible to hack.
+A public deployment should put a managed WAF/reverse proxy in front of the application where possible. That external account and network configuration is not created by application code. Security uses layered controls; no application can promise to be impossible to hack.
 
 See [the Stage 10 operations runbook](docs/operations/stage-10-runbook.md) for the production setup and acceptance checklist.

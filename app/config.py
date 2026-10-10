@@ -29,12 +29,13 @@ LOCAL_DIRECT_AI_SETTINGS = frozenset({
 
 
 def _load_local_environment(path):
-    """Load dotenv files or safe development App Service JSON settings.
+    """Load standard dotenv files or a deliberately supplied JSON settings export.
 
-    The checked-in example uses Azure's Advanced Edit JSON format. A production
-    settings export must never silently redirect a local app to its database,
-    mail provider, or Telegram bots, so JSON is accepted locally only when the
-    file itself declares development and SQLite.
+    `.env.example` is a standard dotenv template. For backward compatibility,
+    a developer may save an Azure Advanced Edit JSON export as `.env`; production
+    JSON settings must never silently redirect a local app to its database, mail
+    provider, or Telegram bots, so JSON is accepted only under the existing
+    development/SQLite allowlist (with the narrowly allowlisted AI exception).
     """
     try:
         content = path.read_text(encoding="utf-8-sig")
@@ -164,6 +165,26 @@ def _env_bool(name, default=False):
     return default
 
 
+def _env_int(name, default, *, minimum=None, maximum=None):
+    """Read an integer setting without crashing startup on malformed host config."""
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        value = default
+    else:
+        try:
+            value = int(raw_value.strip())
+        except (TypeError, ValueError):
+            logger.warning("Invalid integer value for %s; using default %s.", name, default)
+            return default
+    if minimum is not None and value < minimum:
+        logger.warning("Out-of-range value for %s; using default %s.", name, default)
+        return default
+    if maximum is not None and value > maximum:
+        logger.warning("Out-of-range value for %s; using default %s.", name, default)
+        return default
+    return value
+
+
 class Config:
     APP_NAME = "NexHaat"
     BABEL_DEFAULT_LOCALE = "en_US"
@@ -196,7 +217,7 @@ class Config:
     SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", ENVIRONMENT == "production")
     APP_TIMING_ENABLED = _env_bool("APP_TIMING_ENABLED", False)
     WTF_CSRF_TIME_LIMIT = 3600
-    MAIL_TIMEOUT = int(os.getenv("MAIL_TIMEOUT", "15"))
+    MAIL_TIMEOUT = _env_int("MAIL_TIMEOUT", 15, minimum=1, maximum=120)
     BREVO_API_KEY = os.getenv("BREVO_API_KEY")
     TELEGRAM_CUSTOMER_BOT_TOKEN = os.getenv("TELEGRAM_CUSTOMER_BOT_TOKEN", "").strip()
     TELEGRAM_CUSTOMER_WEBHOOK_SECRET = os.getenv("TELEGRAM_CUSTOMER_WEBHOOK_SECRET", "").strip()
@@ -205,11 +226,11 @@ class Config:
     TELEGRAM_SECURITY_ADMIN_IDS = os.getenv("TELEGRAM_SECURITY_ADMIN_IDS", "")
     TELEGRAM_SECURITY_ADMIN_USER_MAP = os.getenv("TELEGRAM_SECURITY_ADMIN_USER_MAP", "")
     TELEGRAM_SUPPORT_URL = os.getenv("TELEGRAM_SUPPORT_URL", "").strip()
-    TELEGRAM_RATE_LIMIT_PER_MINUTE = int(os.getenv("TELEGRAM_RATE_LIMIT_PER_MINUTE", "30"))
-    TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE = int(
-        os.getenv("TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE", "10")
+    TELEGRAM_RATE_LIMIT_PER_MINUTE = _env_int("TELEGRAM_RATE_LIMIT_PER_MINUTE", 30, minimum=1, maximum=300)
+    TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE = _env_int(
+        "TELEGRAM_SECURITY_RATE_LIMIT_PER_MINUTE", 10, minimum=1, maximum=120
     )
-    TELEGRAM_API_TIMEOUT = int(os.getenv("TELEGRAM_API_TIMEOUT", "10"))
+    TELEGRAM_API_TIMEOUT = _env_int("TELEGRAM_API_TIMEOUT", 10, minimum=1, maximum=60)
     _mail_sender = os.getenv("MAIL_DEFAULT_SENDER", "").strip()
     MAIL_DEFAULT_SENDER = (
         _mail_sender
@@ -227,48 +248,48 @@ class Config:
     SSLCOMMERZ_STORE_ID = os.getenv("SSLCOMMERZ_STORE_ID", "").strip()
     SSLCOMMERZ_STORE_PASSWORD = os.getenv("SSLCOMMERZ_STORE_PASSWORD", "").strip()
     SSLCOMMERZ_SANDBOX = _env_bool("SSLCOMMERZ_SANDBOX", True)
-    SSLCOMMERZ_TIMEOUT = int(os.getenv("SSLCOMMERZ_TIMEOUT", "12"))
-    PAYMENT_SESSION_MINUTES = int(os.getenv("PAYMENT_SESSION_MINUTES", "15"))
-    MAX_CONTENT_LENGTH = 4 * 1024 * 1024
-    MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024
-    MAX_RASTER_IMAGE_PIXELS = int(os.getenv("MAX_RASTER_IMAGE_PIXELS", "20000000"))
-    MAX_CATALOG_IMAGE_BYTES = int(os.getenv("MAX_CATALOG_IMAGE_BYTES", str(3 * 1024 * 1024)))
-    MAX_CATALOG_IMAGE_PIXELS = int(os.getenv("MAX_CATALOG_IMAGE_PIXELS", "40000000"))
-    MAX_CATALOG_QUARANTINE_BYTES = int(os.getenv("MAX_CATALOG_QUARANTINE_BYTES", str(100 * 1024 * 1024)))
-    CATALOG_QUARANTINE_RETENTION_HOURS = int(os.getenv("CATALOG_QUARANTINE_RETENTION_HOURS", "24"))
+    SSLCOMMERZ_TIMEOUT = _env_int("SSLCOMMERZ_TIMEOUT", 12, minimum=1, maximum=60)
+    PAYMENT_SESSION_MINUTES = _env_int("PAYMENT_SESSION_MINUTES", 15, minimum=1, maximum=1440)
+    MAX_CONTENT_LENGTH = _env_int("MAX_CONTENT_LENGTH", 4 * 1024 * 1024, minimum=256 * 1024, maximum=50 * 1024 * 1024)
+    MAX_IMAGE_UPLOAD_BYTES = _env_int("MAX_IMAGE_UPLOAD_BYTES", 2 * 1024 * 1024, minimum=1024, maximum=10 * 1024 * 1024)
+    MAX_RASTER_IMAGE_PIXELS = _env_int("MAX_RASTER_IMAGE_PIXELS", 20_000_000, minimum=100_000, maximum=100_000_000)
+    MAX_CATALOG_IMAGE_BYTES = _env_int("MAX_CATALOG_IMAGE_BYTES", 3 * 1024 * 1024, minimum=1024, maximum=25 * 1024 * 1024)
+    MAX_CATALOG_IMAGE_PIXELS = _env_int("MAX_CATALOG_IMAGE_PIXELS", 40_000_000, minimum=100_000, maximum=100_000_000)
+    MAX_CATALOG_QUARANTINE_BYTES = _env_int("MAX_CATALOG_QUARANTINE_BYTES", 100 * 1024 * 1024, minimum=1024 * 1024, maximum=2 * 1024 * 1024 * 1024)
+    CATALOG_QUARANTINE_RETENTION_HOURS = _env_int("CATALOG_QUARANTINE_RETENTION_HOURS", 24, minimum=1, maximum=8760)
     CATALOG_QUARANTINE_FOLDER = os.getenv(
         "CATALOG_QUARANTINE_FOLDER", str(BASE_DIR / "instance" / "quarantine" / "catalog")
     )
     CATALOG_VIRUS_SCANNER = os.getenv("CATALOG_VIRUS_SCANNER", "clamdscan")
-    CATALOG_SCAN_TIMEOUT = int(os.getenv("CATALOG_SCAN_TIMEOUT", "20"))
+    CATALOG_SCAN_TIMEOUT = _env_int("CATALOG_SCAN_TIMEOUT", 20, minimum=1, maximum=180)
     CATALOG_MEDIA_BUCKET = os.getenv("CATALOG_MEDIA_BUCKET")
     CATALOG_MEDIA_REGION = os.getenv("CATALOG_MEDIA_REGION", "us-east-1")
     CATALOG_MEDIA_ENDPOINT_URL = os.getenv("CATALOG_MEDIA_ENDPOINT_URL")
     CATALOG_MEDIA_PUBLIC_BASE_URL = os.getenv("CATALOG_MEDIA_PUBLIC_BASE_URL", "").strip().rstrip("/")
     CATALOG_MEDIA_KEY_PREFIX = os.getenv("CATALOG_MEDIA_KEY_PREFIX", "products")
-    MAX_SEARCH_LENGTH = 100
-    CATALOG_PAGE_SIZE = 48
+    MAX_SEARCH_LENGTH = _env_int("MAX_SEARCH_LENGTH", 100, minimum=10, maximum=256)
+    CATALOG_PAGE_SIZE = _env_int("CATALOG_PAGE_SIZE", 48, minimum=1, maximum=100)
     MIN_PASSWORD_LENGTH = 12 if ENVIRONMENT == "production" else 8
     MAX_PASSWORD_LENGTH = 128
     UPLOAD_FOLDER = str(BASE_DIR / "app" / "static" / "uploads" / "profiles")
     BRANDING_UPLOAD_FOLDER = str(BASE_DIR / "app" / "static" / "uploads" / "branding")
     PROOF_OF_DELIVERY_FOLDER = str(BASE_DIR / "app" / "static" / "uploads" / "delivery")
-    MAX_EMAIL_ATTEMPTS = int(os.getenv("MAX_EMAIL_ATTEMPTS", "5"))
+    MAX_EMAIL_ATTEMPTS = _env_int("MAX_EMAIL_ATTEMPTS", 5, minimum=1, maximum=20)
     INVOICE_FONT_PATH = os.getenv("INVOICE_FONT_PATH", "").strip()
-    MAX_DATABASE_BYTES = int(os.getenv("MAX_DATABASE_BYTES", str(400 * 1024 * 1024)))
+    MAX_DATABASE_BYTES = _env_int("MAX_DATABASE_BYTES", 400 * 1024 * 1024, minimum=1024 * 1024, maximum=2 * 1024 * 1024 * 1024)
     AI_ENABLED = _env_bool("AI_ENABLED", False)
     AI_PROVIDER = os.getenv("AI_PROVIDER", "").strip() or "disabled"
     AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
     AI_MODEL = os.getenv("AI_MODEL", "").strip()
     AI_BASE_URL = os.getenv("AI_BASE_URL", "").strip()
-    AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "15"))
-    AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "1024"))
-    AI_RATE_LIMIT = int(os.getenv("AI_RATE_LIMIT", "60"))
-    AI_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("AI_RATE_LIMIT_WINDOW_SECONDS", "60"))
-    AI_MAX_TOOL_CALLS = int(os.getenv("AI_MAX_TOOL_CALLS", "5"))
-    AI_MAX_CONTEXT_SIZE = int(os.getenv("AI_MAX_CONTEXT_SIZE", "12000"))
+    AI_TIMEOUT = _env_int("AI_TIMEOUT", 15, minimum=1, maximum=60)
+    AI_MAX_TOKENS = _env_int("AI_MAX_TOKENS", 1024, minimum=64, maximum=8192)
+    AI_RATE_LIMIT = _env_int("AI_RATE_LIMIT", 60, minimum=1, maximum=1000)
+    AI_RATE_LIMIT_WINDOW_SECONDS = _env_int("AI_RATE_LIMIT_WINDOW_SECONDS", 60, minimum=1, maximum=3600)
+    AI_MAX_TOOL_CALLS = _env_int("AI_MAX_TOOL_CALLS", 5, minimum=0, maximum=20)
+    AI_MAX_CONTEXT_SIZE = _env_int("AI_MAX_CONTEXT_SIZE", 12000, minimum=512, maximum=50_000)
     AI_BUILDER_SANDBOX_IMAGE = os.getenv("AI_BUILDER_SANDBOX_IMAGE", "").strip()
-    AI_BUILDER_TEST_TIMEOUT_SECONDS = int(os.getenv("AI_BUILDER_TEST_TIMEOUT_SECONDS", "60"))
+    AI_BUILDER_TEST_TIMEOUT_SECONDS = _env_int("AI_BUILDER_TEST_TIMEOUT_SECONDS", 60, minimum=1, maximum=600)
     # Local inference is private and is attempted before any specialist API.
     AI_LOCAL_ENABLED = _env_bool("AI_LOCAL_ENABLED", True)
     AI_LOCAL_BASE_URL = os.getenv("AI_LOCAL_BASE_URL", "").strip().rstrip("/")
@@ -285,7 +306,7 @@ class Config:
     AI_SEARCH_BASE_URL = os.getenv("AI_SEARCH_BASE_URL", "").strip().rstrip("/")
     AI_EXTERNAL_ENABLED = _env_bool("AI_EXTERNAL_ENABLED", False)
     AI_EXTERNAL_MONTHLY_BUDGET_USD = os.getenv("AI_EXTERNAL_MONTHLY_BUDGET_USD", "0").strip()
-    AI_EXTERNAL_MAX_TOKENS = int(os.getenv("AI_EXTERNAL_MAX_TOKENS", "1024"))
+    AI_EXTERNAL_MAX_TOKENS = _env_int("AI_EXTERNAL_MAX_TOKENS", 1024, minimum=64, maximum=1024)
     AI_API_INPUT_USD_PER_MILLION = os.getenv("AI_API_INPUT_USD_PER_MILLION", "0").strip()
     AI_API_OUTPUT_USD_PER_MILLION = os.getenv("AI_API_OUTPUT_USD_PER_MILLION", "0").strip()
     # Enable only for a verified zero-priced OpenRouter free model; the provider URL/model are validated again.
@@ -297,22 +318,26 @@ class Config:
                    "model": os.getenv("AI_OPENAI_MODEL", "").strip(),
                    "base_url": os.getenv("AI_OPENAI_BASE_URL", "https://api.openai.com/v1").strip(),
                    "input_rate": os.getenv("AI_OPENAI_INPUT_USD_PER_MILLION", "0").strip(),
-                   "output_rate": os.getenv("AI_OPENAI_OUTPUT_USD_PER_MILLION", "0").strip()},
+                   "output_rate": os.getenv("AI_OPENAI_OUTPUT_USD_PER_MILLION", "0").strip(),
+                   "agent_name": os.getenv("AI_OPENAI_AGENT_NAME", "Astra").strip() or "Astra"},
         "anthropic": {"api_key": os.getenv("AI_ANTHROPIC_API_KEY", "").strip(),
                       "model": os.getenv("AI_ANTHROPIC_MODEL", "").strip(),
                       "base_url": os.getenv("AI_ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1").strip(),
                       "input_rate": os.getenv("AI_ANTHROPIC_INPUT_USD_PER_MILLION", "0").strip(),
-                      "output_rate": os.getenv("AI_ANTHROPIC_OUTPUT_USD_PER_MILLION", "0").strip()},
+                      "output_rate": os.getenv("AI_ANTHROPIC_OUTPUT_USD_PER_MILLION", "0").strip(),
+                      "agent_name": os.getenv("AI_ANTHROPIC_AGENT_NAME", "Luna").strip() or "Luna"},
         "gemini": {"api_key": os.getenv("AI_GEMINI_API_KEY", "").strip(),
                    "model": os.getenv("AI_GEMINI_MODEL", "").strip(),
                    "base_url": os.getenv("AI_GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai").strip(),
                    "input_rate": os.getenv("AI_GEMINI_INPUT_USD_PER_MILLION", "0").strip(),
-                   "output_rate": os.getenv("AI_GEMINI_OUTPUT_USD_PER_MILLION", "0").strip()},
+                   "output_rate": os.getenv("AI_GEMINI_OUTPUT_USD_PER_MILLION", "0").strip(),
+                   "agent_name": os.getenv("AI_GEMINI_AGENT_NAME", "Sol").strip() or "Sol"},
         "deepseek": {"api_key": os.getenv("AI_DEEPSEEK_API_KEY", "").strip(),
                      "model": os.getenv("AI_DEEPSEEK_MODEL", "").strip(),
                      "base_url": os.getenv("AI_DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip(),
                      "input_rate": os.getenv("AI_DEEPSEEK_INPUT_USD_PER_MILLION", "0").strip(),
-                     "output_rate": os.getenv("AI_DEEPSEEK_OUTPUT_USD_PER_MILLION", "0").strip()},
+                     "output_rate": os.getenv("AI_DEEPSEEK_OUTPUT_USD_PER_MILLION", "0").strip(),
+                     "agent_name": os.getenv("AI_DEEPSEEK_AGENT_NAME", "Forge").strip() or "Forge"},
     }
     PREFERRED_URL_SCHEME = "https" if ENVIRONMENT == "production" else "http"
 
