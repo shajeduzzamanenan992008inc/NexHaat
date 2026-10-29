@@ -1,7 +1,7 @@
 """Small, bounded request context for provider prompts."""
 
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
 
 
 @dataclass

@@ -1,13 +1,23 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from werkzeug.datastructures import MultiDict
 
 from app.extensions import db
 from app.models import (
-    AdminProfile, AppSetting, Category, CustomerProfile, Order, OrderItem, Payment,
-    PaymentAttempt, Product, SellerLedgerEntry, SellerProfile, User,
+    AdminProfile,
+    AppSetting,
+    Category,
+    CustomerProfile,
     Notification,
+    Order,
+    OrderItem,
+    Payment,
+    PaymentAttempt,
+    Product,
+    SellerLedgerEntry,
+    SellerProfile,
+    User,
 )
 from app.services import payments
 from app.services.orders import transition_order
@@ -535,7 +545,7 @@ def test_admin_reconciliation_page_and_api_show_provider_references(
         status="paid",
         bank_tran_id="BANK-RECON-001",
         validation_id="VAL-RECON-001",
-        paid_at=datetime.now(timezone.utc),
+        paid_at=datetime.now(UTC),
         expires_at=payments.utc_now() + timedelta(minutes=5),
     )
     attempt = PaymentAttempt(

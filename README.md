@@ -120,7 +120,7 @@ The existing catalog supports typo-tolerant search and suggestions, category/pri
 
 ## Stage 10 in progress — production readiness
 
-The focused security/operations/media/configuration suite passes 29 tests, covering health probes, opt-in timing, readiness configuration, media failure handling, PostgreSQL TLS enforcement, restore target confirmation, and CLI safety. The full project suite passed 204 tests in the 2026-10-05 audit. Live ClamAV/S3 upload, managed PostgreSQL, WAF/ingress, scheduled backups and isolated restore, monitoring, CDN delivery, and workload review still need hosting access and recorded operator evidence. Stage 11 has a verified recently-viewed-products slice; its other capabilities remain for separately scoped increments. Follow [the Stage 10 operations runbook](docs/operations/stage-10-runbook.md).
+The focused security/operations/media/configuration suite passes 29 tests, covering health probes, opt-in timing, readiness configuration, media failure handling, PostgreSQL TLS enforcement, restore target confirmation, and CLI safety. The full project suite passed 204 tests in the 2026-10-05 audit. Live ClamAV/S3 upload, managed PostgreSQL, WAF/ingress, scheduled backups and isolated restore, monitoring, CDN delivery, and workload review still need hosting access and recorded operator evidence. Stage 11 has verified three slices: recently-viewed products; product-page "frequently bought together" plus related shelves, cart cross-sell, and order-history "Buy again"; and a discovery-depth slice with weighted Bangla/Banglish search, minimum-rating and on-sale facets, working `rel="prev"`/`rel="next"` pagination, an accessible search-suggestion dropdown, and zero-result fallbacks (revision `20261010_27`). Its remaining capabilities stay for separately scoped increments. Follow [the Stage 10 operations runbook](docs/operations/stage-10-runbook.md).
 
 ## Stage 12 complete — AI marketplace ecosystem
 
@@ -132,6 +132,13 @@ The shared AI Core connects the customer Shopping Assistant and Telegram bot wit
 - **The primary Admin** — the account whose email matches `ADMIN_EMAIL` — can delete Seller, Rider, and sub-Admin accounts from the Admin dashboard. The primary Admin account itself is protected and cannot be deleted.
 - **Sub-Admins** are added by inviting them (`role = Admin`) from the Admin dashboard and sign in the same passwordless email-OTP way as the primary Admin.
 - The Admin sign-in entry point (`/admin/login`) only accepts active Admin accounts. Any other email is refused with *"That email is not an Admin account."*
+
+## Repository automation and quality gates
+
+- **Tests:** `python -m pytest` runs the suite in `tests/`. CI (`.github/workflows/ci.yml`) installs `requirements.txt`, byte-compiles the application, checks the Alembic head, runs the full suite, and rejects whitespace errors on every push and pull request.
+- **Lint:** [Ruff](https://docs.astral.sh/ruff/) is configured in `pyproject.toml`. Install it with `pip install ruff==0.17.0` and run `python -m ruff check .` before opening a pull request. The selected rules cover unused and undefined names, import order, Python 3.12 upgrade checks, and common bugbear/simplify/return findings.
+- **Dependencies:** Dependabot opens grouped weekly pull requests for `requirements.txt` and GitHub Actions; major upgrades still arrive as separate reviewable pull requests.
+- **Editor defaults:** `.editorconfig` sets shared indentation defaults, and `.gitattributes` normalises tracked text files to LF (binary assets are excluded) so Windows and Linux checkouts stay comparable.
 
 ## Deployment
 

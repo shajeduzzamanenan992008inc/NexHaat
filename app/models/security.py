@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..extensions import db
 
@@ -11,7 +11,7 @@ class AuthThrottle(db.Model):
     window_started_at = db.Column(db.DateTime(timezone=True), nullable=False)
     blocked_until = db.Column(db.DateTime(timezone=True), nullable=True)
     last_attempt_at = db.Column(
-        db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+        db.DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     __table_args__ = (
         db.CheckConstraint("failures >= 0", name="ck_auth_throttle_failures_nonnegative"),
@@ -61,4 +61,45 @@ class RegistrationChallenge(db.Model):
             "failed_attempts >= 0", name="ck_registration_challenges_failed_attempts_nonnegative"
         ),
         db.Index("ix_registration_challenges_email_sent", "email", "sent_at"),
+    )
+
+
+class PhoneOtpChallenge(db.Model):
+    __tablename__ = "phone_otp_challenges"
+
+    id = db.Column(db.String(64), primary_key=True)
+    phone_canonical = db.Column(db.String(20), nullable=False, index=True)
+    code_hash = db.Column(db.String(64), nullable=False)
+    purpose = db.Column(db.String(32), nullable=False)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    sent_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    failed_attempts = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    consumed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    provider_message_id = db.Column(db.String(128), nullable=True)
+    locale = db.Column(db.String(12), nullable=True)
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "failed_attempts >= 0", name="ck_phone_otp_challenges_failed_attempts_nonnegative"
+        ),
+        db.Index("ix_phone_otp_challenges_phone_sent", "phone_canonical", "sent_at"),
+    )
+
+
+class PhoneOtpThrottle(db.Model):
+    __tablename__ = "phone_otp_throttles"
+
+    key_hash = db.Column(db.String(64), primary_key=True)
+    failures = db.Column(db.Integer, nullable=False, default=0)
+    window_started_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    blocked_until = db.Column(db.DateTime(timezone=True), nullable=True)
+    last_attempt_at = db.Column(
+        db.DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    __table_args__ = (
+        db.CheckConstraint("failures >= 0", name="ck_phone_otp_throttle_failures_nonnegative"),
+        db.Index("ix_phone_otp_throttles_last_attempt", "last_attempt_at"),
     )

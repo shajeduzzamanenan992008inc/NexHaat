@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Explore') }} · {{ app_name }}{% endblock %}
+{% block extra_head %}
+{% if pagination and pagination.has_prev %}<link rel="prev" href="{{ page_url(pagination.prev_num) }}">{% endif %}
+{% if pagination and pagination.has_next %}<link rel="next" href="{{ page_url(pagination.next_num) }}">{% endif %}
+{% endblock %}
 {% block page_content %}
 <div class="page-shell">
   <header class="page-heading">
@@ -9,9 +13,14 @@
       <p>{{ _('Browse active local listings, compare prices, and search the food reference library for quick discovery.') }}</p>
     </div>
     <form class="search-box" method="get" action="{{ url_for('main.search') }}" role="search">
-      <label class="visually-hidden" for="market-search">{{ _('Search products') }}</label><input id="market-search"
-        name="q" value="{{ query }}" placeholder="{{ _('Search food and products') }}"
-        maxlength="{{ config['MAX_SEARCH_LENGTH'] }}">
+      <label class="visually-hidden" for="market-search">{{ _('Search products') }}</label>
+      <div class="search-box__field" data-search-suggest>
+        <input id="market-search" name="q" value="{{ query }}" placeholder="{{ _('Search food and products') }}"
+          maxlength="{{ config['MAX_SEARCH_LENGTH'] }}" autocomplete="off" role="combobox" aria-expanded="false"
+          aria-autocomplete="list" aria-controls="market-search-suggestions">
+        <div class="search-suggest" id="market-search-suggestions" role="listbox"
+          aria-label="{{ _('Search suggestions') }}" hidden></div>
+      </div>
       <button class="button" type="submit">{{ _('Search') }}</button>
     </form>
   </header>
@@ -48,6 +57,13 @@
     <div class="form-field"><label for="catalog-max-price">{{ _('Maximum price') }}</label><input id="catalog-max-price"
         name="max_price" type="number" min="0" step="0.01" value="{{ max_price if max_price is not none else '' }}">
     </div>
+    <div class="form-field"><label for="catalog-rating">{{ _('Minimum rating') }}</label><select id="catalog-rating"
+        name="min_rating">
+        <option value="">{{ _('Any rating') }}</option>{% for value in [4, 3, 2, 1] %}<option value="{{ value }}" {% if
+          min_rating==value %}selected{% endif %}>{{ _('%(count)s stars and up', count=value) }}</option>{% endfor %}
+      </select></div>
+    <label class="form-field"><span>{{ _('Discounts') }}</span><span><input type="checkbox" name="discount" value="1" {% if
+          discount_only %}checked{% endif %}> {{ _('On sale') }}</span></label>
     <div class="form-field"><label for="catalog-sort">{{ _('Sort by') }}</label><select id="catalog-sort" name="sort">{%
         for value, label in [('featured', _('Featured')), ('relevance', _('Relevance')), ('newest', _('Newest')),
         ('price_asc', _('Price: low to high')), ('price_desc', _('Price: high to low'))] %}<option value="{{ value }}"
@@ -71,13 +87,21 @@
     {% if products %}<div class="product-grid">{% for product in products %}{% include "_product_card.html" %}{% endfor
       %}</div>
     {% if pagination.pages > 1 %}<nav class="pagination" aria-label="{{ _('Marketplace pages') }}">{% if
-      pagination.has_prev %}<a
-        href="{{ url_for('main.menu', page=pagination.prev_num, q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">←</a>{%
-      endif %}<span class="is-current">{{ pagination.page }} / {{ pagination.pages }}</span>{% if pagination.has_next
-      %}<a
-        href="{{ url_for('main.menu', page=pagination.next_num, q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">→</a>{%
-      endif %}</nav>{% endif %}
-    {% else %}<div class="empty-state"><strong>{{ _('No local listings found yet') }}</strong>{{ _('Try another search, or browse the food reference library below.') }}</div>{% endif %}
+      pagination.has_prev %}<a rel="prev" href="{{ page_url(pagination.prev_num) }}">←</a>{% endif
+      %}<span class="is-current">{{ pagination.page }} / {{ pagination.pages }}</span>{% if pagination.has_next %}<a
+        rel="next" href="{{ page_url(pagination.next_num) }}">→</a>{% endif %}</nav>{% endif %}
+    {% else %}<div class="empty-state"><strong>{{ _('No local listings found yet') }}</strong>{{ _('Try another search, or browse the food reference library below.') }}</div>
+    {% if fallback_terms %}<div class="fallback-block">
+      <p class="eyebrow">{{ _('Related searches') }}</p>
+      <nav class="tag-row" aria-label="{{ _('Related searches') }}">{% for term in fallback_terms %}{% if term.kind ==
+        'category' %}<a class="tag" href="{{ url_for('main.category', slug=term.slug) }}">{{ term.label }}</a>{% else %}<a
+          class="tag" href="{{ url_for('main.menu', brand_name=term.value) }}">{{ term.label }}</a>{% endif %}{% endfor
+        %}</nav>
+    </div>{% endif %}
+    {% if fallback_products %}<div class="fallback-block">
+      <p class="eyebrow">{{ _('Popular right now') }}</p>
+      <div class="product-grid">{% for product in fallback_products %}{% include "_product_card.html" %}{% endfor %}</div>
+    </div>{% endif %}{% endif %}
   </section>
 
   <section class="section-block" aria-labelledby="reference-title">
@@ -92,7 +116,7 @@
     {% if reference_categories %}<div class="tag-row" style="margin-block:16px">{% for ref_category, count in
       reference_categories %}<a
         class="tag {% if selected_reference_category_id == ref_category.id %}tag--active{% endif %}"
-        href="{{ url_for('main.menu', ref_category_id=ref_category.id, q=query, category_id=selected_category_id, min_price=min_price, max_price=max_price, sort=sort) }}">{{
+        href="{{ page_url(1, 'ref_page', ref_category_id=ref_category.id) }}">{{
         ref_category.name }} <small>&nbsp;{{ count }}</small></a>{% endfor %}</div>{% endif %}
     {% if reference_foods %}<div class="table-wrap">
       <table>
@@ -112,11 +136,10 @@
     </div>
     {% if reference_pagination.pages > 1 %}<nav class="pagination" aria-label="{{ _('Reference pages') }}">{% if
       reference_pagination.has_prev %}<a
-        href="{{ url_for('main.menu', ref_page=reference_pagination.prev_num, ref_category_id=selected_reference_category_id, category_id=selected_category_id, q=query, min_price=min_price, max_price=max_price, sort=sort) }}">←</a>{%
-      endif %}<span class="is-current">{{ reference_pagination.page }} / {{ reference_pagination.pages }}</span>{% if
+        rel="prev" href="{{ page_url(reference_pagination.prev_num, 'ref_page') }}">←</a>{% endif
+      %}<span class="is-current">{{ reference_pagination.page }} / {{ reference_pagination.pages }}</span>{% if
       reference_pagination.has_next %}<a
-        href="{{ url_for('main.menu', ref_page=reference_pagination.next_num, ref_category_id=selected_reference_category_id, category_id=selected_category_id, q=query, min_price=min_price, max_price=max_price, sort=sort) }}">→</a>{%
-      endif %}</nav>{% endif %}
+        rel="next" href="{{ page_url(reference_pagination.next_num, 'ref_page') }}">→</a>{% endif %}</nav>{% endif %}
     {% else %}<div class="empty-state">{{ _('No reference records match this search.') }}</div>{% endif %}
     {% else %}<div class="empty-state">{{ _('Search above to look up a food in the reference library.') }}</div>{% endif
     %}

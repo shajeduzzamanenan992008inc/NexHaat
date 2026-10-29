@@ -1,8 +1,18 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_babel import gettext
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -10,39 +20,76 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from ..extensions import csrf, db
 from ..models import (
-    AppSetting, Category, CustomerAddress, CustomerProfile, Order, OrderReturn, Payment,
-    PaymentAttempt, PaymentRefund, Product, PromotionCode, Review, SellerProfile, SellerPayout, User,
+    AppSetting,
+    Category,
+    CustomerProfile,
+    Order,
+    OrderReturn,
+    Payment,
+    PaymentAttempt,
+    PaymentRefund,
+    Product,
+    PromotionCode,
+    Review,
+    ReviewReport,
+    SellerPayout,
+    SellerProfile,
+    User,
 )
 from ..security import (
-    admin_required, customer_or_guest_required, current_session_user,
-    is_primary_admin, primary_admin_required, save_raster_upload,
-)
-from ..services.cart import (
-    CartError, add_customer_cart_item, customer_cart_items, merge_guest_cart,
-    remove_customer_cart_item, update_customer_cart_item,
+    admin_required,
+    current_session_user,
+    customer_or_guest_required,
+    is_primary_admin,
+    primary_admin_required,
+    save_raster_upload,
 )
 from ..services.audit import record_audit
+from ..services.cart import (
+    CartError,
+    add_customer_cart_item,
+    customer_cart_items,
+    merge_guest_cart,
+    remove_customer_cart_item,
+    reorder_order_items,
+    update_customer_cart_item,
+)
+from ..services.checkout import DELIVERY_FEE, CheckoutError, create_checkout_orders
 from ..services.mail import (
-    enqueue_order_emails,
     queue_order_receipt,
     queue_order_status,
 )
 from ..services.notifications import notify
 from ..services.orders import release_reserved_stock, transition_order
-from ..services.checkout import CheckoutError, DELIVERY_FEE, create_checkout_orders
+from ..services.payments import (
+    PaymentError,
+    approve_payment_review,
+    begin_payment_attempt,
+    cancel_order_with_refund,
+    expire_pending_payments,
+    initiate_order_refund,
+    issue_order_return_refund,
+    mark_order_return_received,
+    normalize_utc,
+    process_failed_callback,
+    process_ipn,
+    record_manual_return_refund,
+    record_seller_payout,
+    refresh_refund_status,
+    request_order_return,
+    review_order_return,
+    seller_settlement_balance,
+)
 from ..services.promotions import (
-    PromotionError, calculate_discount_for_order, get_active_promotion,
+    PromotionError,
+    calculate_discount_for_order,
+    get_active_promotion,
     promotion_values_from_form,
 )
-from ..services.payments import (
-    PaymentError, approve_payment_review, begin_payment_attempt, cancel_order_with_refund,
-    expire_pending_payments, initiate_order_refund, process_failed_callback, process_ipn,
-    mark_order_return_received, record_manual_return_refund, record_seller_payout,
-    refresh_refund_status, request_order_return, review_order_return,
-    issue_order_return_refund, seller_settlement_balance, normalize_utc,
-)
+from ..services.recommendations import cart_cross_sell
+from ..services.reviews import resolve_review_report
 from ..services.sslcommerz import gateway_is_configured
-
+from ..services.wishlist import saved_product_ids
 
 orders_bp = Blueprint("orders", __name__)
 STATUSES = ("pending", "confirmed", "preparing", "delivered", "cancelled", "declined")
@@ -153,7 +200,15 @@ def cart_rows():
 @customer_or_guest_required
 def cart():
     rows, subtotal = cart_rows()
-    return render_template("orders/cart.html", rows=rows, subtotal=subtotal, delivery=DELIVERY_FEE, total=subtotal + DELIVERY_FEE if rows else Decimal("0.00"))
+    return render_template(
+        "orders/cart.html",
+        rows=rows,
+        subtotal=subtotal,
+        delivery=DELIVERY_FEE,
+        total=subtotal + DELIVERY_FEE if rows else Decimal("0.00"),
+        cross_sell=cart_cross_sell(rows),
+        saved_ids=saved_product_ids(current_session_user("customer")),
+    )
 
 
 @orders_bp.post("/cart/add/<int:product_id>")
@@ -372,7 +427,7 @@ def payment_status(checkout_group):
     can_retry = bool(
         payment.status == "pending"
         and (latest_attempt is None or latest_attempt.status in {"failed", "cancelled", "expired"})
-        and normalize_utc(payment.expires_at) > datetime.now(timezone.utc)
+        and normalize_utc(payment.expires_at) > datetime.now(UTC)
         and gateway_is_configured()
     )
     return render_template(
@@ -471,6 +526,37 @@ def my_orders():
         .where(Order.user_id == user.id).order_by(Order.created_at.desc())
     ).all()
     return render_template("orders/my_orders.html", orders=orders)
+
+
+@orders_bp.post("/orders/<order_number>/buy-again")
+def buy_again(order_number):
+    """Re-add a past order's still-available items to the customer's cart."""
+    user = current_session_user("customer")
+    if not user:
+        if session.get("user_id") is not None:
+            abort(403)
+        return redirect(url_for("auth.login", next=url_for("orders.my_orders")))
+    order = db.session.scalar(
+        select(Order)
+        .options(selectinload(Order.items))
+        .where(Order.order_number == order_number)
+    )
+    if order is None or order.user_id != user.id:
+        abort(404)
+    if order.status in {"cancelled", "declined"}:
+        flash(gettext("That order can no longer be reordered."), "error")
+        return redirect(url_for("orders.my_orders"))
+    added, skipped = reorder_order_items(user.id, order)
+    if added:
+        message = gettext("Added %(count)s item(s) from that order to your cart.", count=added)
+        if skipped:
+            message = f"{message} " + gettext(
+                "%(count)s item(s) are no longer available.", count=skipped
+            )
+        flash(message, "success")
+    else:
+        flash(gettext("None of the items in that order are available right now."), "error")
+    return redirect(url_for("orders.cart"))
 
 
 @orders_bp.post("/orders/<order_number>/cancel")
@@ -639,7 +725,7 @@ def admin_review_seller(profile_id):
         flash(gettext("The review note must be 500 characters or fewer."), "error")
         return redirect(url_for("admin.dashboard"))
     profile.approval_status = decision
-    profile.reviewed_at = datetime.now(timezone.utc)
+    profile.reviewed_at = datetime.now(UTC)
     profile.reviewed_by_id = session["user_id"]
     profile.review_note = note or None
     db.session.commit()
@@ -675,7 +761,7 @@ def admin_review_product(product_id):
     product.moderation_status = decision
     product.is_available = decision == "approved"
     product.moderation_note = note or None
-    product.reviewed_at = datetime.now(timezone.utc)
+    product.reviewed_at = datetime.now(UTC)
     product.reviewed_by_id = session["user_id"]
     db.session.commit()
     record_audit("catalog.product_review", target_type="product", target_id=product_id, detail=decision)
@@ -702,7 +788,7 @@ def admin_moderate_review(review_id):
         return redirect(url_for("admin.dashboard"))
     review.status = decision
     review.moderation_note = note or None
-    review.moderated_at = datetime.now(timezone.utc)
+    review.moderated_at = datetime.now(UTC)
     review.moderated_by_id = session["user_id"]
     db.session.commit()
     record_audit("review.moderate", target_type="review", target_id=review_id, detail=decision)
@@ -712,6 +798,28 @@ def admin_moderate_review(review_id):
     )
     return redirect(url_for("admin.dashboard"))
 
+
+@orders_bp.post("/admin/review-reports/<int:report_id>/resolve")
+@admin_required
+def admin_resolve_review_report(report_id):
+    """Close one review abuse report as reviewed or dismissed."""
+    report = db.session.get(ReviewReport, report_id)
+    decision = request.form.get("decision", "")
+    if decision not in {"reviewed", "dismissed"}:
+        abort(400)
+    resolved = resolve_review_report(report, decision, current_session_user())
+    if resolved is None:
+        abort(404)
+    record_audit(
+        "review_report.resolve", target_type="review_report", target_id=report_id, detail=decision
+    )
+    flash(
+        gettext("Report marked as reviewed.")
+        if decision == "reviewed"
+        else gettext("Report dismissed."),
+        "success",
+    )
+    return redirect(url_for("admin.dashboard"))
 
 @orders_bp.route("/admin/promotions", methods=["GET", "POST"])
 @admin_required
@@ -1402,7 +1510,7 @@ def admin_assign_rider(order_id):
             return redirect(url_for("admin.dashboard"))
         order.rider_id = rider.id
         order.delivery_status = "assigned"
-        order.assigned_at = datetime.now(timezone.utc)
+        order.assigned_at = datetime.now(UTC)
         order.delivery_note = None
         flash(gettext("Rider assigned to this delivery."), "success")
     else:

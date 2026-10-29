@@ -1,8 +1,8 @@
 """Human customer support cases; AI chat transcripts are never stored here."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_babel import gettext
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -11,7 +11,6 @@ from ..extensions import db
 from ..models import SupportConversation, SupportMessage
 from ..security import admin_required, current_session_user, customer_required
 from ..services.notifications import notify
-
 
 support_bp = Blueprint("support", __name__)
 _CATEGORIES = {"order", "delivery", "returns", "account", "product", "other"}
@@ -41,7 +40,7 @@ def customer_cases():
         if not 3 <= len(subject) <= 160 or not 1 <= len(body) <= 5000 or category not in _CATEGORIES:
             flash(gettext("Add a short subject, a message under 5,000 characters, and a valid topic."), "error")
         else:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             case = SupportConversation(user_id=user.id, subject=subject,
                                       category=category, status="open",
                                       created_at=now, updated_at=now)
@@ -83,7 +82,7 @@ def reply(case_id):
     elif case.status == "closed" and not is_staff:
         flash(gettext("This case is closed. Start a new support request if you still need help."), "error")
     else:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         case.messages.append(SupportMessage(sender_user_id=user.id,
                                             sender_role="staff" if is_staff else "customer",
                                             body=body, created_at=now))

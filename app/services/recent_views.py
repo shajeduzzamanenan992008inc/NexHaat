@@ -1,11 +1,11 @@
 """Bounded customer tracking for recently viewed products."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from ..extensions import db
-from ..models import Product, RecentViewedProduct
+from ..models import Category, Product, RecentViewedProduct
 
 MAX_RECENT_PRODUCTS = 8
 RECENT_VIEW_RETENTION_DAYS = 30
@@ -21,7 +21,7 @@ def _trim_recent_views_for_user(user_id, *, limit=MAX_RECENT_PRODUCTS):
         for row in rows[limit:]:
             db.session.delete(row)
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=RECENT_VIEW_RETENTION_DAYS)
+    cutoff = datetime.now(UTC) - timedelta(days=RECENT_VIEW_RETENTION_DAYS)
     expired = db.session.scalars(
         select(RecentViewedProduct).where(
             RecentViewedProduct.user_id == user_id,
@@ -39,7 +39,7 @@ def record_recent_view(user, product):
     if getattr(product, "is_available", None) is False:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     row = db.session.scalar(
         select(RecentViewedProduct).where(
             RecentViewedProduct.user_id == user.id,
@@ -66,8 +66,10 @@ def recent_products_for_user(user, *, limit=MAX_RECENT_PRODUCTS):
     return db.session.scalars(
         select(Product)
         .join(RecentViewedProduct, RecentViewedProduct.product_id == Product.id)
+        .join(Category, Category.id == Product.category_id)
         .where(
             RecentViewedProduct.user_id == user.id,
+            Category.is_active.is_(True),
             Product.is_available.is_(True),
             Product.moderation_status == "approved",
         )

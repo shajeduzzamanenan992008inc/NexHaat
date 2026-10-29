@@ -1,6 +1,6 @@
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
 from flask import Blueprint, current_app, g, jsonify, request
@@ -9,14 +9,22 @@ from sqlalchemy.orm import selectinload
 
 from ...extensions import csrf, db
 from ...models import Order, TelegramAccountLinkChallenge, TelegramIdentity, User
-from ...services.audit import record_audit
 from ...services.cart import (
-    CartError, add_customer_cart_item, customer_cart_rows,
+    CartError,
+    add_customer_cart_item,
+    customer_cart_rows,
     update_customer_cart_item,
 )
-from ...services.catalog import get_active_categories, get_catalog_products, get_product_by_slug, search_products
+from ...services.catalog import (
+    get_active_categories,
+    get_catalog_products,
+    get_product_by_slug,
+)
 from ..common import (
-    answer_callback, credentials_ready, receive_update, send_message,
+    answer_callback,
+    credentials_ready,
+    receive_update,
+    send_message,
     valid_webhook_secret,
 )
 
@@ -155,7 +163,7 @@ def _create_link_code(telegram_user_id):
     )
     if identity:
         return None, "linked"
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     challenge = db.session.scalar(
         select(TelegramAccountLinkChallenge)
         .where(TelegramAccountLinkChallenge.telegram_user_id == telegram_user_id)
@@ -164,9 +172,9 @@ def _create_link_code(telegram_user_id):
     sent_at = challenge.sent_at if challenge else None
     expires_at = challenge.expires_at if challenge else None
     if sent_at and sent_at.tzinfo is None:
-        sent_at = sent_at.replace(tzinfo=timezone.utc)
+        sent_at = sent_at.replace(tzinfo=UTC)
     if expires_at and expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        expires_at = expires_at.replace(tzinfo=UTC)
     if (
         challenge and challenge.consumed_at is None and expires_at and expires_at > now
         and sent_at and (now - sent_at).total_seconds() < 60

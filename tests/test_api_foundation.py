@@ -11,8 +11,15 @@ from app.api.responses import (
 from app.api.serializers import category_to_dict, product_to_dict
 from app.extensions import db
 from app.models import (
-    AdminLoginChallenge, Category, CustomerProfile, Order, Product, ProductVariant,
-    RegistrationChallenge, Review, SellerProfile, User,
+    AdminLoginChallenge,
+    Category,
+    CustomerProfile,
+    Order,
+    Product,
+    RegistrationChallenge,
+    Review,
+    SellerProfile,
+    User,
 )
 
 
@@ -122,6 +129,7 @@ def test_api_catalog_search_filters_and_paginates(client, app):
             Product(
                 category=category, name="Golden Kiwi", slug="api-golden-kiwi",
                 description="Fresh fruit", price=Decimal("3.50"), stock_quantity=4,
+                image="https://media.example.test/catalog/golden-kiwi.webp",
                 is_available=True, moderation_status="approved",
             ),
             Product(
@@ -150,11 +158,13 @@ def test_api_catalog_search_filters_and_paginates(client, app):
     assert response.status_code == 200
     payload = response.get_json()
     assert [item["name"] for item in payload["data"]] == ["Golden Kiwi"]
+    assert payload["data"][0]["image"] == "https://media.example.test/catalog/golden-kiwi.webp"
     assert payload["pagination"] == {"page": 1, "limit": 1, "total": 2}
 
     detail = client.get(f"/api/v1/products/{visible_product_id}")
     assert detail.status_code == 200
     assert detail.get_json()["data"]["name"] == "Golden Kiwi"
+    assert detail.get_json()["data"]["image"] == "https://media.example.test/catalog/golden-kiwi.webp"
     search = client.get("/api/v1/search?q=kiwi&sort=price_desc")
     assert [item["name"] for item in search.get_json()["data"][:2]] == ["Green Kiwi", "Golden Kiwi"]
     category_page = client.get("/api/v1/categories/api-pantry")

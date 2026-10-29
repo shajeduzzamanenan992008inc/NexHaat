@@ -1,15 +1,21 @@
 """Opt-in, in-app product alerts with a one-per-customer daily cap."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import event, exists, inspect, insert, or_, select, update, union
+from sqlalchemy import event, exists, insert, inspect, or_, select, union, update
 
 from ..extensions import db
 from ..models import (
-    AIPreferences, CustomerCartItem, Notification, Order, OrderItem, Product,
-    ProductVariant, RecentViewedProduct, User, WishlistItem,
+    AIPreferences,
+    CustomerCartItem,
+    Notification,
+    Order,
+    Product,
+    ProductVariant,
+    RecentViewedProduct,
+    User,
+    WishlistItem,
 )
-
 
 _SMART_ALERT_LINK = "from=ai-alert"
 _TRACKED_PRODUCT_FIELDS = {"price", "discount_price", "stock_quantity", "is_available"}
@@ -19,7 +25,7 @@ _TRACKED_VARIANT_FIELDS = {"price", "stock_quantity", "is_active"}
 def _emit_opted_in_alerts(connection, product_id, slug):
     if not slug:
         return 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     interested = union(
         select(WishlistItem.user_id.label("user_id")).where(WishlistItem.product_id == product_id),
         select(CustomerCartItem.user_id.label("user_id")).where(CustomerCartItem.product_id == product_id),
@@ -89,7 +95,7 @@ def send_smart_notification_digest(*, limit=200, now=None):
     Run from a daily scheduler. This deterministic job never calls an AI provider,
     sends email, or stores shopping conversation data.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     limit = max(1, min(int(limit), 1000))
     preferences = db.session.scalars(
         select(AIPreferences).join(User, User.id == AIPreferences.user_id)
@@ -108,7 +114,7 @@ def send_smart_notification_digest(*, limit=200, now=None):
         if cart_item is not None:
             updated_at = cart_item.updated_at
             if updated_at.tzinfo is None:
-                updated_at = updated_at.replace(tzinfo=timezone.utc)
+                updated_at = updated_at.replace(tzinfo=UTC)
             old_cart = updated_at <= now - timedelta(days=1)
 
         kind = "cart" if old_cart else "recommendation"
@@ -116,7 +122,7 @@ def send_smart_notification_digest(*, limit=200, now=None):
                           else preference.last_recommendation_notification_at)
         if last_kind_sent is not None:
             if last_kind_sent.tzinfo is None:
-                last_kind_sent = last_kind_sent.replace(tzinfo=timezone.utc)
+                last_kind_sent = last_kind_sent.replace(tzinfo=UTC)
             if last_kind_sent > now - timedelta(days=7):
                 totals["skipped"] += 1
                 continue

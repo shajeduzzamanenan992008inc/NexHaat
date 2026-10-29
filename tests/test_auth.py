@@ -1,16 +1,23 @@
-from app.extensions import db
-from io import BytesIO
 import struct
 import tempfile
 import zlib
+from datetime import UTC
+from io import BytesIO
 from pathlib import Path
-
-from app.models import (
-    AccountInvitation, AdminLoginChallenge, AdminProfile, Category, CustomerAddress, CustomerProfile,
-    Product,
-    RiderProfile, SellerProfile, User,
-)
 from unittest.mock import patch
+
+from app.extensions import db
+from app.models import (
+    AccountInvitation,
+    AdminLoginChallenge,
+    AdminProfile,
+    Category,
+    CustomerProfile,
+    Product,
+    RiderProfile,
+    SellerProfile,
+    User,
+)
 
 
 def tiny_png():
@@ -228,7 +235,7 @@ def test_admin_otp_request_is_gated_and_code_is_single_use(client, app):
 
 
 def test_admin_otp_rejects_wrong_and_expired_codes(client, app):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     client.application.config.update(
         WTF_CSRF_ENABLED=False,
@@ -255,7 +262,7 @@ def test_admin_otp_rejects_wrong_and_expired_codes(client, app):
             challenge_id = browser_session["admin_login_challenge_id"]
         with app.app_context():
             challenge = db.session.get(AdminLoginChallenge, challenge_id)
-            challenge.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            challenge.expires_at = datetime.now(UTC) - timedelta(seconds=1)
             db.session.commit()
         expired = client.post(
             "/auth/verify-admin-login", data={"code": "222222"},
@@ -303,7 +310,7 @@ def test_admin_otp_locks_after_five_wrong_attempts(client, app):
 
 
 def test_admin_otp_resend_obeys_cooldown_and_rotates_code(client, app):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     client.application.config.update(
         WTF_CSRF_ENABLED=False,
@@ -329,7 +336,7 @@ def test_admin_otp_resend_obeys_cooldown_and_rotates_code(client, app):
             challenge_id = browser_session["admin_login_challenge_id"]
         with app.app_context():
             challenge = db.session.get(AdminLoginChallenge, challenge_id)
-            challenge.sent_at = datetime.now(timezone.utc) - timedelta(seconds=61)
+            challenge.sent_at = datetime.now(UTC) - timedelta(seconds=61)
             db.session.commit()
         client.post("/auth/resend-admin-login-code")
         assert codes == ["444444", "555555"]
@@ -910,7 +917,7 @@ def test_admin_can_update_profile_and_logout(client, app, login_admin):
     assert response.status_code == 302
 def test_admin_otp_request_after_cooldown_with_existing_challenge_stays_valid(client, app):
     """A repeat Admin code request must not error and must rotate to one active challenge."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     client.application.config.update(
         WTF_CSRF_ENABLED=False,
@@ -926,8 +933,8 @@ def test_admin_otp_request_after_cooldown_with_existing_challenge_stays_valid(cl
             id="stale-admin-challenge",
             user_id=admin.id,
             code_hash="a" * 64,
-            sent_at=datetime.now(timezone.utc) - timedelta(days=2),
-            expires_at=datetime.now(timezone.utc) - timedelta(days=2),
+            sent_at=datetime.now(UTC) - timedelta(days=2),
+            expires_at=datetime.now(UTC) - timedelta(days=2),
             failed_attempts=0,
         )
         db.session.add(stale)
@@ -1155,8 +1162,9 @@ def test_ensure_admin_promotes_configured_customer_and_allows_otp_login(client, 
 
 
 def test_brevo_configuration_check_is_read_only_and_hides_sender(app):
-    from app.services.mail import check_brevo_configuration
     from unittest.mock import Mock, patch
+
+    from app.services.mail import check_brevo_configuration
 
     account = Mock(status_code=200)
     senders = Mock(status_code=200)
@@ -1178,8 +1186,9 @@ def test_brevo_configuration_check_is_read_only_and_hides_sender(app):
 
 
 def test_brevo_configuration_check_rejects_invalid_key_without_sender_request(app):
-    from app.services.mail import check_brevo_configuration
     from unittest.mock import Mock, patch
+
+    from app.services.mail import check_brevo_configuration
 
     response = Mock(status_code=401)
     with patch("app.services.mail.requests.get", return_value=response) as get:
@@ -1192,8 +1201,9 @@ def test_brevo_configuration_check_rejects_invalid_key_without_sender_request(ap
 
 
 def test_brevo_configuration_check_tests_key_when_sender_is_missing(app):
-    from app.services.mail import check_brevo_configuration
     from unittest.mock import Mock, patch
+
+    from app.services.mail import check_brevo_configuration
 
     response = Mock(status_code=200)
     with patch("app.services.mail.requests.get", return_value=response) as get:

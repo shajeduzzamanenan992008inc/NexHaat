@@ -1,8 +1,7 @@
 import hmac
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request
-from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -10,7 +9,10 @@ from ...extensions import csrf, db
 from ...models import AuditEvent, AuthThrottle
 from ...services.audit import record_audit
 from ..common import (
-    answer_callback, credentials_ready, receive_update, send_message,
+    answer_callback,
+    credentials_ready,
+    receive_update,
+    send_message,
     valid_webhook_secret,
 )
 
@@ -34,8 +36,8 @@ def _allowed_admin_ids():
 
 def _format_time(value):
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _event_lines(events):
@@ -63,7 +65,7 @@ def _health_text():
 
 
 def _security_summary():
-    since = datetime.now(timezone.utc) - timedelta(hours=1)
+    since = datetime.now(UTC) - timedelta(hours=1)
     denied_count = db.session.scalar(
         select(func.count(AuditEvent.id)).where(
             AuditEvent.action == "auth.admin_login_denied",
@@ -71,7 +73,7 @@ def _security_summary():
         )
     ) or 0
     blocked_count = db.session.scalar(
-        select(func.count(AuthThrottle.key_hash)).where(AuthThrottle.blocked_until > datetime.now(timezone.utc))
+        select(func.count(AuthThrottle.key_hash)).where(AuthThrottle.blocked_until > datetime.now(UTC))
     ) or 0
     severity = "high" if denied_count >= 10 else "attention" if denied_count else "not elevated"
     return (

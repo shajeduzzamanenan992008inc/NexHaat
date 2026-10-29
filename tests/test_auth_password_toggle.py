@@ -8,7 +8,6 @@ input swallows the click and "show password" silently does nothing.
 import re
 from pathlib import Path
 
-
 CSS_PATH = Path("app/static/css/auth.css")
 JS_PATH = Path("app/static/js/auth.js")
 

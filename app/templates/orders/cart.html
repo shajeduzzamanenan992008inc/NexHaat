@@ -67,6 +67,18 @@
     action="{{ url_for('orders.remove_from_cart', product_id=row.product.id) }}" hidden><input type="hidden"
       name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="variant_id"
       value="{{ row.variant_id or '' }}"></form>{% endfor %}
+  {% if cross_sell %}
+  <section class="section-block" aria-labelledby="cart-suggestions-heading">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">{{ _('Popular with shoppers like you') }}</p>
+        <h2 id="cart-suggestions-heading">{{ _('You might also like') }}</h2>
+      </div>
+    </div>
+    <div class="product-grid">{% for product in cross_sell %}{% include "_product_card.html" %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
   {% else %}
   <div class="empty-state"><strong>{{ _('Your cart is ready for something good') }}</strong>{{ _('Explore local listings and add an item to get started.') }}<p><a class="button" href="{{ url_for('main.menu') }}">{{ _('Explore marketplace') }}</a></p>
   </div>

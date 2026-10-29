@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from ..extensions import db
-
 
 DELIVERY_STATUSES = (
     "unassigned",
@@ -70,7 +69,7 @@ class Order(db.Model):
     delivered_at = db.Column(db.DateTime(timezone=True), nullable=True)
     delivery_proof = db.Column(db.String(500), nullable=True)
     delivery_note = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), nullable=False)
     __table_args__ = (
         db.CheckConstraint("total >= 0", name="ck_order_total_nonnegative"),
         db.CheckConstraint("delivery_fee >= 0", name="ck_order_delivery_fee_nonnegative"),
@@ -110,14 +109,14 @@ class Order(db.Model):
     def return_deadline(self):
         if self.delivered_at is None:
             return None
-        return self.delivered_at.astimezone(timezone.utc) + timedelta(days=max(0, int(self.return_window_days_snapshot or 0)))
+        return self.delivered_at.astimezone(UTC) + timedelta(days=max(0, int(self.return_window_days_snapshot or 0)))
 
     @property
     def is_return_eligible(self):
         if self.status != "delivered" or self.delivered_at is None:
             return False
         deadline = self.return_deadline
-        return deadline is not None and datetime.now(timezone.utc) <= deadline
+        return deadline is not None and datetime.now(UTC) <= deadline
 
 
 class OrderReturn(db.Model):
@@ -133,12 +132,12 @@ class OrderReturn(db.Model):
     review_note = db.Column(db.String(500), nullable=True)
     provider_refund_id = db.Column(db.String(80), nullable=True, index=True)
     manual_refund_reference = db.Column(db.String(120), nullable=True)
-    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
     reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     resolved_at = db.Column(db.DateTime(timezone=True), nullable=True)

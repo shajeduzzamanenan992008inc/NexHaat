@@ -1,7 +1,15 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Category, CustomerProfile, Notification, Order, OrderItem, Product, RiderProfile, User
+from app.models import (
+    Category,
+    CustomerProfile,
+    Notification,
+    Order,
+    Product,
+    RiderProfile,
+    User,
+)
 
 
 def csrf_off(client):
@@ -32,7 +40,11 @@ def test_service_creates_and_reads_notifications(app):
     with app.app_context():
         user = make_customer()
         from app.services.notifications import (
-            mark_all_read, mark_read, notifications_for, notify, unread_count,
+            mark_all_read,
+            mark_read,
+            notifications_for,
+            notify,
+            unread_count,
         )
 
         first = notify(user.id, "Order received", type="order", link="/orders/FB-1")

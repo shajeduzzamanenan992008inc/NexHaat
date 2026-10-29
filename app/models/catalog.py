@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from urllib.parse import urlparse
 
@@ -9,11 +9,11 @@ from ..extensions import db
 
 
 class CatalogTimestampMixin:
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), nullable=False)
     updated_at = db.Column(
         db.DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
 
@@ -54,7 +54,7 @@ class Category(CatalogTimestampMixin, db.Model):
         parsed = urlparse(value)
         if parsed.scheme and parsed.scheme not in {"http", "https"}:
             raise ValueError("Image must be an HTTP(S) URL or a relative path.")
-        if value.startswith("//") or value.startswith("data:"):
+        if value.startswith(("//", "data:")):
             raise ValueError("Unsafe image reference.")
         return value
 
@@ -65,7 +65,7 @@ class RecentViewedProduct(CatalogTimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
-    viewed_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), index=True)
+    viewed_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), index=True)
     __table_args__ = (
         db.UniqueConstraint("user_id", "product_id", name="uq_recently_viewed_user_product"),
         db.Index("ix_recently_viewed_user_viewed_at", "user_id", "viewed_at"),
@@ -111,6 +111,15 @@ class Product(CatalogTimestampMixin, db.Model):
             name="ck_product_moderation_status_valid",
         ),
         db.Index("ix_products_available_featured_name", "is_available", "is_featured", "name"),
+        # Composite indexes backing public discovery facets and weighted search.
+        # Declared here so ``create_all`` (tests, local development) and the
+        # Alembic revision define the same names and column order.
+        db.Index(
+            "ix_products_public_category_price",
+            "category_id", "is_available", "moderation_status", "price",
+        ),
+        db.Index("ix_products_public_brand", "brand_name", "is_available", "moderation_status"),
+        db.Index("ix_products_public_seller", "seller_id", "is_available", "moderation_status"),
     )
 
     category = db.relationship("Category", back_populates="products")
@@ -231,7 +240,7 @@ class Product(CatalogTimestampMixin, db.Model):
         parsed = urlparse(value)
         if parsed.scheme and parsed.scheme not in {"http", "https"}:
             raise ValueError("Image must be an HTTP(S) URL or a relative path.")
-        if value.startswith("//") or value.startswith("data:"):
+        if value.startswith(("//", "data:")):
             raise ValueError("Unsafe image reference.")
         return value
 
@@ -311,7 +320,7 @@ class PromotionCode(CatalogTimestampMixin, db.Model):
     minimum_order_amount = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     max_discount_amount = db.Column(db.Numeric(10, 2), nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
-    starts_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    starts_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
     usage_limit = db.Column(db.Integer, nullable=True)
     used_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
@@ -392,7 +401,7 @@ class PromotionRedemption(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     checkout_group = db.Column(db.String(40), nullable=False)
     discount_amount = db.Column(db.Numeric(10, 2), nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     __table_args__ = (
         db.UniqueConstraint("promotion_id", "checkout_group", name="uq_promotion_redemption_checkout"),
         db.CheckConstraint("discount_amount >= 0", name="ck_promotion_redemption_amount_nonnegative"),

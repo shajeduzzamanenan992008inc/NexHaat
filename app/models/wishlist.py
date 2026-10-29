@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..extensions import db
 
@@ -15,7 +15,7 @@ class WishlistItem(db.Model):
     product_id = db.Column(
         db.Integer, db.ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), nullable=False)
     __table_args__ = (
         db.UniqueConstraint("user_id", "product_id", name="uq_wishlist_user_product"),
         db.Index("ix_wishlist_user_created", "user_id", "created_at"),

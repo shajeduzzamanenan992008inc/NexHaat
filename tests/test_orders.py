@@ -5,8 +5,17 @@ from sqlalchemy import select
 
 from app.extensions import db
 from app.models import (
-    Category, CustomerCartItem, CustomerProfile, Order, OrderItem, OutboundEmail, Product,
-    ProductTranslation, ProductVariant, SellerProfile, User,
+    Category,
+    CustomerCartItem,
+    CustomerProfile,
+    Order,
+    OrderItem,
+    OutboundEmail,
+    Product,
+    ProductTranslation,
+    ProductVariant,
+    SellerProfile,
+    User,
 )
 from app.services.mail import send_order_confirmation, send_order_status
 

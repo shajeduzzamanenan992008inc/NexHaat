@@ -1,0 +1,16 @@
+# Keep one canonical line ending (LF) in the repository. The deployed runtime is
+# Linux and CI runs on Linux, so normalising here avoids CRLF-only diffs.
+* text=auto eol=lf
+
+# Binary assets are never line-ending converted.
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary

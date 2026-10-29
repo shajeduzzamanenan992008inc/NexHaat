@@ -13,8 +13,10 @@
     data-static-href="{{ url_for('static', filename='logo.svg', v='20261005') }}"
     href="{{ url_for('static', filename='favicon.gif', v='20261005') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css', v='20261001_linkhover1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/marketplace.css', v='20261001_aug3') }}">
   {% block extra_head %}{% endblock %}
   <script src="{{ url_for('static', filename='js/site.js', v='20261005') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/search-suggestions.js', v='20261010') }}" defer></script>
 </head>
 
 <body class="{% block body_class %}site-body{% endblock %}">

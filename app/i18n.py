@@ -1,6 +1,5 @@
 from flask import current_app, g, request, session
 
-
 SUPPORTED_LOCALES = {
     "en_US": "English (US)",
     "bn_BD": "বাংলা",

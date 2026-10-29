@@ -3,28 +3,32 @@
 import hmac
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import Blueprint, current_app, request, session
-from flask_wtf.csrf import generate_csrf
 from flask_login import logout_user
+from flask_wtf.csrf import generate_csrf
 from sqlalchemy import select
-from werkzeug.security import check_password_hash
 
 from ...extensions import db
-from ...models import AdminLoginChallenge, CustomerProfile, RegistrationChallenge, SellerProfile, User
+from ...i18n import SUPPORTED_LOCALES
+from ...models import (
+    AdminLoginChallenge,
+    CustomerProfile,
+    RegistrationChallenge,
+    SellerProfile,
+    User,
+)
 from ...security import (
     clear_login_failures,
     current_session_user,
     login_is_throttled,
     record_login_failure,
 )
-from ...i18n import SUPPORTED_LOCALES
 from ...services.audit import record_audit
 from ..errors import ApiError
 from ..responses import created_response, success_response
 from ..serializers import user_to_dict
-
 
 auth_api = Blueprint("api_auth", __name__, url_prefix="/auth")
 
@@ -93,7 +97,6 @@ def register():
 
 @auth_api.post("/register/verify")
 def verify_registration():
-    from ...i18n import SUPPORTED_LOCALES
     from ...routes.auth import (
         REGISTRATION_CODE_MAX_ATTEMPTS,
         _as_utc,
@@ -102,7 +105,7 @@ def verify_registration():
 
     challenge_id = session.get("registration_challenge_id")
     challenge = db.session.get(RegistrationChallenge, challenge_id) if challenge_id else None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = _as_utc(challenge.expires_at) if challenge else None
     if not challenge or challenge.consumed_at or not expires or expires < now:
         if challenge:
@@ -217,7 +220,7 @@ def request_admin_code():
     if login_is_throttled(remote_addr):
         raise ApiError("Too many attempts. Try again later.", "RATE_LIMITED", 429)
     user = db.session.scalar(select(User).where(User.email == email)) if email else None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if user and user.role == "admin" and user.is_active and _staff_email_ready():
         latest = db.session.scalar(
             select(AdminLoginChallenge)
@@ -277,7 +280,7 @@ def verify_admin_code():
     challenge_id = session.get("admin_login_challenge_id")
     challenge = db.session.get(AdminLoginChallenge, challenge_id) if challenge_id else None
     user = db.session.get(User, challenge.user_id) if challenge else None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = _as_utc(challenge.expires_at) if challenge else None
     valid_challenge = bool(
         challenge and challenge.consumed_at is None and expires and expires >= now

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
@@ -18,11 +18,11 @@ def _alert_text(event):
     summary, severity = messages.get(event.action, ("A recorded security event occurred", "NOTICE"))
     created_at = event.created_at
     if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
+        created_at = created_at.replace(tzinfo=UTC)
     return (
         "NexHaat Security Alert\n"
         f"Event: {summary}\nSeverity: {severity}\n"
-        f"Time: {created_at.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+        f"Time: {created_at.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')}"
     )
 
 
@@ -52,7 +52,7 @@ def deliver_telegram_security_alerts(limit=50):
         record.attempts += 1
         if all(results):
             record.status = "sent"
-            record.sent_at = datetime.now(timezone.utc)
+            record.sent_at = datetime.now(UTC)
             delivered += 1
         elif record.attempts >= MAX_ALERT_ATTEMPTS:
             record.status = "failed"

@@ -1,27 +1,39 @@
 """Checkout payment, refund, expiration, and seller-settlement workflows."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
-from flask import current_app
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from ..extensions import db
 from ..models import (
-    Order, OrderReturn, Payment, PaymentAttempt, PaymentRefund, SellerLedgerEntry, SellerPayout, User,
+    Order,
+    OrderReturn,
+    Payment,
+    PaymentAttempt,
+    PaymentRefund,
+    SellerLedgerEntry,
+    SellerPayout,
+    User,
 )
 from .audit import record_audit
 from .sslcommerz import (
     SSLCOMMERZError,
     create_hosted_session,
     gateway_is_configured,
-    initiate_refund as provider_initiate_refund,
     normalized_decimal,
-    query_refund as provider_query_refund,
-    query_transaction as provider_query_transaction,
     validate_transaction,
+)
+from .sslcommerz import (
+    initiate_refund as provider_initiate_refund,
+)
+from .sslcommerz import (
+    query_refund as provider_query_refund,
+)
+from .sslcommerz import (
+    query_transaction as provider_query_transaction,
 )
 
 
@@ -30,13 +42,13 @@ class PaymentError(ValueError):
 
 
 def utc_now():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def normalize_utc(value):
     if value is None:
         return None
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def order_return_deadline(order, *, now=None):

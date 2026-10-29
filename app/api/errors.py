@@ -7,7 +7,6 @@ from werkzeug.exceptions import HTTPException
 
 from .responses import error_response
 
-
 logger = logging.getLogger(__name__)
 
 

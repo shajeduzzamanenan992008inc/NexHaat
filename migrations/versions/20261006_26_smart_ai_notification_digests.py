@@ -1,9 +1,8 @@
 """Add per-kind throttles for opt-in smart notification digests."""
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy import inspect
-
 
 revision = "20261006_26"
 down_revision = "20261006_25"

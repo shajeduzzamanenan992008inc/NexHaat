@@ -1,16 +1,25 @@
+from datetime import UTC
 from decimal import Decimal
 from io import BytesIO
-import json
+from pathlib import Path
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from flask import current_app
 from sqlalchemy import inspect, text
 
 from app.ai.admin_tools import (
-    get_product_performance_tool, get_review_spam_risk_tool,
-    get_support_conversation_summaries_tool, handle_admin_ai_query,
+    get_product_performance_tool,
+    get_review_spam_risk_tool,
+    get_support_conversation_summaries_tool,
+    handle_admin_ai_query,
 )
-from app.ai.core.permissions import AI_SCOPE_CUSTOMER, AI_SCOPE_SECURITY, AI_SCOPE_SELLER
+from app.ai.core.permissions import (
+    AI_SCOPE_CUSTOMER,
+    AI_SCOPE_SECURITY,
+    AI_SCOPE_SELLER,
+)
 from app.ai.core.provider import AIService, OpenAICompatibleProvider
 from app.ai.core.tools import ToolRegistry
 from app.ai.marketplace_tools import build_customer_tool_registry
@@ -18,11 +27,23 @@ from app.ai.security_tools import build_security_tool_registry
 from app.ai.seller_tools import build_seller_tool_registry
 from app.extensions import db
 from app.models import (
-    AIPreferences, AuditEvent, Category, CustomerCartItem, CustomerProfile,
-    Notification, Product, ProductVariant, RecentViewedProduct, Review,
-    SellerProfile, SupportConversation, SupportMessage, User, WishlistItem,
+    AIPreferences,
+    AuditEvent,
+    Category,
+    CustomerCartItem,
+    Notification,
+    Product,
+    RecentViewedProduct,
+    Review,
+    SellerProfile,
+    SupportConversation,
+    SupportMessage,
+    User,
+    WishlistItem,
 )
-from app.services.ai_notifications import _emit_opted_in_alerts, send_smart_notification_digest
+from app.services.ai_notifications import (
+    send_smart_notification_digest,
+)
 from app.services.cart import add_customer_cart_item
 from app.services.personalization import personalized_products_for_user
 
@@ -161,11 +182,11 @@ def test_pending_review_risk_only_flags_for_human_moderation(app):
 
 
 def test_smart_notification_digest_is_opt_in_and_rate_capped(app):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
     with app.app_context():
         customer = _user("customer", "cart-reminder")
         product = _product()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         db.session.add(AIPreferences(user_id=customer.id, smart_notifications_enabled=True))
         db.session.add(CustomerCartItem(user_id=customer.id, product_id=product.id,
                                         item_key=str(product.id), quantity=1,
@@ -183,7 +204,7 @@ def test_smart_notification_digest_is_opt_in_and_rate_capped(app):
 
 
 def test_smart_notification_digest_recommends_only_after_customer_signal(app):
-    from datetime import datetime, timezone
+    from datetime import datetime
     with app.app_context():
         customer = _user("customer", "recommendation-notice")
         viewed = _product("Viewed Product", "viewed-product")
@@ -191,7 +212,7 @@ def test_smart_notification_digest_recommends_only_after_customer_signal(app):
         db.session.add_all([
             AIPreferences(user_id=customer.id, smart_notifications_enabled=True),
             RecentViewedProduct(user_id=customer.id, product_id=viewed.id,
-                                viewed_at=datetime.now(timezone.utc)),
+                                viewed_at=datetime.now(UTC)),
         ])
         db.session.commit()
         result = send_smart_notification_digest()
@@ -239,9 +260,11 @@ def test_support_summaries_redact_personal_data_and_cases_are_owner_scoped(app, 
         result = get_support_conversation_summaries_tool(user=admin)
         assert "[email removed]" in result[0]["messages"][0]["text"]
         assert "[phone removed]" in result[0]["messages"][0]["text"]
-        other_id = other.id
-    _sign_in(client, other)
-    response = client.get(f"/support/{case_id}")
+
+        # Sign in as the second customer while the row is still attached, then
+        # confirm the support case stays scoped to its owner.
+        _sign_in(client, other)
+        response = client.get(f"/support/{case_id}")
     assert response.status_code == 404
 
 
@@ -443,11 +466,12 @@ def test_security_assistant_is_numeric_allowlist_scoped_and_read_only(app):
 
 
 def test_security_summary_flags_admin_activity_for_human_review(app):
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from app.ai.security_tools import get_security_summary_tool
     with app.app_context():
         current_app.config["TELEGRAM_SECURITY_ADMIN_IDS"] = "34567"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         db.session.add_all([
             AuditEvent(action="admin.settings.updated", actor_role="admin", created_at=now)
             for _ in range(50)
@@ -554,4 +578,11 @@ def test_migration_reaches_single_head_with_ai_and_support_tables(tmp_path):
         columns = {item["name"] for item in inspect(db.engine).get_columns("ai_preferences")}
         assert {"last_cart_reminder_at", "last_recommendation_notification_at"} <= columns
         heads = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
-        assert heads == ["20261006_26"]
+        migrations_dir = Path(__file__).resolve().parents[1] / "migrations"
+        alembic_config = Config(str(migrations_dir / "alembic.ini"))
+        alembic_config.set_main_option("script_location", str(migrations_dir))
+        expected_heads = list(ScriptDirectory.from_config(alembic_config).get_heads())
+        # The migrated database must sit on exactly the script directory's heads,
+        # which also proves the revision graph has a single head.
+        assert len(expected_heads) == 1
+        assert heads == expected_heads

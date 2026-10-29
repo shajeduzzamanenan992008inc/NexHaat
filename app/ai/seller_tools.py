@@ -1,13 +1,13 @@
 """Seller-scope tools for reviewed suggestions and seller-owned analytics."""
 
-from datetime import datetime, timedelta, timezone
-from difflib import SequenceMatcher
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from difflib import SequenceMatcher
 
 from sqlalchemy import func, select
 
 from ..extensions import db
-from ..models import Order, OrderItem, Product, ProductVariant, User
+from ..models import Order, OrderItem, Product
 from ..services.catalog import get_active_categories, get_catalog_products
 from .core.permissions import AI_SCOPE_SELLER
 from .core.tools import ToolRegistry
@@ -53,14 +53,13 @@ def get_seller_listing_context_tool(user=None, product_id=None, title="", descri
         if product is None:
             raise ValueError("Product not found in this seller's catalog.")
     categories = [item.name for item in get_active_categories()[:100]]
-    payload = {
+    return {
         "existing_product": _product_dict(product) if product else None,
         "draft_title": str(title or "")[:160],
         "draft_description": str(description or "")[:3000],
         "valid_categories": categories,
         "instructions": "Return suggestions only. The seller must review and save them through the normal product form.",
     }
-    return payload
 
 
 def get_seller_insights_tool(user=None, **_kwargs):
@@ -164,7 +163,7 @@ def find_seller_duplicates_tool(user=None, product_id=None, title="", descriptio
 def get_seller_inventory_forecast_tool(user=None, days=30, **_kwargs):
     seller = _seller(user)
     days = max(7, min(int(days), 90))
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     current_start = now - timedelta(days=days)
     prior_start = current_start - timedelta(days=days)
     products = db.session.scalars(select(Product).where(Product.seller_id == seller.id)).all()

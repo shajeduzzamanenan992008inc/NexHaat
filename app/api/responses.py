@@ -10,7 +10,6 @@ Error:     {"success": false, "error": {"code": "...", "message": "..."}}
 
 from flask import jsonify, request
 
-
 API_PATH_PREFIX = "/api/"
 
 

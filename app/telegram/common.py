@@ -1,7 +1,7 @@
 import hmac
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import requests
 from flask import current_app, jsonify
@@ -34,7 +34,7 @@ def valid_webhook_secret(bot_name, supplied):
 
 
 def _claim_update(bot_name, update_id):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     record = db.session.scalar(
         select(ProcessedTelegramUpdate).where(
             ProcessedTelegramUpdate.bot_name == bot_name,
@@ -67,7 +67,7 @@ def _claim_update(bot_name, update_id):
 
     updated_at = record.updated_at
     if updated_at.tzinfo is None:
-        updated_at = updated_at.replace(tzinfo=timezone.utc)
+        updated_at = updated_at.replace(tzinfo=UTC)
     if record.state == "processed":
         return False
     if record.state == "processing" and now - updated_at < PROCESSING_RETRY_AFTER:
@@ -88,7 +88,7 @@ def _finish_update(bot_name, update_id, succeeded):
     )
     if record is not None:
         record.state = "processed" if succeeded else "failed"
-        record.updated_at = datetime.now(timezone.utc)
+        record.updated_at = datetime.now(UTC)
         db.session.commit()
 
 

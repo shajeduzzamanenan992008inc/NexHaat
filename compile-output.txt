@@ -1,0 +1,1 @@
+In C:\Users\enan9\AppData\Roaming\Python\Python315\site-packages\_editable_impl_enan_ultra_telegram_ai.pth: D:\FTP\Telegram-Bot\src does not exist; skipping sys.path append

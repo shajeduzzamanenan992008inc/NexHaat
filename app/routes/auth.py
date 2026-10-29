@@ -1,43 +1,69 @@
-import re
 import hashlib
 import hmac
+import re
 import secrets
 import time
-from datetime import datetime, timedelta, timezone
-
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
-from flask import Blueprint, abort, current_app, flash, jsonify, make_response, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_babel import get_locale, gettext
 from flask_login import login_user, logout_user
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
+
 from ..extensions import db
 from ..i18n import SUPPORTED_LOCALES
 from ..models import (
-    AccountInvitation, AdminLoginChallenge, AdminProfile, CustomerAddress, CustomerProfile,
-    RegistrationChallenge, TelegramAccountLinkChallenge, TelegramIdentity,
-    RiderProfile, SellerProfile, User,
+    AccountInvitation,
+    AdminLoginChallenge,
+    AdminProfile,
+    CustomerAddress,
+    CustomerProfile,
+    RegistrationChallenge,
+    RiderProfile,
+    SellerProfile,
+    TelegramAccountLinkChallenge,
+    TelegramIdentity,
+    User,
 )
-from ..services.profiles import customer_profile_image_url, ensure_customer_profile
 from ..security import (
     admin_required as admin_account_required,
+)
+from ..security import (
     clear_login_failures,
-    customer_required,
     current_session_user,
+    customer_required,
     login_is_throttled,
+    record_login_failure,
+    reset_code_digest,
     role_dashboard_url,
     role_required,
-    record_login_failure,
     save_raster_upload,
 )
 from ..services.audit import record_audit
 from ..services.mail import (
-    queue_account_invitation, queue_admin_login_code, queue_password_reset_code,
+    queue_account_invitation,
+    queue_admin_login_code,
+    queue_password_reset_code,
     queue_registration_code,
 )
-
+from ..services.phone import normalize_bangladesh_phone
+from ..services.profiles import customer_profile_image_url, ensure_customer_profile
+from ..services.sms import send_phone_otp, verify_phone_otp
 
 auth_bp = Blueprint("auth", __name__)
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -190,7 +216,7 @@ REGISTRATION_CODE_MAX_ATTEMPTS = 5
 
 
 def _create_registration_challenge(email, role, password, profile_data):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     db.session.execute(
         delete(RegistrationChallenge).where(
             (RegistrationChallenge.expires_at < now)
@@ -231,7 +257,7 @@ def _registration_challenge():
 @auth_bp.route("/verify-registration", methods=["GET", "POST"])
 def verify_registration():
     challenge = _registration_challenge()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = _as_utc(challenge.expires_at) if challenge else None
     active = bool(challenge and challenge.consumed_at is None and expires and expires >= now)
     if not active:
@@ -304,7 +330,7 @@ def verify_registration():
 @auth_bp.post("/resend-registration-code")
 def resend_registration_code():
     challenge = _registration_challenge()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if (
         challenge and challenge.consumed_at is None
         and _as_utc(challenge.expires_at) >= now
@@ -322,17 +348,15 @@ def resend_registration_code():
     return redirect(url_for("auth.verify_registration"))
 
 
-def _reset_code_digest(code):
-    secret = current_app.secret_key
-    if isinstance(secret, str):
-        secret = secret.encode("utf-8")
-    return hmac.new(secret, code.encode("utf-8"), hashlib.sha256).hexdigest()
+# Shared helper, imported from app.security so services never import this
+# route module. Alias kept for existing callers and tests.
+_reset_code_digest = reset_code_digest
 
 
 def _as_utc(value):
     if value is None:
         return None
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def _password_length_error(password):
@@ -368,7 +392,7 @@ def link_telegram_account():
             .where(TelegramAccountLinkChallenge.code_digest == _telegram_link_code_digest(code))
             .with_for_update()
         )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = _as_utc(challenge.expires_at) if challenge else None
     if (
         not challenge or challenge.consumed_at is not None or not expires or expires < now
@@ -500,7 +524,7 @@ def admin_login():
             if not (user and user.role in {"admin", "super_admin", "support"} and user.is_active):
                 admin_missing = True
             elif _staff_email_ready():
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 latest = db.session.scalar(
                     select(AdminLoginChallenge)
                     .where(AdminLoginChallenge.user_id == user.id)
@@ -578,7 +602,7 @@ def verify_admin_login():
             return redirect(url_for("auth.admin_login"))
 
         challenge = _admin_login_challenge()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = _as_utc(challenge.expires_at) if challenge else None
         user = db.session.get(User, challenge.user_id) if challenge else None
         challenge_active = bool(
@@ -637,7 +661,7 @@ def verify_admin_login():
 @auth_bp.post("/resend-admin-login-code")
 def resend_admin_login_code():
     challenge = _admin_login_challenge()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = _as_utc(challenge.expires_at) if challenge else None
     user = db.session.get(User, challenge.user_id) if challenge else None
     eligible = bool(
@@ -691,7 +715,7 @@ def _active_invitation(token):
     )
     if (
         not invitation or invitation.accepted_at
-        or _as_utc(invitation.expires_at) <= datetime.now(timezone.utc)
+        or _as_utc(invitation.expires_at) <= datetime.now(UTC)
     ):
         return None
     return invitation
@@ -739,7 +763,7 @@ def accept_invitation(token):
             else:
                 user.admin_profile = AdminProfile(full_name=name)
             db.session.add(user)
-            invitation.accepted_at = datetime.now(timezone.utc)
+            invitation.accepted_at = datetime.now(UTC)
             db.session.commit()
             flash(gettext("Your account is ready. Sign in to continue."), "success")
             return redirect(url_for("auth.login"))
@@ -768,7 +792,7 @@ def create_staff_invitation():
     if not _staff_email_ready():
         flash(gettext("Staff invitations need a configured email provider and sender address."), "error")
         return redirect(url_for("admin.dashboard"))
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     existing = db.session.scalar(
         select(AccountInvitation).where(
             AccountInvitation.email == email,
@@ -806,7 +830,7 @@ def create_staff_invitation():
 @admin_account_required
 def resend_staff_invitation(invitation_id):
     invitation = db.session.get(AccountInvitation, invitation_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if not invitation or invitation.accepted_at:
         abort(404)
     if not _staff_email_ready():
@@ -839,7 +863,7 @@ def revoke_staff_invitation(invitation_id):
     invitation = db.session.get(AccountInvitation, invitation_id)
     if not invitation or invitation.accepted_at:
         abort(404)
-    invitation.expires_at = datetime.now(timezone.utc)
+    invitation.expires_at = datetime.now(UTC)
     db.session.commit()
     flash(gettext("The account invitation was revoked."), "success")
     return redirect(url_for("admin.dashboard"))
@@ -854,7 +878,7 @@ def forgot_password():
         reset_user_id = None
         expires_at = time.time() + 600
         if user and user.is_active and user.role != "admin" and EMAIL_PATTERN.match(email):
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             sent_at = _as_utc(user.password_reset_sent_at)
             previous_expiry = _as_utc(user.password_reset_expires_at)
             token_still_valid = bool(user.password_reset_hash and previous_expiry and previous_expiry > now)
@@ -908,7 +932,7 @@ def verify_reset_code():
         expires = _as_utc(user.password_reset_expires_at) if user else None
         valid_token = bool(
             user and user.is_active and user.role != "admin"
-            and user.password_reset_hash and expires and expires >= datetime.now(timezone.utc)
+            and user.password_reset_hash and expires and expires >= datetime.now(UTC)
         )
         digest = _reset_code_digest(code)
         if not valid_token or not hmac.compare_digest(digest, user.password_reset_hash):
@@ -954,7 +978,7 @@ def reset_password():
     if (
         not reset or not reset.get("verified") or reset.get("expires_at", 0) < time.time()
         or not user or user.role == "admin" or not user.password_reset_hash or not expires
-        or expires < datetime.now(timezone.utc)
+        or expires < datetime.now(UTC)
     ):
         session.pop("password_reset", None)
         flash(gettext("Please verify a valid password reset code first."), "error")
@@ -1057,6 +1081,74 @@ def change_password():
         session.clear()
         flash(gettext("Your password was changed. Sign in again on this device."), "success")
         return redirect(url_for("auth.login"))
+    return redirect(url_for("auth.account"))
+
+
+@auth_bp.post("/account/phone/verify/request")
+@customer_required
+def request_phone_verification():
+    user = db.session.get(User, session["user_id"])
+    profile = ensure_customer_profile(user)
+    normalized = normalize_bangladesh_phone(profile.phone)
+    if not normalized:
+        flash(gettext("Add a valid Bangladesh phone number to your account first."), "error")
+        return redirect(url_for("auth.account"))
+
+    if not current_app.config.get("SMS_ENABLED"):
+        flash(gettext("Phone verification via SMS is not available at this time."), "error")
+        return redirect(url_for("auth.account"))
+
+    success, error_code = send_phone_otp(normalized, purpose="verify_phone", user_id=user.id)
+    if success:
+        flash(gettext("A verification code has been sent to your phone."), "success")
+    else:
+        if error_code == "RATE_LIMITED":
+            flash(gettext("Too many attempts. Please try again later."), "error")
+        elif error_code == "RESEND_COOLDOWN":
+            flash(gettext("Please wait before requesting another code."), "error")
+        elif error_code == "INVALID_PHONE":
+            flash(gettext("Add a valid Bangladesh phone number to your account first."), "error")
+        else:
+            flash(gettext("We could not send a verification code. Please try again later."), "error")
+    return redirect(url_for("auth.account"))
+
+
+@auth_bp.post("/account/phone/verify/confirm")
+@customer_required
+def confirm_phone_verification():
+    user = db.session.get(User, session["user_id"])
+    profile = ensure_customer_profile(user)
+    normalized = normalize_bangladesh_phone(profile.phone)
+    if not normalized:
+        flash(gettext("Add a valid Bangladesh phone number to your account first."), "error")
+        return redirect(url_for("auth.account"))
+
+    if not current_app.config.get("SMS_ENABLED"):
+        flash(gettext("Phone verification via SMS is not available at this time."), "error")
+        return redirect(url_for("auth.account"))
+
+    code = request.form.get("phone_code", "").strip()
+    success, error_code = verify_phone_otp(normalized, code, purpose="verify_phone")
+    if success:
+        from datetime import datetime, UTC
+
+        profile.phone_verified_at = datetime.now(UTC)
+        db.session.commit()
+        record_audit("account.phone_verified", actor=user)
+        flash(gettext("Your phone number has been verified."), "success")
+    else:
+        if error_code == "RATE_LIMITED":
+            flash(gettext("Too many attempts. Please try again later."), "error")
+        elif error_code == "CODE_EXPIRED":
+            flash(gettext("This verification code has expired. Request a new one."), "error")
+        elif error_code == "CODE_LOCKED":
+            flash(gettext("Too many incorrect attempts. Request a new verification code."), "error")
+        elif error_code == "INVALID_CODE":
+            flash(gettext("The verification code is incorrect."), "error")
+        elif error_code == "INVALID_PHONE":
+            flash(gettext("Add a valid Bangladesh phone number to your account first."), "error")
+        else:
+            flash(gettext("We could not verify the code. Please try again."), "error")
     return redirect(url_for("auth.account"))
 
 

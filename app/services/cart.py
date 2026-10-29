@@ -2,7 +2,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from ..extensions import db
-from ..models import CustomerCartItem, Product, ProductVariant
+from ..models import CustomerCartItem, Product
 
 
 class CartError(ValueError):
@@ -182,3 +182,32 @@ def merge_guest_cart(user_id, guest_cart):
         db.session.commit()
     else:
         db.session.rollback()
+
+
+def reorder_order_items(user_id, order, *, limit=20):
+    """Re-add a past order's still-purchasable items, clamped to current stock.
+
+    Returns ``(added, skipped)``. Prices and availability come from the live
+    catalog because checkout never trusts a previous order snapshot.
+    """
+    added = 0
+    skipped = 0
+    entries = [item for item in order.items if item.product_id is not None][:limit]
+    for item in entries:
+        try:
+            _upsert_item(
+                user_id,
+                item.product_id,
+                item.variant_id,
+                max(1, min(int(item.quantity or 1), 20)),
+                clamp=True,
+            )
+        except (CartError, ValueError):
+            skipped += 1
+            continue
+        added += 1
+    if added:
+        db.session.commit()
+    else:
+        db.session.rollback()
+    return added, skipped

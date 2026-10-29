@@ -1,8 +1,8 @@
 """Session-cart, checkout, customer-order, and seller-order API routes."""
 
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
 import re
+from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, current_app, request, session, url_for
 from flask_babel import gettext
@@ -10,32 +10,40 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from ...extensions import db
-from ...models import Category, Order, Payment, Product, ProductTranslation, ProductVariant
 from ...i18n import SUPPORTED_LOCALES
-from ...routes.orders import _cart_key, cart_rows, parse_quantity
+from ...models import Category, Order, Payment, Product, ProductTranslation
+from ...routes.orders import cart_rows
 from ...security import current_session_user
 from ...services.audit import record_audit
 from ...services.cart import (
-    CartError, add_customer_cart_item, clear_customer_cart,
-    remove_customer_cart_item, update_customer_cart_item,
+    CartError,
+    add_customer_cart_item,
+    clear_customer_cart,
+    remove_customer_cart_item,
+    update_customer_cart_item,
 )
 from ...services.checkout import CheckoutError, create_checkout_orders
-from ...services.payments import (
-    PaymentError, begin_payment_attempt, cancel_order_with_refund,
-    expire_pending_payments, normalize_utc, request_order_return,
-)
-from ...services.sslcommerz import gateway_is_configured
 from ...services.mail import queue_order_status
 from ...services.notifications import notify
 from ...services.orders import transition_order
+from ...services.payments import (
+    PaymentError,
+    begin_payment_attempt,
+    cancel_order_with_refund,
+    expire_pending_payments,
+    normalize_utc,
+    request_order_return,
+)
 from ...services.promotions import (
-    PromotionError, allocate_discount_shares, calculate_discount_for_order,
+    PromotionError,
+    allocate_discount_shares,
+    calculate_discount_for_order,
     get_active_promotion,
 )
+from ...services.sslcommerz import gateway_is_configured
 from ..errors import ApiError
 from ..responses import created_response, success_response
 from ..serializers import order_to_dict, product_to_dict
-
 
 commerce_api = Blueprint("api_commerce", __name__)
 
@@ -287,7 +295,7 @@ def customer_payment_status(checkout_group):
     can_retry = bool(
         payment.status == "pending"
         and (latest is None or latest.status in {"failed", "cancelled", "expired"})
-        and normalize_utc(payment.expires_at) > datetime.now(timezone.utc)
+        and normalize_utc(payment.expires_at) > datetime.now(UTC)
         and gateway_is_configured()
     )
     return success_response({

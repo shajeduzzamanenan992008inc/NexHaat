@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import re
+from dataclasses import dataclass
 
 from .logging import log_ai_event
 from .permissions import has_ai_scope
-
 
 _TOOL_NAME = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 
@@ -144,9 +143,10 @@ def _validate_value(value, rule):
         raise ValueError("A tool argument has the wrong type.")
     if "enum" in rule and value not in rule["enum"]:
         raise ValueError("A tool argument is outside the allowed values.")
-    if isinstance(value, str):
-        if len(value) > int(rule.get("maxLength", 400)) or len(value) < int(rule.get("minLength", 0)):
-            raise ValueError("A tool argument has an invalid length.")
+    if isinstance(value, str) and (
+        len(value) > int(rule.get("maxLength", 400)) or len(value) < int(rule.get("minLength", 0))
+    ):
+        raise ValueError("A tool argument has an invalid length.")
     if isinstance(value, list):
         if len(value) > int(rule.get("maxItems", 10)) or len(value) < int(rule.get("minItems", 0)):
             raise ValueError("A tool argument has an invalid item count.")
@@ -155,7 +155,6 @@ def _validate_value(value, rule):
                 _validate_value(item, rule["items"])
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         import math
-
         from decimal import Decimal
 
         if isinstance(value, float) and not math.isfinite(value):

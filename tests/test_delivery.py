@@ -1,7 +1,7 @@
-from decimal import Decimal
-from io import BytesIO
 import struct
 import zlib
+from decimal import Decimal
+from io import BytesIO
 
 from app.extensions import db
 from app.models import Order, RiderProfile, User

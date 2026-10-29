@@ -2,26 +2,33 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from decimal import Decimal, InvalidOperation
 import re
 import time
+from collections import Counter
+from decimal import Decimal, InvalidOperation
 
 from flask import current_app, has_app_context
 from sqlalchemy import func, select
 
 from ..extensions import db
 from ..models import (
-    AppSetting, Order, OrderItem, Product, ProductVariant, Review, User,
+    AppSetting,
+    Order,
+    OrderItem,
+    Product,
+    Review,
 )
-from ..services.cart import CartError, customer_cart_rows
-from ..services.catalog import get_active_categories, get_catalog_products, get_product_by_slug
+from ..services.ai_rate_limit import consume_ai_request
+from ..services.cart import customer_cart_rows
+from ..services.catalog import (
+    get_active_categories,
+    get_catalog_products,
+    get_product_by_slug,
+)
+from .core.guardrails import redact_personal_data
 from .core.permissions import AI_SCOPE_CUSTOMER
 from .core.provider import AIService
 from .core.tools import ToolRegistry
-from .core.guardrails import redact_personal_data
-from ..services.ai_rate_limit import consume_ai_request
-
 
 _DECIMAL_LIMIT = Decimal("100000000")
 _SEARCH_SCHEMA = {

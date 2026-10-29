@@ -3,8 +3,12 @@
 from flask import Blueprint, abort, redirect, render_template, url_for
 
 from ..security import current_session_user
-from ..services.notifications import mark_all_read, mark_read, notifications_for, unread_count
-
+from ..services.notifications import (
+    mark_all_read,
+    mark_read,
+    notifications_for,
+    unread_count,
+)
 
 notifications_bp = Blueprint("notifications", __name__)
 

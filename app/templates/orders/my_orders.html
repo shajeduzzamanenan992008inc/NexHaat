@@ -35,6 +35,12 @@
           <td>{% if order.payment %}<span class="status-pill status-pill--{{ order.payment.status }}">{{ _(order.payment.status|replace('_', ' ')|capitalize) }}</span>{% else %}{{ _('Cash on delivery') }}{% endif %}</td>
           <td><strong>৳{{ '%.2f'|format(order.total) }}</strong></td>
           <td>
+            {% if order.items and order.status not in ('cancelled', 'declined') %}
+            <form method="post" action="{{ url_for('orders.buy_again', order_number=order.order_number) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="button-secondary button-small" type="submit">{{ _('Buy again') }}</button>
+            </form>
+            {% endif %}
             {% if order.status in ('pending', 'confirmed') %}
             <form method="post" action="{{ url_for('orders.customer_order_cancel', order_number=order.order_number) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-secondary button-small" type="submit">{{ _('Cancel order') }}</button>

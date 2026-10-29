@@ -1,16 +1,15 @@
-from pathlib import Path
 import re
 import secrets
 import time
 import zipfile
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import click
-
 from flask import Flask, g, render_template, session
 from flask_babel import get_locale
-from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy import func, inspect, text
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .api import register_api
 from .api.responses import error_response, is_api_request
@@ -38,9 +37,8 @@ def create_app(config_object=None):
     babel.init_app(app, locale_selector=get_request_locale)
 
     from .models import AdminProfile, AppSetting, CustomerProfile, User  # noqa: F401
-    from .services import ai_notifications  # noqa: F401 - register opt-in product alert hooks
-    from .routes.auth import admin_login, auth_bp
     from .routes.ai import ai_bp
+    from .routes.auth import admin_login, auth_bp
     from .routes.main import main_bp
     from .routes.notifications import notifications_bp
     from .routes.orders import orders_bp
@@ -48,9 +46,10 @@ def create_app(config_object=None):
     from .routes.seller import seller_bp
     from .routes.support import support_bp
     from .routes.wishlist import wishlist_bp
+    from .security import current_session_user
+    from .services import ai_notifications  # noqa: F401 - register opt-in product alert hooks
     from .telegram.customer import telegram_customer_bp
     from .telegram.security import telegram_security_bp
-    from .security import current_session_user
 
     app.register_blueprint(main_bp)
     app.register_blueprint(ai_bp)
@@ -185,7 +184,6 @@ def create_app(config_object=None):
     @click.option("--email", prompt=True)
     @click.option("--name", prompt=True)
     def create_admin(email, name):
-        from .models import AdminProfile, User
 
         if User.query.filter_by(email=email.lower().strip()).first():
             raise click.ClickException("An account with this email already exists.")

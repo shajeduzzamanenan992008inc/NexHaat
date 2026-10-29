@@ -1,7 +1,6 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..extensions import db
-
 
 NOTIFICATION_TYPES = ("order", "delivery", "account", "system")
 
@@ -20,7 +19,7 @@ class Notification(db.Model):
     # Optional in-app destination (a relative path such as /orders/FB-...).
     link = db.Column(db.String(500), nullable=True)
     is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), nullable=False)
     __table_args__ = (
         db.CheckConstraint(
             "type IN ('order', 'delivery', 'account', 'system')",

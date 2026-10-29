@@ -19,9 +19,8 @@ logger = logging.getLogger(__name__)
 
 def _send(template, subject, recipients, attachments=None, locale=None, **context):
     request_context = nullcontext() if has_request_context() else current_app.test_request_context("/")
-    with request_context:
-        with force_locale(locale or current_app.config.get("BABEL_DEFAULT_LOCALE", "en_US")):
-            return _send_for_locale(template, subject, recipients, attachments, context)
+    with request_context, force_locale(locale or current_app.config.get("BABEL_DEFAULT_LOCALE", "en_US")):
+        return _send_for_locale(template, subject, recipients, attachments, context)
 
 
 def _send_for_locale(template, subject, recipients, attachments, context):
@@ -118,14 +117,13 @@ def _max_attempts():
 def _render_message(template, subject, locale, attachments, context):
     """Render an email in the target locale and encode any attachments."""
     request_context = nullcontext() if has_request_context() else current_app.test_request_context("/")
-    with request_context:
-        with force_locale(locale or current_app.config.get("BABEL_DEFAULT_LOCALE", "en_US")):
-            rendered_subject = str(subject) if not isinstance(subject, str) else gettext(subject)
-            try:
-                html = render_template(f"email/{template}.html", **context)
-            except Exception:
-                html = render_template(f"email/{template}.txt", **context)
-            encoded = _encode_attachments(attachments)
+    with request_context, force_locale(locale or current_app.config.get("BABEL_DEFAULT_LOCALE", "en_US")):
+        rendered_subject = str(subject) if not isinstance(subject, str) else gettext(subject)
+        try:
+            html = render_template(f"email/{template}.html", **context)
+        except Exception:
+            html = render_template(f"email/{template}.txt", **context)
+        encoded = _encode_attachments(attachments)
     return rendered_subject, html, encoded
 
 

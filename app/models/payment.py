@@ -1,6 +1,6 @@
 """Payment, refund, and seller-settlement records."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..extensions import db
 
@@ -19,11 +19,11 @@ class Payment(db.Model):
     paid_at = db.Column(db.DateTime(timezone=True), nullable=True)
     expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
     created_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     updated_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     __table_args__ = (
@@ -64,11 +64,11 @@ class PaymentAttempt(db.Model):
     risk_level = db.Column(db.Integer, nullable=True)
     expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
     created_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     updated_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     __table_args__ = (
@@ -101,11 +101,11 @@ class PaymentRefund(db.Model):
     status = db.Column(db.String(20), nullable=False, default="initiating", server_default="initiating")
     reason = db.Column(db.String(255), nullable=False)
     created_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     updated_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     __table_args__ = (
@@ -135,7 +135,7 @@ class SellerPayout(db.Model):
         db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
     __table_args__ = (db.CheckConstraint("amount > 0", name="ck_seller_payouts_amount_positive"),)
@@ -166,7 +166,7 @@ class SellerLedgerEntry(db.Model):
     idempotency_key = db.Column(db.String(100), nullable=False, unique=True)
     eligible_at = db.Column(db.DateTime(timezone=True), nullable=True, index=True)
     created_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
     __table_args__ = (

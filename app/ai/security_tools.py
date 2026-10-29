@@ -1,6 +1,6 @@
 """Read-only security intelligence tools, reachable only via the numeric allowlist."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from flask import current_app
 from sqlalchemy import func, select, text
@@ -12,7 +12,6 @@ from ..services.ai_rate_limit import consume_ai_request
 from .core.permissions import AI_SCOPE_SECURITY
 from .core.provider import AIService
 from .core.tools import ToolRegistry
-
 
 ADMIN_ROLES = ("admin", "super_admin", "support")
 LOGIN_ACTIONS = ("auth.login", "auth.admin_login", "auth.admin_login_denied")
@@ -31,7 +30,7 @@ def _authorized(user):
 
 def get_security_summary_tool(user=None, **_kwargs):
     _authorized(user)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     since = now - timedelta(hours=24)
     denied = db.session.scalar(select(func.count(AuditEvent.id)).where(
         AuditEvent.action == "auth.admin_login_denied", AuditEvent.created_at >= since
@@ -85,21 +84,21 @@ def get_system_health_tool(user=None, **_kwargs):
         "ai_enabled": bool(current_app.config.get("AI_ENABLED")),
         "customer_bot_configured": bool(current_app.config.get("TELEGRAM_CUSTOMER_BOT_TOKEN")),
         "security_bot_configured": bool(current_app.config.get("TELEGRAM_SECURITY_BOT_TOKEN")),
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
 
 
 def get_failed_login_analysis_tool(user=None, hours=24, **_kwargs):
     _authorized(user)
     hours = max(1, min(int(hours), 168))
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
     counts = db.session.execute(
         select(AuditEvent.action, func.count(AuditEvent.id))
         .where(AuditEvent.action.in_(LOGIN_ACTIONS), AuditEvent.created_at >= since)
         .group_by(AuditEvent.action)
     ).all()
     blocked = db.session.scalar(select(func.count(AuthThrottle.key_hash)).where(
-        AuthThrottle.blocked_until > datetime.now(timezone.utc)
+        AuthThrottle.blocked_until > datetime.now(UTC)
     )) or 0
     return {"window_hours": hours, "events_by_action": {str(action): int(count) for action, count in counts},
             "currently_blocked_sources": int(blocked)}
@@ -109,7 +108,7 @@ def get_alert_priorities_tool(user=None, hours=24, **_kwargs):
     """Apply transparent read-only thresholds to recent audit event categories."""
     _authorized(user)
     hours = max(1, min(int(hours), 168))
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
     rows = db.session.execute(
         select(AuditEvent.action, func.count(AuditEvent.id))
         .where(AuditEvent.created_at >= since,

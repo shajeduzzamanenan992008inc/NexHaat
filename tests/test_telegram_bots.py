@@ -2,9 +2,19 @@ from unittest.mock import patch
 
 from app.extensions import db
 from app.models import (
-    AuditEvent, Category, CustomerCartItem, CustomerProfile, Order, Product,
-    ProductVariant, ProcessedTelegramUpdate, TelegramAccountLinkChallenge,
-    TelegramIdentity, TelegramRateLimit, TelegramSecurityAlert, User,
+    AuditEvent,
+    Category,
+    CustomerCartItem,
+    CustomerProfile,
+    Order,
+    ProcessedTelegramUpdate,
+    Product,
+    ProductVariant,
+    TelegramAccountLinkChallenge,
+    TelegramIdentity,
+    TelegramRateLimit,
+    TelegramSecurityAlert,
+    User,
 )
 from app.services.audit import record_audit
 from app.services.telegram_alerts import deliver_telegram_security_alerts

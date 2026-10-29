@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask_login import UserMixin
 from sqlalchemy.orm import validates
@@ -6,16 +6,15 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
 
-
 VALID_USER_ROLES = {"customer", "seller", "rider", "admin", "super_admin", "support"}
 
 
 class TimestampMixin:
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), nullable=False)
     updated_at = db.Column(
         db.DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
 
@@ -95,6 +94,7 @@ class CustomerProfile(TimestampMixin, db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
     full_name = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(30), nullable=False)
+    phone_verified_at = db.Column(db.DateTime(timezone=True), nullable=True)
     profile_image = db.Column(db.String(255), nullable=True)
 
     user = db.relationship("User", back_populates="customer_profile")

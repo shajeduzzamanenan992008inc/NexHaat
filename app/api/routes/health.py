@@ -4,7 +4,6 @@ from flask import Blueprint
 
 from ..responses import success_response
 
-
 health_api = Blueprint("api_health", __name__)
 
 

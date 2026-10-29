@@ -157,6 +157,7 @@ def test_admin_can_deactivate_and_activate_customer(client, app, login_admin):
 
 def test_admin_can_delete_customer_permanently(client, app, login_admin):
     from decimal import Decimal
+
     from app.models import Order
     csrf_off(client)
     with app.app_context():

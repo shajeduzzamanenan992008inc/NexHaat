@@ -1,12 +1,11 @@
-import os
-import logging
 import json
+import logging
+import os
 import re
 from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy.engine import make_url
-
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 logger = logging.getLogger(__name__)
@@ -213,6 +212,16 @@ class Config:
     AI_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("AI_RATE_LIMIT_WINDOW_SECONDS", "60"))
     AI_MAX_TOOL_CALLS = int(os.getenv("AI_MAX_TOOL_CALLS", "5"))
     AI_MAX_CONTEXT_SIZE = int(os.getenv("AI_MAX_CONTEXT_SIZE", "12000"))
+    # SMS Provider Settings (disabled by default)
+    SMS_ENABLED = _env_bool("SMS_ENABLED", False)
+    SMS_PROVIDER = os.getenv("SMS_PROVIDER", "").strip().lower()
+    SMS_API_KEY = os.getenv("SMS_API_KEY", "").strip()
+    SMS_API_SECRET = os.getenv("SMS_API_SECRET", "").strip()
+    SMS_SENDER_ID = os.getenv("SMS_SENDER_ID", "").strip()
+    SMS_TIMEOUT = int(os.getenv("SMS_TIMEOUT", "10"))
+    SMS_FALLBACK_PROVIDER = os.getenv("SMS_FALLBACK_PROVIDER", "").strip().lower() or None
+    SMS_FALLBACK_API_KEY = os.getenv("SMS_FALLBACK_API_KEY", "").strip() or None
+    SMS_MAX_ATTEMPTS = int(os.getenv("SMS_MAX_ATTEMPTS", "3"))
     PREFERRED_URL_SCHEME = "https" if ENVIRONMENT == "production" else "http"
 
 
@@ -229,6 +238,13 @@ class TestingConfig(Config):
     AI_API_KEY = ""
     AI_MODEL = ""
     AI_BASE_URL = ""
+    SMS_ENABLED = False
+    SMS_PROVIDER = ""
+    SMS_API_KEY = ""
+    SMS_API_SECRET = ""
+    SMS_SENDER_ID = ""
+    SMS_FALLBACK_PROVIDER = None
+    SMS_FALLBACK_API_KEY = None
 
 
 def get_config():

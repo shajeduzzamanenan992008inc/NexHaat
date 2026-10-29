@@ -3,6 +3,10 @@
 {% block meta_description %}{{ _('Browse current discounted listings from approved local stores on NexHaat.') }}{%
 endblock %}
 {% block canonical_url %}{{ request.base_url }}{% endblock %}
+{% block extra_head %}
+{% if pagination and pagination.has_prev %}<link rel="prev" href="{{ page_url(pagination.prev_num) }}">{% endif %}
+{% if pagination and pagination.has_next %}<link rel="next" href="{{ page_url(pagination.next_num) }}">{% endif %}
+{% endblock %}
 {% block page_content %}
 <div class="page-shell">
     <header class="page-heading">
@@ -33,6 +37,12 @@ endblock %}
         <div class="form-field"><label for="deal-max">{{ _('Maximum price') }}</label><input id="deal-max"
                 name="max_price" type="number" min="0" step="0.01"
                 value="{{ max_price if max_price is not none else '' }}"></div>
+        <div class="form-field"><label for="deal-rating">{{ _('Minimum rating') }}</label><select id="deal-rating"
+                name="min_rating">
+                <option value="">{{ _('Any rating') }}</option>{% for value in [4, 3, 2, 1] %}<option value="{{ value }}"
+                    {% if min_rating==value %}selected{% endif %}>{{ _('%(count)s stars and up', count=value) }}</option>{%
+                endfor %}
+            </select></div>
         <div class="form-field"><label for="deal-sort">{{ _('Sort by') }}</label><select id="deal-sort" name="sort">{%
                 for value, label in [('newest', _('Newest')), ('featured', _('Featured')), ('price_asc', _('Price: low to high')), ('price_desc', _('Price: high to low'))] %}<option value="{{ value }}" {% if sort==value
                     %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
@@ -44,11 +54,9 @@ endblock %}
         %}</div>
     {% else %}<div class="empty-state"><strong>{{ _('No discounted listings match these filters') }}</strong>{{ _('Check back as local stores add new deals.') }}</div>{% endif %}
     {% if pagination.pages > 1 %}<nav class="pagination" aria-label="{{ _('Deal pages') }}">{% if pagination.has_prev
-        %}<a
-            href="{{ url_for('main.deals', page=pagination.prev_num, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">←</a>{%
+        %}<a rel="prev" href="{{ page_url(pagination.prev_num) }}">←</a>{%
         endif %}<span class="is-current">{{ pagination.page }} / {{ pagination.pages }}</span>{% if pagination.has_next
-        %}<a
-            href="{{ url_for('main.deals', page=pagination.next_num, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">→</a>{%
+        %}<a rel="next" href="{{ page_url(pagination.next_num) }}">→</a>{%
         endif %}</nav>{% endif %}
 </div>
 {% endblock %}

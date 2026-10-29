@@ -1,9 +1,20 @@
 """Customer AI web endpoints. Scope is derived from the authenticated session."""
 
-from io import BytesIO
 from decimal import Decimal
+from io import BytesIO
 
-from flask import Blueprint, abort, current_app, g, jsonify, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import select
 
@@ -11,14 +22,14 @@ from ..ai.core.permissions import AI_SCOPE_CUSTOMER
 from ..ai.core.provider import AIProviderError, AIService
 from ..ai.core.tools import ToolRegistry
 from ..ai.marketplace_tools import (
-    build_customer_tool_registry, get_review_summary_source,
+    build_customer_tool_registry,
+    get_review_summary_source,
     handle_marketplace_ai_query,
 )
 from ..extensions import db
 from ..models import AIPreferences
 from ..security import customer_or_guest_required
 from ..services.ai_rate_limit import consume_ai_request
-
 
 ai_bp = Blueprint("ai", __name__, url_prefix="/ai")
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -186,8 +197,8 @@ def confirm_cart_change():
     if not proposal_id or not isinstance(pending, dict) or pending.get("id") != proposal_id:
         return jsonify(ok=False, answer="This cart suggestion is no longer active. Ask the assistant again."), 400
     if pending.get("action") == "add":
-        from ..models import Product, ProductVariant
         from ..ai.marketplace_tools import _display_price
+        from ..models import Product, ProductVariant
         product = db.session.scalar(select(Product).where(
             Product.id == pending.get("product_id"), Product.is_available.is_(True),
             Product.moderation_status == "approved",
@@ -202,7 +213,11 @@ def confirm_cart_change():
             return jsonify(ok=False, answer="The current price or product option changed. Ask for a fresh cart suggestion."), 409
     # Consume before executing so the signed, session-bound confirmation is one-use.
     session.pop("ai_cart_proposal", None)
-    from ..services.cart import CartError, add_customer_cart_item, update_customer_cart_item
+    from ..services.cart import (
+        CartError,
+        add_customer_cart_item,
+        update_customer_cart_item,
+    )
 
     try:
         action = pending["action"]
@@ -232,7 +247,6 @@ def create_cart_proposal():
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify(ok=False, answer="A cart change proposal is required."), 400
-    action = payload.get("action")
     allowed = {"action", "product_slug", "quantity", "variant_id", "item_key"}
     if set(payload) - allowed:
         return jsonify(ok=False, answer="The cart change has unsupported fields."), 400

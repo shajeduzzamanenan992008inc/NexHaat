@@ -1,6 +1,6 @@
 """Admin operations API, scoped to active administrator accounts."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import Blueprint, request, url_for
 from flask_babel import gettext
@@ -10,22 +10,30 @@ from sqlalchemy.orm import selectinload
 
 from ...extensions import db
 from ...models import (
-    Category, Order, Payment, PaymentRefund, Product, Review, SellerPayout,
-    SellerProfile, User,
+    Category,
+    Order,
+    Payment,
+    PaymentRefund,
+    Product,
+    Review,
+    SellerProfile,
+    User,
 )
+from ...security import current_session_user
 from ...services.audit import record_audit
 from ...services.mail import queue_order_receipt, queue_order_status
 from ...services.notifications import notify
 from ...services.orders import transition_order
 from ...services.payments import (
-    PaymentError, approve_payment_review, cancel_order_with_refund,
-    record_seller_payout, refresh_refund_status, seller_settlement_balance,
+    PaymentError,
+    approve_payment_review,
+    cancel_order_with_refund,
+    record_seller_payout,
+    refresh_refund_status,
 )
-from ...security import current_session_user
 from ..errors import ApiError
 from ..responses import paginated_response, success_response
 from ..serializers import order_to_dict, product_to_dict, review_to_dict, user_to_dict
-
 
 admin_api = Blueprint("api_admin", __name__, url_prefix="/admin")
 
@@ -255,7 +263,7 @@ def moderate_review(review_id):
         raise ApiError("Moderation note must be 500 characters or fewer.", "VALIDATION_ERROR", 422)
     review.status = status
     review.moderation_note = note or None
-    review.moderated_at = datetime.now(timezone.utc)
+    review.moderated_at = datetime.now(UTC)
     review.moderated_by_id = admin.id
     db.session.commit()
     record_audit("review.moderate", actor=admin, target_type="review", target_id=review.id, detail=status)
@@ -279,7 +287,7 @@ def review_seller(profile_id):
         raise ApiError("Review note must be 500 characters or fewer.", "VALIDATION_ERROR", 422)
     profile.approval_status = decision
     profile.review_note = note or None
-    profile.reviewed_at = datetime.now(timezone.utc)
+    profile.reviewed_at = datetime.now(UTC)
     profile.reviewed_by_id = admin.id
     db.session.commit()
     record_audit("seller.review", actor=admin, target_type="seller_profile", target_id=profile.id, detail=decision)
@@ -311,7 +319,7 @@ def moderate_product(product_id):
     product.moderation_status = decision
     product.is_available = decision == "approved"
     product.moderation_note = note or None
-    product.reviewed_at = datetime.now(timezone.utc)
+    product.reviewed_at = datetime.now(UTC)
     product.reviewed_by_id = admin.id
     db.session.commit()
     record_audit("catalog.product_review", actor=admin, target_type="product", target_id=product.id, detail=decision)

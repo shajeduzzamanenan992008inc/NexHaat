@@ -2,6 +2,10 @@
 {% block title %}{{ category.name }} · {{ app_name }}{% endblock %}
 {% block meta_description %}{{ (category.description or _('Discover local products in this category.'))|striptags|truncate(160, true, '') }}{% endblock %}
 {% block canonical_url %}{{ request.base_url }}{% endblock %}
+{% block extra_head %}
+{% if pagination and pagination.has_prev %}<link rel="prev" href="{{ page_url(pagination.prev_num) }}">{% endif %}
+{% if pagination and pagination.has_next %}<link rel="next" href="{{ page_url(pagination.next_num) }}">{% endif %}
+{% endblock %}
 {% block page_content %}
 <div class="page-shell">
   <header class="page-heading">
@@ -31,6 +35,13 @@
       </select></div>
     <div class="form-field"><label for="category-option">{{ _('Product option') }}</label><input id="category-option"
         name="variant_value" maxlength="80" value="{{ variant_value }}"></div>
+    <div class="form-field"><label for="category-rating">{{ _('Minimum rating') }}</label><select id="category-rating"
+        name="min_rating">
+        <option value="">{{ _('Any rating') }}</option>{% for value in [4, 3, 2, 1] %}<option value="{{ value }}" {% if
+          min_rating==value %}selected{% endif %}>{{ _('%(count)s stars and up', count=value) }}</option>{% endfor %}
+      </select></div>
+    <label class="form-field"><span>{{ _('Discounts') }}</span><span><input type="checkbox" name="discount" value="1" {% if
+          discount_only %}checked{% endif %}> {{ _('On sale') }}</span></label>
     <div class="form-field"><label for="category-sort">{{ _('Sort by') }}</label><select id="category-sort"
         name="sort">{% for value, label in [('featured', _('Featured')), ('newest', _('Newest')), ('price_asc',
         _('Price: low to high')), ('price_desc', _('Price: high to low'))] %}<option value="{{ value }}" {% if
@@ -43,10 +54,9 @@
   </div>
   {% else %}<div class="empty-state"><strong>{{ _('No active products in this category') }}</strong>{{ _('Local sellers will appear here as approved listings become available.') }}</div>{% endif %}
   {% if pagination.pages > 1 %}<nav class="pagination" aria-label="{{ _('Category pages') }}">{% if pagination.has_prev
-    %}<a
-      href="{{ url_for('main.category', slug=category.slug, page=pagination.prev_num, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">←</a>{%
+    %}<a rel="prev" href="{{ page_url(pagination.prev_num) }}">←</a>{%
     endif %}<span class="is-current">{{ pagination.page }} / {{ pagination.pages }}</span>{% if pagination.has_next %}<a
-      href="{{ url_for('main.category', slug=category.slug, page=pagination.next_num, min_price=min_price, max_price=max_price, sort=sort, seller_id=selected_seller_id, brand_name=selected_brand_name, in_stock='1' if in_stock else '', variant_value=variant_value) }}">→</a>{%
+      rel="next" href="{{ page_url(pagination.next_num) }}">→</a>{%
     endif %}</nav>{% endif %}
 </div>
 {% endblock %}

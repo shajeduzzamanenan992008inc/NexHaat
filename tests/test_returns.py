@@ -1,17 +1,28 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
 from app.extensions import db
 from app.models import (
-    CustomerProfile, Order, OrderItem, OrderReturn, Payment, PaymentRefund,
-    SellerLedgerEntry, SellerProfile, User,
+    CustomerProfile,
+    Order,
+    OrderItem,
+    OrderReturn,
+    Payment,
+    PaymentRefund,
+    SellerLedgerEntry,
+    SellerProfile,
+    User,
 )
 from app.services import payments as payment_service
 from app.services.payments import (
-    PaymentError, issue_order_return_refund, mark_order_return_received,
-    record_manual_return_refund, request_order_return, review_order_return,
+    PaymentError,
+    issue_order_return_refund,
+    mark_order_return_received,
+    record_manual_return_refund,
+    request_order_return,
+    review_order_return,
     seller_settlement_balance,
 )
 from app.services.sslcommerz import SSLCOMMERZError
@@ -55,7 +66,7 @@ def _delivered_order(customer, *, seller=None, payment_method="cod", total="80.0
         status="delivered",
         delivery_status="delivered",
         user_id=customer.id,
-        delivered_at=datetime.now(timezone.utc) - timedelta(days=1),
+        delivered_at=datetime.now(UTC) - timedelta(days=1),
         return_window_days_snapshot=14,
         commission_amount=Decimal("8.00") if payment_method == "sslcommerz" else None,
     )
@@ -91,7 +102,7 @@ def test_return_request_uses_delivery_window(app):
         status="delivered",
         delivery_status="delivered",
         user_id=customer.id,
-        delivered_at=datetime.now(timezone.utc) - timedelta(days=3),
+        delivered_at=datetime.now(UTC) - timedelta(days=3),
         return_window_days_snapshot=7,
     )
     db.session.add(order)
@@ -123,7 +134,7 @@ def test_return_request_can_be_approved(app):
         status="delivered",
         delivery_status="delivered",
         user_id=customer.id,
-        delivered_at=datetime.now(timezone.utc) - timedelta(days=1),
+        delivered_at=datetime.now(UTC) - timedelta(days=1),
         return_window_days_snapshot=14,
     )
     db.session.add(order)
@@ -171,7 +182,7 @@ def test_online_return_waits_for_provider_confirmation_and_posts_ledger_once(app
         amount=Decimal("80.00"),
         status="paid",
         bank_tran_id="BANK-RETURN-1",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+        expires_at=datetime.now(UTC) + timedelta(minutes=15),
     )
     db.session.add(payment)
     db.session.commit()
@@ -180,12 +191,12 @@ def test_online_return_waits_for_provider_confirmation_and_posts_ledger_once(app
         SellerLedgerEntry(
             seller_id=seller.id, order_id=order.id, payment_id=payment.id,
             entry_type="sale", amount=Decimal("80.00"),
-            idempotency_key=f"test:{order.id}:sale", eligible_at=datetime.now(timezone.utc) - timedelta(days=1),
+            idempotency_key=f"test:{order.id}:sale", eligible_at=datetime.now(UTC) - timedelta(days=1),
         ),
         SellerLedgerEntry(
             seller_id=seller.id, order_id=order.id, payment_id=payment.id,
             entry_type="commission", amount=Decimal("-8.00"),
-            idempotency_key=f"test:{order.id}:commission", eligible_at=datetime.now(timezone.utc) - timedelta(days=1),
+            idempotency_key=f"test:{order.id}:commission", eligible_at=datetime.now(UTC) - timedelta(days=1),
         ),
     ])
     db.session.commit()
@@ -236,7 +247,7 @@ def test_ambiguous_provider_timeout_cannot_be_retried_as_a_new_refund(app, monke
         amount=Decimal("80.00"),
         status="paid",
         bank_tran_id="BANK-RETURN-TIMEOUT",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+        expires_at=datetime.now(UTC) + timedelta(minutes=15),
     )
     db.session.add(payment)
     db.session.commit()
@@ -269,7 +280,7 @@ def test_pending_return_holds_payout_and_rejection_releases_it(app):
     payment = Payment(
         checkout_group="RET-GROUP-HOLD", user_id=customer.id, amount=Decimal("80.00"),
         status="paid", bank_tran_id="BANK-HOLD",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+        expires_at=datetime.now(UTC) + timedelta(minutes=15),
     )
     db.session.add(payment)
     db.session.commit()
@@ -277,7 +288,7 @@ def test_pending_return_holds_payout_and_rejection_releases_it(app):
     db.session.add(SellerLedgerEntry(
         seller_id=seller.id, order_id=order.id, payment_id=payment.id,
         entry_type="sale", amount=Decimal("80.00"), idempotency_key=f"hold:{order.id}",
-        eligible_at=datetime.now(timezone.utc) - timedelta(days=1),
+        eligible_at=datetime.now(UTC) - timedelta(days=1),
     ))
     db.session.commit()
     request = request_order_return(order, actor=customer, reason="Does not fit")

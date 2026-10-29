@@ -4,7 +4,6 @@ from sqlalchemy import select
 from .extensions import db
 from .models import Category
 
-
 STARTER_CATEGORIES = (
     ("Fruits & Vegetables", "fruits-vegetables"),
     ("Meat & Seafood", "meat-seafood"),

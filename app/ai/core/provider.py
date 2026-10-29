@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import time
-import base64
 from urllib.parse import urlsplit
 
 import requests
@@ -12,7 +12,12 @@ import requests
 from .guardrails import redact_personal_data, sanitize_ai_response, sanitize_prompt
 from .logging import log_ai_event
 from .memory import AIMemory
-from .permissions import AI_SCOPE_ADMIN, AI_SCOPE_CUSTOMER, AI_SCOPE_SECURITY, AI_SCOPE_SELLER
+from .permissions import (
+    AI_SCOPE_ADMIN,
+    AI_SCOPE_CUSTOMER,
+    AI_SCOPE_SECURITY,
+    AI_SCOPE_SELLER,
+)
 from .prompts import SYSTEM_PROMPTS
 from .tools import ToolRegistry, parse_tool_arguments
 

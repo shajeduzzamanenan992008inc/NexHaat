@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -12,11 +12,19 @@ from app import create_app
 from app.config import TestingConfig
 from app.extensions import db
 from app.models import (
-    Category, CustomerProfile, Order, Product, PromotionCode, PromotionRedemption,
-    SellerProfile, User,
+    Category,
+    CustomerProfile,
+    Order,
+    Product,
+    PromotionCode,
+    PromotionRedemption,
+    SellerProfile,
+    User,
 )
 from app.services.promotions import (
-    PromotionError, calculate_discount_for_order, get_active_promotion,
+    PromotionError,
+    calculate_discount_for_order,
+    get_active_promotion,
 )
 
 
@@ -31,8 +39,8 @@ def test_promotion_code_applies_percent_discount(app):
                 discount_value=Decimal("10.00"),
                 minimum_order_amount=Decimal("50.00"),
                 is_active=True,
-                starts_at=datetime.now(timezone.utc) - timedelta(days=1),
-                expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                starts_at=datetime.now(UTC) - timedelta(days=1),
+                expires_at=datetime.now(UTC) + timedelta(days=7),
             )
         )
         db.session.commit()
@@ -52,8 +60,8 @@ def test_invalid_promotion_code_is_rejected(app):
                 discount_value=Decimal("20.00"),
                 minimum_order_amount=Decimal("100.00"),
                 is_active=True,
-                starts_at=datetime.now(timezone.utc) - timedelta(days=2),
-                expires_at=datetime.now(timezone.utc) - timedelta(days=1),
+                starts_at=datetime.now(UTC) - timedelta(days=2),
+                expires_at=datetime.now(UTC) - timedelta(days=1),
             )
         )
         db.session.commit()
@@ -76,7 +84,7 @@ def test_seller_deal_is_scoped_and_usage_limited(app):
             discount_type="fixed",
             discount_value=Decimal("15.00"),
             usage_limit=1,
-            starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+            starts_at=datetime.now(UTC) - timedelta(days=1),
         ))
         db.session.commit()
         assert calculate_discount_for_order(Decimal("10.00"), "LOCAL15", seller_id=seller.id) == Decimal("10.00")
@@ -99,7 +107,7 @@ def test_checkout_applies_discount_and_records_redemption(client, app):
         promotion = PromotionCode(
             code="TAKE10", name="Ten percent", discount_type="percent",
             discount_value=Decimal("10.00"), minimum_order_amount=Decimal("10.00"),
-            usage_limit=1, starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+            usage_limit=1, starts_at=datetime.now(UTC) - timedelta(days=1),
         )
         db.session.add_all([customer, product, promotion])
         db.session.commit()
@@ -202,7 +210,7 @@ def test_seller_can_only_manage_own_deals(client, app):
         foreign_deal = PromotionCode(
             seller_id=other.id, campaign_type="seller_deal", code="OTHER5",
             name="Other store deal", discount_type="fixed", discount_value=Decimal("5"),
-            starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+            starts_at=datetime.now(UTC) - timedelta(days=1),
         )
         db.session.add(foreign_deal)
         db.session.commit()

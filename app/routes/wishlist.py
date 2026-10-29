@@ -2,14 +2,22 @@
 
 from urllib.parse import urlsplit
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_babel import gettext
 
 from ..extensions import db
 from ..models import Product
 from ..security import current_session_user
 from ..services.wishlist import add, products_for, remove
-
 
 wishlist_bp = Blueprint("wishlist", __name__)
 

@@ -11,14 +11,13 @@ All blueprint setup happens at import time. ``create_app`` may run many times
 from flask import Blueprint
 
 from .errors import register_error_handlers
-from .routes.auth import auth_api
 from .routes.admin import admin_api
+from .routes.auth import auth_api
 from .routes.catalog import catalog_api
 from .routes.commerce import commerce_api
 from .routes.health import health_api
 from .routes.notifications import notifications_api
 from .routes.wishlist import wishlist_api
-
 
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 

@@ -1,8 +1,8 @@
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
 import pytest
+from PIL import Image
 from werkzeug.datastructures import FileStorage
 
 from app.services.catalog_media import CatalogMediaError, store_catalog_image

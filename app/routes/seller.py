@@ -1,8 +1,18 @@
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
 import re
+from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_babel import gettext
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -10,25 +20,37 @@ from sqlalchemy.orm import selectinload
 
 from ..extensions import db
 from ..i18n import SUPPORTED_LOCALES
-from ..models import Category, Order, OrderReturn, Payment, Product, ProductTranslation, ProductVariant, PromotionCode, SellerPayout, User
-from ..services.catalog_media import CatalogMediaError, store_catalog_image
-from ..services.profiles import apply_password_change, password_change_error
-from ..services.audit import record_audit
-from ..services.mail import queue_order_status
-from ..services.notifications import notify
-from ..services.orders import transition_order
-from ..services.payments import (
-    PaymentError, cancel_order_with_refund, mark_order_return_received,
-    review_order_return, seller_settlement_balance,
+from ..models import (
+    Category,
+    Order,
+    OrderReturn,
+    Payment,
+    Product,
+    ProductTranslation,
+    ProductVariant,
+    PromotionCode,
+    SellerPayout,
 )
-from ..services.promotions import PromotionError, promotion_values_from_form
 from ..security import (
     approved_seller_required,
     current_approved_seller,
     current_session_user,
     role_required,
 )
-
+from ..services.audit import record_audit
+from ..services.catalog_media import CatalogMediaError, store_catalog_image
+from ..services.mail import queue_order_status
+from ..services.notifications import notify
+from ..services.orders import transition_order
+from ..services.payments import (
+    PaymentError,
+    cancel_order_with_refund,
+    mark_order_return_received,
+    review_order_return,
+    seller_settlement_balance,
+)
+from ..services.profiles import apply_password_change, password_change_error
+from ..services.promotions import PromotionError, promotion_values_from_form
 
 seller_bp = Blueprint("seller", __name__)
 MAX_STOCK = 2_147_483_647

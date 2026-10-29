@@ -1,0 +1,8 @@
+In C:\Users\enan9\AppData\Roaming\Python\Python315\site-packages\_editable_impl_enan_ultra_telegram_ai.pth: D:\FTP\Telegram-Bot\src does not exist; skipping sys.path append
+app\routes\auth.py:1133:9: I001 [*] Import block is un-sorted or un-formatted
+tests\test_sms_service.py:2:39: F401 [*] `app.services.sms_adapters.SmsErrorClass` imported but unused
+tests\test_sms_service.py:2:54: F401 [*] `app.services.sms_adapters.SmsResult` imported but unused
+tests\test_sms_service.py:34:9: I001 [*] Import block is un-sorted or un-formatted
+tests\test_sms_service.py:60:9: I001 [*] Import block is un-sorted or un-formatted
+Found 5 errors.
+[*] 5 fixable with `--fix`.

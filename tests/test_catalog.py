@@ -199,9 +199,8 @@ def test_slugs_are_unique(app):
             db.session.commit()
         except Exception:
             db.session.rollback()
-            assert True
         else:
-            assert False, "duplicate category slugs must be rejected"
+            raise AssertionError("duplicate category slugs must be rejected")
 
 
 def test_seller_cannot_read_or_change_another_sellers_product(client, app):

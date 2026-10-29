@@ -12,7 +12,6 @@ from sqlalchemy import func, select, update
 from ..extensions import db
 from ..models import NOTIFICATION_TYPES, Notification
 
-
 logger = logging.getLogger(__name__)
 
 

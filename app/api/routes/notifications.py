@@ -13,7 +13,6 @@ from ..errors import ApiError
 from ..responses import success_response
 from ..serializers import notification_to_dict
 
-
 notifications_api = Blueprint("api_notifications", __name__)
 
 

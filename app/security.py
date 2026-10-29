@@ -2,11 +2,11 @@
 
 import hashlib
 import hmac
-from io import BytesIO
-from functools import wraps
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import warnings
+from datetime import UTC, datetime, timedelta
+from functools import wraps
+from io import BytesIO
+from pathlib import Path
 
 from flask import abort, current_app, g, has_request_context, request, session, url_for
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -16,8 +16,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from werkzeug.datastructures import FileStorage
 
 from .extensions import db
-from .models import AuthThrottle, User
-
+from .models import AuthThrottle, PhoneOtpThrottle, User
 
 IMAGE_TYPES = {
     ".jpg": "jpeg",
@@ -43,6 +42,17 @@ ROLE_PERMISSIONS = {
     "super_admin": {"*"},
     "support": {"order:read", "refund:create", "support:manage"},
 }
+
+
+def reset_code_digest(code):
+    """HMAC-SHA256 digest for verification codes, reset codes and invite tokens.
+
+    Keyed with SECRET_KEY so stored hashes are useless without the app secret.
+    """
+    secret = current_app.secret_key
+    if isinstance(secret, str):
+        secret = secret.encode("utf-8")
+    return hmac.new(secret, code.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def user_has_permission(role_or_user, permission):
@@ -191,6 +201,13 @@ def _login_throttle_key(remote_addr):
     ).hexdigest()
 
 
+def _phone_throttle_key(phone_canonical):
+    secret = current_app.secret_key
+    if isinstance(secret, str):
+        secret = secret.encode("utf-8")
+    return hmac.new(secret, (phone_canonical or "").encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def client_address_hash():
     """Return a keyed hash of the client address, or None outside a request."""
     if not has_request_context():
@@ -201,7 +218,7 @@ def client_address_hash():
 def _utc(value):
     if value is None:
         return None
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def login_is_throttled(remote_addr):
@@ -210,7 +227,25 @@ def login_is_throttled(remote_addr):
     if not throttle or not throttle.blocked_until:
         return False
     blocked_until = _utc(throttle.blocked_until)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
+    if blocked_until > now:
+        return True
+    throttle.failures = 0
+    throttle.blocked_until = None
+    throttle.window_started_at = now
+    db.session.commit()
+    return False
+
+
+def phone_is_throttled(phone_canonical):
+    if not phone_canonical:
+        return False
+    key = _phone_throttle_key(phone_canonical)
+    throttle = db.session.get(PhoneOtpThrottle, key)
+    if not throttle or not throttle.blocked_until:
+        return False
+    blocked_until = _utc(throttle.blocked_until)
+    now = datetime.now(UTC)
     if blocked_until > now:
         return True
     throttle.failures = 0
@@ -222,7 +257,7 @@ def login_is_throttled(remote_addr):
 
 def record_login_failure(remote_addr):
     key = _login_throttle_key(remote_addr)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     reset_before = now - timedelta(minutes=15)
     blocked_until = now + timedelta(minutes=5)
     insert = postgres_insert if db.engine.dialect.name == "postgresql" else sqlite_insert
@@ -252,9 +287,51 @@ def record_login_failure(remote_addr):
     db.session.commit()
 
 
+def record_phone_failure(phone_canonical):
+    if not phone_canonical:
+        return
+    key = _phone_throttle_key(phone_canonical)
+    now = datetime.now(UTC)
+    reset_before = now - timedelta(minutes=15)
+    blocked_until = now + timedelta(minutes=10)
+    insert = postgres_insert if db.engine.dialect.name == "postgresql" else sqlite_insert
+    statement = insert(PhoneOtpThrottle).values(
+        key_hash=key, failures=1, window_started_at=now, blocked_until=None, last_attempt_at=now
+    )
+    expired_window = PhoneOtpThrottle.window_started_at < reset_before
+    statement = statement.on_conflict_do_update(
+        index_elements=[PhoneOtpThrottle.key_hash],
+        set_={
+            "failures": case((expired_window, 1), else_=PhoneOtpThrottle.failures + 1),
+            "window_started_at": case((expired_window, now), else_=PhoneOtpThrottle.window_started_at),
+            "blocked_until": case(
+                (expired_window, None),
+                (PhoneOtpThrottle.failures + 1 >= 10, blocked_until),
+                else_=PhoneOtpThrottle.blocked_until,
+            ),
+            "last_attempt_at": now,
+        },
+    )
+    db.session.execute(statement)
+    db.session.execute(
+        delete(PhoneOtpThrottle)
+        .where(PhoneOtpThrottle.last_attempt_at < now - timedelta(days=1))
+        .execution_options(synchronize_session=False)
+    )
+    db.session.commit()
+
+
 def clear_login_failures(remote_addr):
     key = _login_throttle_key(remote_addr)
     db.session.execute(delete(AuthThrottle).where(AuthThrottle.key_hash == key))
+    db.session.commit()
+
+
+def clear_phone_failures(phone_canonical):
+    if not phone_canonical:
+        return
+    key = _phone_throttle_key(phone_canonical)
+    db.session.execute(delete(PhoneOtpThrottle).where(PhoneOtpThrottle.key_hash == key))
     db.session.commit()
 
 

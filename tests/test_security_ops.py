@@ -71,7 +71,11 @@ def test_failed_admin_code_writes_a_denial_event(client, app):
 
 
 def test_backup_and_restore_round_trip(file_app, tmp_path):
-    from app.services.backup import backup_database, database_size_bytes, restore_database
+    from app.services.backup import (
+        backup_database,
+        database_size_bytes,
+        restore_database,
+    )
 
     with file_app.app_context():
         user = User(email="backup@example.com", role="customer")
@@ -97,9 +101,19 @@ def test_restore_rejects_an_invalid_backup(file_app, tmp_path):
 
     bad = tmp_path / "not-a-database.sqlite3"
     bad.write_bytes(b"this is not a sqlite database")
-    with file_app.app_context():
-        with pytest.raises(RuntimeError):
-            restore_database(bad)
+    with file_app.app_context(), pytest.raises(RuntimeError):
+        restore_database(bad)
+
+
+def test_postgresql_backup_helpers_resolve_their_cli_tools(file_app):
+    """PostgreSQL backup/restore must import shutil before calling shutil.which."""
+    from app.services import backup
+
+    with file_app.app_context(), patch("app.services.backup.shutil.which", return_value=None):
+        with pytest.raises(RuntimeError, match="pg_dump"):
+            backup._pg_backup(Path("backup.sql"))
+        with pytest.raises(RuntimeError, match="psql"):
+            backup._pg_restore(Path("backup.sql"))
 
 
 def test_database_ceiling_is_enforced(file_app):

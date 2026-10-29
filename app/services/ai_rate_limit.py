@@ -1,9 +1,9 @@
 """Database-backed shared AI request limiter with hashed principals."""
 
-from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import time
+from datetime import UTC, datetime, timedelta
 
 from flask import current_app, has_request_context, request
 from sqlalchemy import case, delete
@@ -15,16 +15,16 @@ from ..models import AIRequestWindow
 
 
 def consume_ai_request(scope, user=None, principal=None):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     window_seconds = max(10, min(int(current_app.config.get("AI_RATE_LIMIT_WINDOW_SECONDS", 60)), 3600))
     limit = max(1, min(int(current_app.config.get("AI_RATE_LIMIT", 60)), 10000))
-    bucket_start = datetime.fromtimestamp(int(now.timestamp() // window_seconds) * window_seconds, timezone.utc)
+    bucket_start = datetime.fromtimestamp(int(now.timestamp() // window_seconds) * window_seconds, UTC)
     if principal is not None:
         principal = f"channel:{str(principal)[:120]}"
     else:
         principal = (f"user:{user.id}" if user is not None else
                      f"ip:{request.remote_addr or 'unknown'}" if has_request_context() else "ip:internal")
-    key_material = f"ai-rate:{scope}:{principal}".encode("utf-8")
+    key_material = f"ai-rate:{scope}:{principal}".encode()
     secret = current_app.secret_key
     secret = secret.encode("utf-8") if isinstance(secret, str) else secret
     key_hash = hmac.new(secret or b"nexhaat-ai-rate-limit", key_material, hashlib.sha256).hexdigest()

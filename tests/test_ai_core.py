@@ -1,7 +1,10 @@
 from app.ai.core.permissions import AI_SCOPE_CUSTOMER, AI_SCOPE_SECURITY
 from app.ai.core.provider import AIService
 from app.ai.core.tools import ToolRegistry
-from app.ai.marketplace_tools import build_customer_tool_registry, handle_marketplace_ai_query
+from app.ai.marketplace_tools import (
+    build_customer_tool_registry,
+    handle_marketplace_ai_query,
+)
 from app.models import SupportMessage
 
 

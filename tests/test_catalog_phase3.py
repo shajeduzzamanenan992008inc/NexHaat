@@ -3,8 +3,12 @@ from io import BytesIO
 
 from app.extensions import db
 from app.models import (
-    AdminProfile, Category, Product, ProductTranslation, ProductVariant,
-    SellerProfile, User,
+    AdminProfile,
+    Category,
+    Product,
+    ProductTranslation,
+    SellerProfile,
+    User,
 )
 
 

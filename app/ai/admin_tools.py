@@ -1,8 +1,8 @@
 """Admin-scope read-only tools backed by server-side marketplace aggregates."""
 
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 import re
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import and_, case, func, select
 
@@ -10,9 +10,9 @@ from ..extensions import db
 from ..models import Category, Order, OrderItem, Product, Review, User
 from ..models.catalog import RecentViewedProduct
 from ..models.telegram import CustomerCartItem
+from .core.guardrails import redact_personal_data
 from .core.permissions import AI_SCOPE_ADMIN
 from .core.tools import ToolRegistry
-from .core.guardrails import redact_personal_data
 
 
 def _admin(user):
@@ -24,7 +24,7 @@ def _admin(user):
 def get_sales_summary_tool(user=None, days=7, **_kwargs):
     _admin(user)
     days = max(1, min(int(days), 90))
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     start = now - timedelta(days=days)
     previous = start - timedelta(days=days)
     base = Order.status.notin_(("cancelled", "refunded"))
@@ -50,7 +50,7 @@ def get_sales_summary_tool(user=None, days=7, **_kwargs):
 def get_order_trends_tool(user=None, days=7, **_kwargs):
     _admin(user)
     days = max(1, min(int(days), 90))
-    start = datetime.now(timezone.utc) - timedelta(days=days)
+    start = datetime.now(UTC) - timedelta(days=days)
     rows = db.session.execute(
         select(func.date(Order.created_at), func.count(Order.id), func.coalesce(func.sum(Order.total), 0))
         .where(Order.created_at >= start, Order.status.notin_(("cancelled", "refunded")))
@@ -112,7 +112,7 @@ def get_product_performance_tool(user=None, limit=10, **_kwargs):
 def get_category_performance_tool(user=None, days=30, **_kwargs):
     _admin(user)
     days = max(1, min(int(days), 90))
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
     rows = db.session.execute(
         select(Category.name, func.sum(OrderItem.quantity), func.sum(OrderItem.subtotal))
         .join(Product, Product.category_id == Category.id)
@@ -128,7 +128,7 @@ def get_category_performance_tool(user=None, days=30, **_kwargs):
 
 def get_customer_behavior_summary_tool(user=None, **_kwargs):
     _admin(user)
-    recent_since = datetime.now(timezone.utc) - timedelta(days=30)
+    recent_since = datetime.now(UTC) - timedelta(days=30)
     customer_count = db.session.scalar(select(func.count(User.id)).where(User.role == "customer")) or 0
     active_customers = db.session.scalar(
         select(func.count(func.distinct(RecentViewedProduct.user_id))).where(
@@ -267,6 +267,7 @@ def build_admin_tool_registry(max_tool_calls=5):
 def handle_admin_ai_query(prompt, *, user):
     """Run a read-only admin query or deterministic aggregate fallback."""
     from flask import current_app
+
     from ..services.ai_rate_limit import consume_ai_request
     from .core.provider import AIService
 

@@ -93,6 +93,36 @@ def test_rider_account_page_loads_and_saves(client, app):
         assert profile.availability_status == "available"
 
 
+def test_rider_password_change_signs_the_rider_out(client, app):
+    """The rider password form used to fail because session was not imported."""
+    csrf_off(client)
+    with app.app_context():
+        make_rider(email="pw-rider@example.com")
+    client.post("/auth/login", data={"email": "pw-rider@example.com", "password": "password123"})
+
+    response = client.post(
+        "/rider/account/password",
+        data={
+            "current_password": "password123",
+            "password": "brandnewpass1",
+            "password_confirmation": "brandnewpass1",
+        },
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/auth/login")
+
+    with app.app_context():
+        rider = db.session.query(User).filter_by(email="pw-rider@example.com").one()
+        assert rider.check_password("brandnewpass1")
+
+    # The cleared session must end the rider's access to the protected area.
+    assert client.get("/rider/dashboard").status_code == 403
+
+    # The new password signs the rider back in.
+    client.post("/auth/login", data={"email": "pw-rider@example.com", "password": "brandnewpass1"})
+    assert client.get("/rider/dashboard").status_code == 200
+
+
 def test_staff_account_pages_reject_the_wrong_role(client, app):
     csrf_off(client)
     with app.app_context():

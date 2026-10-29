@@ -5,13 +5,13 @@ The application serves server-rendered HTML routes and a versioned JSON API. Sta
 ## Storefront
 
 - `GET /` — home page with active categories and featured products
-- `GET /menu?page=&q=&category_id=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&sort=` — paginated active catalog with marketplace filters and separate optional reference-food search
-- `GET /category/<slug>?page=&min_price=&max_price=&sort=` — paginated active category products
-- `GET /deals?page=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&sort=` — paginated active discounted listings
+- `GET /menu?page=&q=&category_id=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&min_rating=&discount=&sort=` — paginated active catalog with marketplace filters (relevance, price, brand/store, stock, minimum rating, discounts) and separate optional reference-food search
+- `GET /category/<slug>?page=&min_price=&max_price=&min_rating=&discount=&sort=` — paginated active category products
+- `GET /deals?page=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&min_rating=&sort=` — paginated active discounted listings
 - `GET /food/<slug>` — available product detail with localized text and source-language fallback
 - `POST /food/<slug>/reviews` — purchase-verified product review (customers only; enters moderation)
-- `GET /search?q=&page=&category_id=&min_price=&max_price=&sort=` — bounded, paginated search across name, description, and translations
-- `GET /api/search-suggestions?q=` — up to eight bounded catalog suggestions (JSON)
+- `GET /search?q=&page=&category_id=&min_price=&max_price=&min_rating=&discount=&sort=` — bounded, paginated weighted search across name, brand, category, description, translations, and Bangla transliteration; a zero-result query renders related terms and popular products instead of a dead end
+- `GET /api/search-suggestions?q=` — up to eight relevance-ranked suggestions (JSON) with `name`, `slug`, `price`, `was_price`, `image`, `store`, `category`, and `url`, consumed by the marketplace search box
 - `GET /health` — database readiness status without exposing connection details
 - `GET /health/db` — dedicated database readiness probe for deployment checks
 - `GET /health/live` — process liveness without a database query
@@ -49,9 +49,10 @@ cents are lost, and error responses never include stack traces or internal paths
 - `POST /api/v1/auth/register/verify` — consume the signup OTP and create the account (`201`)
 - `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me` — session authentication for Customer/Seller/Rider; Admin password login is refused
 - `POST /api/v1/auth/admin/code`, `POST /api/v1/auth/admin/verify` — passwordless Admin OTP sign-in
-- `GET /api/v1/products?page=&limit=&q=&category_id=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&sort=` — filtered, paginated active listings
-- `GET /api/v1/deals?page=&limit=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&sort=` — discounted listings
+- `GET /api/v1/products?page=&limit=&q=&category_id=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&min_rating=&discount=&sort=` — filtered, paginated active listings; `min_rating` must be 1-5 and `discount` must be 0 or 1 (`422` otherwise)
+- `GET /api/v1/deals?page=&limit=&seller_id=&brand_name=&variant_value=&in_stock=&min_price=&max_price=&min_rating=&sort=` — discounted listings
 - `GET /api/v1/products/{id}` — product details, localized text, stock and active SKU variants
+- `GET /api/v1/products/{id}/recommendations` — real co-purchase ("frequently bought together") and same category/store/brand "related" shelves; only currently purchasable products are returned
 - `GET /api/v1/categories`, `GET /api/v1/categories/{slug}` — active category list and paginated products
 - `GET /api/v1/search?q=&page=&limit=&category_id=&min_price=&max_price=&sort=` — catalog search
 - `GET /api/v1/cart`, `POST /api/v1/cart/items`, `PATCH /api/v1/cart/items/{product-or-variant-key}`, `DELETE /api/v1/cart/items/{product-or-variant-key}`, `DELETE /api/v1/cart` — session cart
@@ -91,6 +92,7 @@ Provider and Telegram credentials are configured in private runtime settings. Th
 - `GET|POST /checkout` — COD checkout that splits the cart into seller-specific sub-orders
 - `GET /orders/<order_number>` — confirmation listing every sub-order in the checkout group
 - `GET /my-orders` — signed-in customer order history
+- `POST /orders/<order_number>/buy-again` — re-add an owned order's still-available items to the cart; quantities are clamped to current stock and prices are re-read from the catalog
 - `POST /orders/<order_number>/cancel` — cancel an owned pending/confirmed order and restore reserved inventory
 - `POST /orders/<order_number>/return` — request a return for an owned delivered order within its snapshotted return window; the order response includes return status and refund reference
 

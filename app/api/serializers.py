@@ -3,7 +3,6 @@
 from flask import has_request_context
 from flask_babel import get_locale
 
-
 DEFAULT_LOCALE = "en_US"
 
 

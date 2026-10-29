@@ -1,10 +1,19 @@
 """Role-specific workspace blueprints and dashboards."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from math import ceil
 
 from flask import (
-    Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for,
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
 )
 from flask_babel import gettext
 from sqlalchemy import func, select
@@ -12,30 +21,41 @@ from sqlalchemy.orm import selectinload
 
 from ..extensions import db
 from ..models import (
-    AccountInvitation, AuditEvent, Order, Product, Review, SellerProfile, User, delivery_transition_valid,
+    AccountInvitation,
+    AuditEvent,
+    Order,
+    Product,
+    Review,
+    SellerProfile,
+    User,
+    delivery_transition_valid,
 )
+from ..security import (
+    admin_required,
+    current_session_user,
+    customer_required,
+    role_required,
+    save_raster_upload,
+)
+from ..services.audit import record_audit
+from ..services.notifications import notify
+from ..services.payments import make_seller_ledger_eligible
 from ..services.profiles import (
     apply_password_change,
     customer_profile_image_url,
     ensure_customer_profile,
     password_change_error,
 )
-from ..services.audit import record_audit
-from ..services.notifications import notify
-from ..services.payments import make_seller_ledger_eligible
-from ..security import (
-    admin_required, customer_required, current_session_user, role_required, save_raster_upload,
-)
-
+from ..services.reviews import open_review_report_count, open_review_reports
 
 customer_bp = Blueprint("customer", __name__, url_prefix="/customer")
 rider_bp = Blueprint("rider", __name__, url_prefix="/rider")
 admin_bp = Blueprint("admin", __name__)
 
 
-@customer_bp.get("/dashboard")
+@customer_bp.get("/dashboard", endpoint="dashboard")
 @customer_required
-def dashboard():
+def customer_dashboard():
     user = current_session_user("customer")
     profile = ensure_customer_profile(user)
     return render_template(
@@ -101,9 +121,9 @@ def change_password():
     return redirect(url_for("auth.login"))
 
 
-@rider_bp.get("/dashboard")
+@rider_bp.get("/dashboard", endpoint="dashboard")
 @role_required("rider")
-def dashboard():
+def rider_dashboard():
     user = current_session_user("rider")
     if not user.rider_profile:
         abort(403)
@@ -135,7 +155,7 @@ def update_delivery(order_id):
     if not delivery_transition_valid(order.delivery_status, target):
         flash(gettext("That delivery update is not allowed."), "error")
         return redirect(url_for("rider.dashboard"))
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if target == "assigned":
         order.assigned_at = now
         order.picked_up_at = None
@@ -184,9 +204,9 @@ def update_delivery(order_id):
     return redirect(url_for("rider.dashboard"))
 
 
-@admin_bp.get("/admin")
+@admin_bp.get("/admin", endpoint="dashboard")
 @admin_required
-def dashboard():
+def admin_dashboard():
     page_size = 50
     order_count = db.session.scalar(select(func.count(Order.id))) or 0
     customer_count = db.session.scalar(
@@ -249,6 +269,8 @@ def dashboard():
         pending_review_count=db.session.scalar(
             select(func.count(Review.id)).where(Review.status == "pending")
         ) or 0,
+        open_reports=open_review_reports(limit=50),
+        open_report_count=open_review_report_count(),
         invitations=db.session.scalars(
             select(AccountInvitation)
             .where(AccountInvitation.accepted_at.is_(None))

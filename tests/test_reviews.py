@@ -1,7 +1,15 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Category, CustomerProfile, Order, OrderItem, Product, Review, User
+from app.models import (
+    Category,
+    CustomerProfile,
+    Order,
+    OrderItem,
+    Product,
+    Review,
+    User,
+)
 
 
 def csrf_off(client):

@@ -31,8 +31,9 @@ endblock %}
         class="product-card__placeholder" aria-hidden="true">✦</div>{% endif %}</div>
     <div class="product-detail__content">
       <p class="eyebrow">{{ _('Local listing') }}{% if product.brand_name %} · {{ product.brand_name }}{% endif %}{% if
-        product.seller and product.seller.seller_profile %} · {{
-        product.seller.seller_profile.store_name }}{% endif %}</p>
+        product.seller and product.seller.seller_profile %} · {% if store_url %}<a href="{{ store_url }}">{{
+        product.seller.seller_profile.store_name }}</a>{% else %}{{
+        product.seller.seller_profile.store_name }}{% endif %}{% endif %}</p>
       <h1>{{ product.localized_name(current_locale) }}</h1>
       <p>{{ product.localized_description(current_locale) }}</p>
       {% if product.needs_original_language_label(current_locale, 'name') or
@@ -78,6 +79,32 @@ endblock %}
     </div>
   </article>
 
+  {% if bought_together %}
+  <section class="section-block" aria-labelledby="bought-together-heading">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">{{ _('Based on real order combinations') }}</p>
+        <h2 id="bought-together-heading">{{ _('Frequently bought together') }}</h2>
+      </div>
+    </div>
+    <div class="product-grid">{% for product in bought_together %}{% include "_product_card.html" %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if related_products %}
+  <section class="section-block" aria-labelledby="related-heading">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">{{ _('More in %(category)s', category=product.category.name) }}</p>
+        <h2 id="related-heading">{{ _('You might also like') }}</h2>
+      </div>
+    </div>
+    <div class="product-grid">{% for product in related_products %}{% include "_product_card.html" %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <section class="product-reviews" aria-labelledby="reviews-title">
     <header class="product-reviews__header">
       <div>
@@ -95,6 +122,25 @@ endblock %}
         <input id="review-ai-summary-endpoint" type="hidden" value="{{ url_for('ai.review_summary', slug=product.slug) }}">
       </div>{% endif %}
     </header>
+
+    {% if histogram and histogram.total %}
+    <div class="rating-histogram surface surface-card" aria-label="{{ _('Rating breakdown') }}">
+      <h3>{{ _('Rating breakdown') }}</h3>
+      <dl class="rating-histogram__list">
+        {% for row in histogram.rows %}
+        <div class="rating-histogram__row">
+          <dt>{{ _('%(stars)s star', stars=row.stars) }}</dt>
+          <dd>
+            <div class="rating-histogram__bar" role="progressbar" aria-valuenow="{{ row.percent }}" aria-valuemin="0" aria-valuemax="100">
+              <span style="width: {{ row.percent }}%;"></span>
+            </div>
+            <span class="rating-histogram__count">{{ row.count }} {{ _('reviews') if row.count != 1 else _('review') }} ({{ row.percent }}%)</span>
+          </dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </div>
+    {% endif %}
 
     {% if can_review %}
     <form class="review-form surface surface-card" method="post"
@@ -129,6 +175,31 @@ endblock %}
           <time datetime="{{ review.created_at.isoformat() }}">{{ review.created_at.strftime('%Y-%m-%d') }}</time>
         </p>
         {% if review.comment %}<p class="review-item__body">{{ review.comment }}</p>{% endif %}
+        <div class="review-item__actions">
+          {% set count = helpful_counts.get(review.id, 0) %}
+          {% set voted = review.id in viewer_helpful_ids %}
+          <form method="post" action="{{ url_for('main.toggle_review_helpful', slug=product.slug, review_id=review.id) }}" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="button button--ghost button--small{% if voted %} is-active{% endif %}" type="submit">
+              {% if count > 0 %}
+                Helpful ({{ count }})
+              {% else %}
+                {{ _('Helpful') }}
+              {% endif %}
+            </button>
+          </form>
+          <details class="review-report-details" style="display:inline-block;">
+            <summary class="button button--ghost button--small text-subtle">{{ _('Report') }}</summary>
+            <form method="post" action="{{ url_for('main.report_review_route', slug=product.slug, review_id=review.id) }}" class="review-report-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="form-field">
+                <label for="report-reason-{{ review.id }}">{{ _('Reason') }}</label>
+                <input id="report-reason-{{ review.id }}" name="reason" type="text" minlength="5" maxlength="500" required placeholder="{{ _('Why should this be reviewed?') }}">
+              </div>
+              <button class="button button--small" type="submit">{{ _('Submit report') }}</button>
+            </form>
+          </details>
+        </div>
       </li>
       {% endfor %}
     </ul>

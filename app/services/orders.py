@@ -3,7 +3,6 @@
 from ..extensions import db
 from ..models import Order, Product, ProductVariant
 
-
 ORDER_STATUS_TRANSITIONS = {
     "pending": {"confirmed", "declined", "cancelled"},
     "confirmed": {"preparing", "declined", "cancelled"},

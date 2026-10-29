@@ -5,11 +5,10 @@ from flask import Blueprint, request
 from ...extensions import db
 from ...models import Product
 from ...security import current_session_user
-from ...services.wishlist import add, count, products_for, remove
+from ...services.wishlist import add, products_for, remove
 from ..errors import ApiError
 from ..responses import created_response, success_response
 from ..serializers import product_to_dict
-
 
 wishlist_api = Blueprint("api_wishlist", __name__)
 
@@ -39,7 +38,7 @@ def add_wishlist_item():
     try:
         product_id = int(product_id)
     except (TypeError, ValueError):
-        raise ApiError("A valid product_id is required.", "VALIDATION_ERROR", 422)
+        raise ApiError("A valid product_id is required.", "VALIDATION_ERROR", 422) from None
     product = db.session.get(Product, product_id)
     if product is None:
         raise ApiError("Product not found.", "NOT_FOUND", 404)

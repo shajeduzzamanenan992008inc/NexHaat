@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..extensions import db
 
@@ -14,7 +14,7 @@ class AuditEvent(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True
+        db.DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True
     )
     action = db.Column(db.String(60), nullable=False, index=True)
     actor_id = db.Column(

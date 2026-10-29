@@ -1,7 +1,7 @@
 """Shared server-authoritative COD checkout for HTML and API clients."""
 
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from datetime import UTC, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import uuid4
 
 from flask import current_app, url_for
@@ -11,12 +11,18 @@ from sqlalchemy.orm import selectinload
 
 from ..extensions import db
 from ..models import (
-    AppSetting, CustomerCartItem, Order, OrderItem, Payment, Product, ProductVariant,
-    PromotionCode, PromotionRedemption,
+    AppSetting,
+    CustomerCartItem,
+    Order,
+    OrderItem,
+    Payment,
+    Product,
+    ProductVariant,
+    PromotionCode,
+    PromotionRedemption,
 )
 from .mail import enqueue_order_emails
 from .notifications import notify
-
 
 DELIVERY_FEE = Decimal("2.50")
 
@@ -111,7 +117,11 @@ def create_checkout_orders(
     promotion = None
     eligible_subtotals = seller_subtotals
     if promotion_code:
-        from .promotions import PromotionError, calculate_discount_for_order, get_active_promotion
+        from .promotions import (
+            PromotionError,
+            calculate_discount_for_order,
+            get_active_promotion,
+        )
 
         try:
             promotion = get_active_promotion(promotion_code, lock=True)
@@ -159,7 +169,7 @@ def create_checkout_orders(
             amount=total,
             currency="BDT",
             status="pending",
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.now(UTC)
             + timedelta(minutes=max(1, int(current_app.config.get("PAYMENT_SESSION_MINUTES", 15)))),
         )
         db.session.add(payment)

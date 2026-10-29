@@ -2,15 +2,14 @@
 
 import json
 import re
+
 from flask import current_app
 
 from .core.permissions import AI_SCOPE_SELLER
 from .core.provider import AIService
-from .core.guardrails import sanitize_ai_response
 from .seller_tools import (
-    build_seller_tool_registry, find_seller_duplicates_tool,
-    get_seller_inventory_forecast_tool, get_seller_listing_quality_tool,
-    get_seller_insights_tool, get_seller_price_context_tool,
+    build_seller_tool_registry,
+    get_seller_price_context_tool,
 )
 
 
@@ -104,7 +103,7 @@ def generate_listing_suggestion(user, *, title="", description="", product_id=No
     suggestion = {
         "title": args["title"], "description": args["description"],
         "bullets": [], "category": (listing.get("result") or {}).get("existing_product", {}).get("category"),
-        "tags": [], "keywords": [item for item in re.findall(r"[\w-]+", args["title"].lower())[:8]],
+        "tags": [], "keywords": re.findall(r"[\w-]+", args["title"].lower())[:8],
         "seo_title": args["title"][:160], "seo_description": "",
         "translations": {}, "unknown_attributes": [],
     }

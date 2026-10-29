@@ -1,7 +1,7 @@
 """Promotion code validation and discount calculations."""
 
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from sqlalchemy import select
 
@@ -25,7 +25,7 @@ def _coerce_decimal(value, label):
 
 def _as_utc(value):
     if value is not None and value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -50,7 +50,7 @@ def get_active_promotion(code, *, lock=False):
     starts_at = _as_utc(promotion.starts_at)
     expires_at = _as_utc(promotion.expires_at)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if starts_at and now < starts_at:
         raise PromotionError("This promotion is not active yet.")
     if expires_at and now > expires_at:
@@ -144,10 +144,10 @@ def promotion_values_from_form(form, *, seller_id=None):
         except ValueError as error:
             raise PromotionError("Enter valid campaign dates.") from error
         if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            value = value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
-    starts_at = parse_datetime(form.get("starts_at"), fallback=datetime.now(timezone.utc))
+    starts_at = parse_datetime(form.get("starts_at"), fallback=datetime.now(UTC))
     expires_at = parse_datetime(form.get("expires_at"))
     if expires_at is not None and expires_at <= starts_at:
         raise PromotionError("Campaign end must be after its start.")

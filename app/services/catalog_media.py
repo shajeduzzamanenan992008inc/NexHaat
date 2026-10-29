@@ -6,21 +6,22 @@ Rejected files remain outside the static tree and age out after the configured
 quarantine retention window.
 """
 
-from datetime import datetime, timedelta, timezone
-from io import BytesIO
+import contextlib
 import hashlib
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import uuid
 import warnings
+from datetime import UTC, datetime
+from io import BytesIO
+from pathlib import Path
+from urllib.parse import quote, unquote, urlsplit
 
 import boto3
 from flask import current_app
 from PIL import Image, UnidentifiedImageError
-from urllib.parse import quote, unquote, urlsplit
 from werkzeug.datastructures import FileStorage
 
 
@@ -46,16 +47,14 @@ def _private_quarantine_folder():
         raise CatalogMediaError("Quarantine must stay outside public static storage.")
 
     folder.mkdir(parents=True, exist_ok=True)
-    try:
-        folder.chmod(0o700)
-    except OSError:
+    with contextlib.suppress(OSError):
         # Windows ACLs are inherited from the private instance directory.
-        pass
+        folder.chmod(0o700)
     return folder
 
 
 def _enforce_quarantine_limit(folder, incoming_bytes):
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.now(UTC).timestamp()
     retention = max(1, current_app.config["CATALOG_QUARANTINE_RETENTION_HOURS"]) * 3600
     total_bytes = 0
     for candidate in folder.iterdir():

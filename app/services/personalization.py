@@ -1,11 +1,12 @@
 """Deterministic, private customer product ranking without an AI call per page."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from ..extensions import db
-from ..models import Order, OrderItem, Product, RecentViewedProduct, WishlistItem
+from ..models import Category, Order, OrderItem, Product, RecentViewedProduct, User, WishlistItem
 from .cart import customer_cart_rows
 
 
@@ -13,7 +14,7 @@ def personalized_products_for_user(user, limit=8):
     if user is None or getattr(user, "role", None) != "customer":
         return []
     limit = max(1, min(int(limit), 12))
-    since = datetime.now(timezone.utc) - timedelta(days=30)
+    since = datetime.now(UTC) - timedelta(days=30)
     category_score = {}
     excluded = set()
     recent = db.session.execute(
@@ -54,9 +55,23 @@ def personalized_products_for_user(user, limit=8):
         .where(OrderItem.product_id.is_not(None), Order.status.notin_(("cancelled", "refunded")))
         .group_by(OrderItem.product_id).order_by(func.sum(OrderItem.quantity).desc()).limit(500)
     ).all())
-    rows = db.session.scalars(select(Product).where(
-        Product.is_available.is_(True), Product.moderation_status == "approved",
-    ).order_by(Product.is_featured.desc(), Product.updated_at.desc()).limit(500)).all()
+    rows = db.session.scalars(
+        select(Product)
+        .join(Category, Category.id == Product.category_id)
+        .options(
+            selectinload(Product.category),
+            selectinload(Product.translations),
+            selectinload(Product.variants),
+            selectinload(Product.seller).selectinload(User.seller_profile),
+        )
+        .where(
+            Product.is_available.is_(True),
+            Product.moderation_status == "approved",
+            Category.is_active.is_(True),
+        )
+        .order_by(Product.is_featured.desc(), Product.updated_at.desc())
+        .limit(500)
+    ).all()
     rows = [item for item in rows if item.available_stock > 0 and item.id not in excluded]
     rows.sort(key=lambda item: (
         -category_score.get(item.category_id, 0),
