@@ -136,7 +136,7 @@ The shared AI Core connects the customer Shopping Assistant and Telegram bot wit
 ## Repository automation and quality gates
 
 - **Tests:** `python -m pytest` runs the suite in `tests/`. CI (`.github/workflows/ci.yml`) installs `requirements.txt`, byte-compiles the application, checks the Alembic head, runs the full suite, and rejects whitespace errors on every push and pull request.
-- **Lint:** [Ruff](https://docs.astral.sh/ruff/) is configured in `pyproject.toml`. Install it with `pip install ruff==0.17.0` and run `python -m ruff check .` before opening a pull request. The selected rules cover unused and undefined names, import order, Python 3.12 upgrade checks, and common bugbear/simplify/return findings.
+- **Lint:** [Ruff](https://docs.astral.sh/ruff/) is configured in `pyproject.toml`. Install it with `pip install ruff==0.17.0` and run `python -m ruff check .` before opening a pull request. The selected rules cover unused and undefined names, import order, Python 3.11-compatible upgrade checks, and common bugbear/simplify/return findings. Supported interpreters are Python 3.11 through 3.14.
 - **Dependencies:** Dependabot opens grouped weekly pull requests for `requirements.txt` and GitHub Actions; major upgrades still arrive as separate reviewable pull requests.
 - **Editor defaults:** `.editorconfig` sets shared indentation defaults, and `.gitattributes` normalises tracked text files to LF (binary assets are excluded) so Windows and Linux checkouts stay comparable.
 

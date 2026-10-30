@@ -43,6 +43,17 @@
           aria-label="{{ _('Add %(name)s to cart', name=localized_title) }}">{{ _('Add to cart') }}</button>
       </form>
       {% endif %}
+      {% set saved = product.id in saved_ids %}
+      <form method="post"
+        action="{{ url_for('wishlist.remove_item', product_id=product.id) if saved else url_for('wishlist.add_item', product_id=product.id) }}"
+        class="wishlist-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="">
+        <button type="submit" class="wish-button wish-button--small {% if saved %}wish-button--saved{% endif %}"
+          aria-label="{{ _('Remove %(name)s from your wishlist', name=localized_title) if saved else _('Save %(name)s to your wishlist', name=localized_title) }}">
+          {% if saved %}{{ _('Saved') }}{% else %}{{ _('Save') }}{% endif %}
+        </button>
+      </form>
       {% else %}
       <a class="card-add" href="{{ url_for('auth.login') }}" aria-label="{{ _('Sign in to order') }}">{{ _('Sign in to order') }}</a>
       {% endif %}

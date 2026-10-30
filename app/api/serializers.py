@@ -32,6 +32,7 @@ def category_to_dict(category):
         "slug": category.slug,
         "description": category.description,
         "image": category.image,
+        "display_image": category.display_image,
         "is_active": category.is_active,
     }
 
@@ -64,6 +65,9 @@ def product_to_dict(product, locale=None):
             for variant in product.variants if variant.is_active
         ],
         "image": product.image,
+        # Mirrors the website's product.display_image so clients render the same
+        # category artwork when a seller has not uploaded a photo.
+        "display_image": product.display_image,
         "is_available": product.is_available,
         "is_featured": product.is_featured,
         "moderation_status": product.moderation_status,
@@ -153,6 +157,19 @@ def notification_to_dict(notification):
         "link": notification.link,
         "is_read": notification.is_read,
         "created_at": _iso(notification.created_at),
+    }
+
+
+def banner_to_dict(banner):
+    return {
+        "id": banner.id,
+        "title": banner.title,
+        "subtitle": banner.subtitle,
+        "image_url": banner.display_image,
+        "link_url": banner.link_url,
+        "link_type": banner.link_type,
+        "is_active": banner.is_active,
+        "display_order": banner.display_order,
     }
 
 

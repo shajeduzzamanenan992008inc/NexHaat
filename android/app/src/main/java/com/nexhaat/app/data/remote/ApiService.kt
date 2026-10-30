@@ -7,6 +7,7 @@ import com.nexhaat.app.data.remote.dto.CategoryDto
 import com.nexhaat.app.data.remote.dto.CsrfTokenDto
 import com.nexhaat.app.data.remote.dto.LoginRequestDto
 import com.nexhaat.app.data.remote.dto.ProductDto
+import com.nexhaat.app.data.remote.dto.BannerDto
 import com.nexhaat.app.data.remote.dto.UpdateCartItemRequest
 import com.nexhaat.app.data.remote.dto.UserDto
 import kotlinx.serialization.json.JsonElement
@@ -77,4 +78,10 @@ interface ApiService {
 
     @GET("api/v1/products/{id}")
     suspend fun getProductDetail(@Path("id") productId: Int): ApiResponse<ProductDto>
+
+    @GET("api/v1/banners")
+    suspend fun getBanners(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): ApiResponse<List<BannerDto>>
 }

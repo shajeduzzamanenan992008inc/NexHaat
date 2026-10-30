@@ -1,6 +1,6 @@
 # Development setup
 
-The project targets Python 3.12 (`runtime.txt`).
+The application supports Python 3.11 and newer (`pyproject.toml` requires `>=3.11,<4.0`). CI tests 3.11 through 3.14; production deploys the version pinned in `runtime.txt` (Python 3.14 on Azure App Service). Newer interpreters such as a future 3.16 are experimental until a stable release and compatible dependency wheels are verified.
 
 ```powershell
 python -m venv .venv

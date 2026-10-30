@@ -2,6 +2,7 @@ package com.nexhaat.app.data.repository
 
 import com.nexhaat.app.data.remote.ApiService
 import com.nexhaat.app.data.remote.NetworkResult
+import com.nexhaat.app.data.remote.dto.BannerDto
 import com.nexhaat.app.data.remote.dto.CategoryDto
 import com.nexhaat.app.data.remote.dto.ProductDto
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,19 @@ class CatalogRepository @Inject constructor(
         }
     }
 
+    suspend fun getBanners(): NetworkResult<List<BannerDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getBanners()
+            if (response.success && response.data != null) {
+                NetworkResult.Success(response.data)
+            } else {
+                NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to fetch banners")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Unknown error")
+        }
+    }
+
     suspend fun getProducts(
         page: Int = 1,
         limit: Int = 20,
@@ -37,7 +51,7 @@ class CatalogRepository @Inject constructor(
             val response = if (categoryId != null) {
                 apiService.getCategoryProducts(page, limit, categoryId, sort)
             } else {
-                apiService.getProducts(page, limit, query, null, sort)
+                apiService.getProducts(page, limit, query)
             }
             if (response.success && response.data != null) {
                 NetworkResult.Success(Pair(response.data, response.pagination))
@@ -69,6 +83,19 @@ class CatalogRepository @Inject constructor(
                 NetworkResult.Success(response.data)
             } else {
                 NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to fetch product")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(e.localizedMessage ?: "Unknown error")
+        }
+    }
+
+    suspend fun getBanners(page: Int = 1, limit: Int = 10): NetworkResult<List<BannerDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getBanners(page, limit)
+            if (response.success && response.data != null) {
+                NetworkResult.Success(response.data)
+            } else {
+                NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to fetch banners")
             }
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Unknown error")

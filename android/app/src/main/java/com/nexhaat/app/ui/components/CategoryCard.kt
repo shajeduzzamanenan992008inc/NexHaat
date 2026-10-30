@@ -35,7 +35,7 @@ fun CategoryCard(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             ProductImage(
-                imageUrl = category.image,
+                imageUrl = category.imageReference,
                 contentDescription = category.name,
                 modifier = Modifier
                     .width(152.dp)

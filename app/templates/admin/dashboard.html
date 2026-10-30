@@ -268,6 +268,49 @@
       {% else %}<p class="admin-empty">{{ _('No seller, rider, or Admin accounts yet.') }}</p>{% endif %}
     </section>
 
+    <section class="admin-section" aria-labelledby="review-reports-title">
+      <header class="admin-section__header">
+        <h2 id="review-reports-title">{{ _('Review moderation') }}</h2>
+        <p class="admin-section__subhead">{{ _('Review reports awaiting triage') }}</p>
+      </header>
+      {% if pending_review_reports %}
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>{{ _('Review') }}</th>
+              <th>{{ _('Product') }}</th>
+              <th>{{ _('Reporter') }}</th>
+              <th>{{ _('Reason') }}</th>
+              <th>{{ _('When') }}</th>
+              <th>{{ _('Actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for report in pending_review_reports %}<tr>
+              <td>
+                <a href="{{ url_for('orders.admin_product_edit', product_id=report.review.product.id) }}">
+                  {{ report.review.product.name }}
+                </a>
+              </td>
+              <td>{{ report.review.product.name }}</td>
+              <td>{{ report.created_by_email if report.created_by_email else '—' }}</td>
+              <td class="review-report__reason">{{ report.reason or '—' }}</td>
+              <td>{{ report.created_at.strftime('%Y-%m-%d') if report.created_at else '—' }}</td>
+              <td>
+                <form method="post" action="{{ url_for('orders.admin_resolve_review_report', report_id=report.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="decision" value="reviewed">
+                  <button class="admin-button admin-button--quiet" type="submit">{{ _('Review') }}</button>
+                </form>
+              </td>
+            </tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}<p class="admin-empty">{{ _('No review reports are awaiting triage.') }}</p>{% endif %}
+    </section>
+
     <section class="admin-section" aria-labelledby="orders-title">
       <header class="admin-section__header">
         <h2 id="orders-title">{{ _('Orders') }}</h2>

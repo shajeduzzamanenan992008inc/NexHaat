@@ -1130,7 +1130,7 @@ def confirm_phone_verification():
     code = request.form.get("phone_code", "").strip()
     success, error_code = verify_phone_otp(normalized, code, purpose="verify_phone")
     if success:
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
 
         profile.phone_verified_at = datetime.now(UTC)
         db.session.commit()

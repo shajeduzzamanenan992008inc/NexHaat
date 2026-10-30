@@ -22,6 +22,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.nexhaat.app.BuildConfig
 import com.nexhaat.app.R
 import com.nexhaat.app.data.remote.ImageUrlResolver
+import com.nexhaat.app.data.remote.MediaBaseUrlResolver
 
 @Composable
 fun ProductImage(
@@ -30,9 +31,17 @@ fun ProductImage(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop
 ) {
-    val resolvedImageUrl = remember(imageUrl) {
-        ImageUrlResolver.resolve(imageUrl, BuildConfig.MEDIA_BASE_URL)
+    val resolvedImageUrl = remember(imageUrl, BuildConfig.MEDIA_BASE_URL, BuildConfig.MEDIA_BASE_URL_RUNTIME_FALLBACK) {
+        ImageUrlResolver.resolve(
+            imageUrl,
+            MediaBaseUrlResolver.resolvedOrFallbackString(
+                resolvedFlag = BuildConfig.MEDIA_BASE_URL_RESOLVED,
+                buildTimeValue = BuildConfig.MEDIA_BASE_URL,
+                runtimeFallback = BuildConfig.MEDIA_BASE_URL_RUNTIME_FALLBACK
+            )
+        ) ?: ImageUrlResolver.resolveFromBackendAbsolute(imageUrl)
     }
+
     if (resolvedImageUrl == null) {
         ProductImageFallback(modifier, contentDescription)
         return

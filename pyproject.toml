@@ -2,12 +2,15 @@
 # Runtime dependencies intentionally stay in requirements.txt so the deployment
 # build installs the same pinned ranges that are tested here.
 
+[project]
+requires-python = ">=3.11,<4.0"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
@@ -18,7 +21,7 @@ select = [
     "F",    # pyflakes: unused names, undefined names, shadowing
     "I",    # import ordering
     "W",    # pycodestyle warnings
-    "UP",   # pyupgrade targets the supported Python 3.12 runtime
+    "UP",   # pyupgrade targets the oldest supported Python (3.11) runtime
     "B",    # flake8-bugbear: likely bugs and design problems
     "C4",   # flake8-comprehensions
     "SIM",  # flake8-simplify

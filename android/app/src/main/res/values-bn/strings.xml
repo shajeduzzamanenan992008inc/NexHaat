@@ -20,6 +20,11 @@
     <string name="no_image">ছবি নেই</string>
     <string name="marketplace_tagline">স্থানীয় পণ্য, যত্নসহকারে পৌঁছে</string>
     <string name="home_headline">সেরা স্থানীয় পণ্য কিনুন</string>
+    <string name="home_hero_line_one">কিনুন</string>
+    <string name="home_hero_line_two">সেরা স্থানীয় ডিল</string>
+    <string name="home_hero_subtitle">তাজা খাবার, দৈনন্দিন প্রয়োজনীয় জিনিস আর স্থানীয় বিক্রেতাদের অনন্য পণ্য — সব এক জায়গায়।</string>
+    <string name="explore_marketplace">মার্কেটপ্লেস দেখুন</string>
+    <string name="banner_page_of">ব্যানার %1$d / %2$d</string>
     <string name="shop_by_category">বিভাগ অনুযায়ী কিনুন</string>
     <string name="shop_now">এখনই কিনুন</string>
     <string name="featured_products">নির্বাচিত পণ্য</string>

@@ -433,6 +433,11 @@ def seller_orders():
 @commerce_api.get("/seller/dashboard")
 def seller_dashboard():
     user = _seller()
+    sales = db.session.scalar(
+        select(func.coalesce(func.sum(Order.total), 0)).where(
+            Order.seller_id == user.id, Order.status == "delivered"
+        )
+    ) or Decimal("0.00")
     return success_response({
         "products": db.session.scalar(
             select(func.count(Product.id)).where(Product.seller_id == user.id)
@@ -457,11 +462,7 @@ def seller_dashboard():
                 Order.seller_id == user.id, Order.status == "delivered"
             )
         ) or 0,
-        "sales": f"{db.session.scalar(
-            select(func.coalesce(func.sum(Order.total), 0)).where(
-                Order.seller_id == user.id, Order.status == "delivered"
-            )
-        ) or Decimal('0.00'):.2f}",
+        "sales": f"{sales:.2f}",
     })
 
 

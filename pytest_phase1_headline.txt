@@ -1,0 +1,11 @@
+In C:\Users\enan9\AppData\Roaming\Python\Python315\site-packages\_editable_impl_enan_ultra_telegram_ai.pth: D:\FTP\Telegram-Bot\src does not exist; skipping sys.path append
+..............F......                                                    [100%]
+================================== FAILURES ===================================
+___________ test_wishlist_page_shows_remove_control_for_saved_item ____________
+tests\test_wishlist.py:121: in test_wishlist_page_shows_remove_control_for_saved_item
+    assert f"/wishlist/remove/{product_id}" in page
+E   assert '/wishlist/remove/1' in '<!doctype html>\n<html lang="en-US" dir="ltr">\n\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="...ose to home.</p>\n      <span>© NexHaat · All rights reserved.</span>\n    </div>\n  </footer>\n  \n</body>\n\n</html>'
+=========================== short test summary info ===========================
+FAILED tests/test_wishlist.py::test_wishlist_page_shows_remove_control_for_saved_item
+1 failed, 20 passed in 32.62s
+EXIT_CODE=1

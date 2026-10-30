@@ -10,6 +10,11 @@ data class CategoryDto(
     val slug: String,
     val description: String? = null,
     val image: String? = null,
+    @SerialName("display_image")
+    val displayImage: String? = null,
     @SerialName("is_active")
     val isActive: Boolean = true
-)
+) {
+    val imageReference: String?
+        get() = displayImage?.takeIf(String::isNotBlank) ?: image?.takeIf(String::isNotBlank)
+}

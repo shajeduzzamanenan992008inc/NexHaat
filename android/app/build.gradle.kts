@@ -25,13 +25,69 @@ android {
             ?: default
     }
 
+    fun isPropertyExplicitlySet(name: String): Boolean {
+        if (System.getenv(name) != null) return true
+        if (localProperties.containsKey(name)) return true
+        return false
+    }
+
+    fun readPropertyRaw(name: String): String? {
+        val env = System.getenv(name)
+        if (env != null) return env
+        if (localProperties.containsKey(name)) {
+            return localProperties.getProperty(name)
+        }
+        return null
+    }
+
+    fun isKnownMediaPlaceholder(value: String?): Boolean {
+        if (value.isNullOrBlank()) return false
+        val trimmed = value.trim()
+        val lower = trimmed.lowercase()
+        return lower.contains("release_base_url_replace_me") ||
+            lower.contains("replace_me") && lower.contains("media")
+    }
+
+    fun effectiveDebugMediaRaw(): String? {
+        val explicit = readPropertyRaw("NEXHAAT_MEDIA_BASE_URL")
+        if (explicit != null && explicit.isNotBlank() && !isKnownMediaPlaceholder(explicit)) {
+            return explicit
+        }
+        return null
+    }
+
+    fun effectiveReleaseMediaRaw(): String? {
+        val explicit = readPropertyRaw("NEXHAAT_MEDIA_BASE_URL")
+        if (explicit == null || explicit.isNotBlank().not()) return null
+        return if (!isKnownMediaPlaceholder(explicit)) explicit else null
+    }
+
     fun kotlinStringLiteral(value: String): String =
         "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
-    val releaseBaseUrl = envOrLocalProperty("NEXHAAT_RELEASE_BASE_URL", "\"https://RELEASE_BASE_URL_REPLACE_ME/\"")
-    val debugBaseUrl = envOrLocalProperty("NEXHAAT_DEBUG_BASE_URL", "http://10.0.2.2:5000/")
-    val debugMediaBaseUrl = envOrLocalProperty("NEXHAAT_MEDIA_BASE_URL", debugBaseUrl)
-    val releaseMediaBaseUrl = envOrLocalProperty("NEXHAAT_MEDIA_BASE_URL", "https://RELEASE_BASE_URL_REPLACE_ME/")
+    fun normalizedBaseUrl(value: String): String = value.trim().trim('"').trim()
+
+    val releaseBaseUrlValue = normalizedBaseUrl(
+        envOrLocalProperty("NEXHAAT_RELEASE_BASE_URL", "https://RELEASE_BASE_URL_REPLACE_ME/")
+    )
+    val debugBaseUrlValue = normalizedBaseUrl(
+        envOrLocalProperty("NEXHAAT_DEBUG_BASE_URL", "http://10.0.2.2:5000/")
+    )
+
+    // Media configuration. A debug build may serve media from the local API host;
+    // a release build must never trust a placeholder media base.
+    val debugMediaExplicitRaw = effectiveDebugMediaRaw()
+    val debugMediaBaseUrl = normalizedBaseUrl(debugMediaExplicitRaw ?: debugBaseUrlValue)
+    val debugMediaResolved = debugMediaBaseUrl.isNotBlank() && !isKnownMediaPlaceholder(debugMediaBaseUrl)
+    val debugMediaBaseUrlLiteral = if (debugMediaResolved) kotlinStringLiteral(debugMediaBaseUrl) else "\"\""
+
+    val releaseMediaExplicitRaw = effectiveReleaseMediaRaw()
+    val releaseMediaExplicitlyValid = releaseMediaExplicitRaw != null
+    val releaseMediaBaseUrl = releaseMediaExplicitRaw ?: ""
+    val releaseMediaResolved = releaseMediaExplicitlyValid
+    val releaseMediaBaseUrlLiteral = if (releaseMediaExplicitlyValid) kotlinStringLiteral(releaseMediaBaseUrl.trim()) else "\"\""
+
+    val releaseMediaBuildBlocked = !releaseMediaExplicitlyValid
 
     defaultConfig {
         applicationId = "com.nexhaat.app"
@@ -48,18 +104,23 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", kotlinStringLiteral(debugBaseUrl))
-            buildConfigField("String", "MEDIA_BASE_URL", kotlinStringLiteral(debugMediaBaseUrl))
-            buildConfigField("String", "RELEASE_BASE_URL", releaseBaseUrl)
+            buildConfigField("String", "BASE_URL", kotlinStringLiteral(debugBaseUrlValue))
+            buildConfigField("String", "MEDIA_BASE_URL", debugMediaBaseUrlLiteral)
+            buildConfigField("String", "RELEASE_BASE_URL", kotlinStringLiteral(releaseBaseUrlValue))
+            buildConfigField("String", "MEDIA_BASE_URL_RESOLVED", kotlinStringLiteral(debugMediaResolved.toString()))
+            buildConfigField("String", "MEDIA_BASE_URL_RUNTIME_FALLBACK", "\"https://RELEASE_BASE_URL_REPLACE_ME/media/\"")
         }
+
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", releaseBaseUrl)
-            buildConfigField("String", "MEDIA_BASE_URL", kotlinStringLiteral(releaseMediaBaseUrl))
+            buildConfigField("String", "BASE_URL", kotlinStringLiteral(releaseBaseUrlValue))
+            buildConfigField("String", "MEDIA_BASE_URL", releaseMediaBaseUrlLiteral)
+            buildConfigField("String", "MEDIA_BASE_URL_RESOLVED", kotlinStringLiteral(releaseMediaResolved.toString()))
+            buildConfigField("String", "MEDIA_BASE_URL_RUNTIME_FALLBACK", "\"https://RELEASE_BASE_URL_REPLACE_ME/media/\"")
 
             val keystorePathValue = envOrLocalProperty("NEXHAAT_KEYSTORE_PATH")
             val storePasswordValue = envOrLocalProperty("NEXHAAT_KEYSTORE_STORE_PASSWORD")

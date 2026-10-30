@@ -99,7 +99,7 @@ fun ProductDetailScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     ProductImage(
-                        imageUrl = product.image,
+                        imageUrl = product.imageReference,
                         contentDescription = product.localizedName ?: product.name,
                         modifier = Modifier
                             .fillMaxWidth()

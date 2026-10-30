@@ -3,6 +3,7 @@ package com.nexhaat.app.ui.screens.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexhaat.app.data.remote.NetworkResult
+import com.nexhaat.app.data.remote.dto.BannerDto
 import com.nexhaat.app.data.remote.dto.CategoryDto
 import com.nexhaat.app.data.remote.dto.ProductDto
 import kotlinx.coroutines.async
@@ -18,6 +19,7 @@ import javax.inject.Inject
 data class HomeUiState(
     val categories: List<CategoryDto> = emptyList(),
     val products: List<ProductDto> = emptyList(),
+    val banners: List<BannerDto> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -36,57 +38,25 @@ class HomeViewModel @Inject constructor(
     fun loadHomeData() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
-            val (categoriesResult, productsResult) = coroutineScope {
-                val categoriesRequest = async { repository.getCategories() }
-                val productsRequest = async { repository.getProducts(page = 1, limit = 10) }
-                categoriesRequest.await() to productsRequest.await()
-            }
-            
-            when {
-                categoriesResult is NetworkResult.Success && productsResult is NetworkResult.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        categories = categoriesResult.data,
-                        products = productsResult.data.first,
-                        isLoading = false
-                    )
-                }
-                categoriesResult is NetworkResult.Error && productsResult is NetworkResult.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        categories = emptyList(),
-                        products = productsResult.data.first,
-                        error = categoriesResult.message,
-                        isLoading = false
-                    )
-                }
-                productsResult is NetworkResult.Error && categoriesResult is NetworkResult.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        categories = categoriesResult.data,
-                        products = emptyList(),
-                        error = productsResult.message,
-                        isLoading = false
-                    )
-                }
-                categoriesResult is NetworkResult.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        categories = emptyList(),
-                        products = emptyList(),
-                        error = categoriesResult.message,
-                        isLoading = false
-                    )
-                }
-                productsResult is NetworkResult.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        categories = emptyList(),
-                        products = emptyList(),
-                        error = productsResult.message,
-                        isLoading = false
-                    )
-                }
-                else -> {
-                    _uiState.value = _uiState.value.copy(isLoading = false)
-                }
-            }
+
+            val categoriesResult = async { repository.getCategories() }
+            val productsResult = async { repository.getProducts(page = 1, limit = 20) }
+            val bannersResult = async { repository.getBanners() }
+
+            val categories = (categoriesResult.await() as? NetworkResult.Success)?.data.orEmpty()
+            val products = (productsResult.await() as? NetworkResult.Success)?.data?.first.orEmpty()
+            val banners = (bannersResult.await() as? NetworkResult.Success)?.data.orEmpty()
+            val error = (productsResult.await() as? NetworkResult.Error)?.message
+                ?: (categoriesResult.await() as? NetworkResult.Error)?.message
+                ?: (bannersResult.await() as? NetworkResult.Error)?.message
+
+            _uiState.value = _uiState.value.copy(
+                categories = categories,
+                products = products,
+                banners = banners,
+                isLoading = false,
+                error = error
+            )
         }
     }
 }

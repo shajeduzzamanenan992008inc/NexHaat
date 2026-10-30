@@ -407,5 +407,44 @@ class PromotionRedemption(db.Model):
         db.CheckConstraint("discount_amount >= 0", name="ck_promotion_redemption_amount_nonnegative"),
     )
 
-    promotion = db.relationship("PromotionCode", back_populates="redemptions")
-    user = db.relationship("User")
+class Banner(db.Model):
+    __tablename__ = "banners"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(120), nullable=False)
+    subtitle = db.Column(db.String(255), nullable=True)
+    image_url = db.Column(db.String(500), nullable=True)
+    link_url = db.Column(db.String(500), nullable=True)
+    link_type = db.Column(db.String(32), nullable=False, server_default="products")
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    display_order = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (
+        db.CheckConstraint("length(trim(title)) > 0", name="ck_banner_title_nonempty"),
+        db.CheckConstraint(
+            "link_type IN ('products', 'category', 'search', 'external')",
+            name="ck_banner_link_type",
+        ),
+        db.Index("ix_banners_active_order", "is_active", "display_order"),
+    )
+
+    @property
+    def display_image(self):
+        if not self.image_url:
+            return None
+        parsed = urlparse(self.image_url)
+        if parsed.scheme and parsed.scheme not in {"http", "https"}:
+            return None
+        if self.image_url.startswith(("//", "data:")):
+            return None
+        return self.image_url
+
+@classmethod
+def get_active_banners(cls):
+    """Return active banners ordered by display_order for the home carousel."""
+    return db.session.scalars(
+        select(cls)
+        .where(cls.is_active.is_(True))
+        .order_by(cls.display_order.asc(), cls.id.asc())
+    ).all()

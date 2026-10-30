@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 
 from ..extensions import db
 from ..models import (
+    ReviewReport,
     AccountInvitation,
     AuditEvent,
     Order,
@@ -259,15 +260,15 @@ def admin_dashboard():
                 Product.seller_id.is_not(None), Product.moderation_status == "pending"
             )
         ) or 0,
-        pending_reviews=db.session.scalars(
-            select(Review)
-            .options(selectinload(Review.product))
-            .where(Review.status == "pending")
-            .order_by(Review.created_at.asc())
+        pending_review_reports=db.session.scalars(
+            select(ReviewReport)
+            .options(selectinload(ReviewReport.review).selectinload(Review.product))
+            .where(ReviewReport.status == "open")
+            .order_by(ReviewReport.created_at.desc())
             .limit(100)
         ).all(),
-        pending_review_count=db.session.scalar(
-            select(func.count(Review.id)).where(Review.status == "pending")
+        pending_review_report_count=db.session.scalar(
+            select(func.count(ReviewReport.id)).where(ReviewReport.status == "open")
         ) or 0,
         open_reports=open_review_reports(limit=50),
         open_report_count=open_review_report_count(),

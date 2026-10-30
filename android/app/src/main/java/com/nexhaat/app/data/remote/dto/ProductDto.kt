@@ -26,6 +26,8 @@ data class ProductDto(
     val sku: String? = null,
     val variants: List<VariantDto> = emptyList(),
     val image: String? = null,
+    @SerialName("display_image")
+    val displayImage: String? = null,
     @SerialName("is_available")
     val isAvailable: Boolean = false,
     @SerialName("is_featured")
@@ -40,7 +42,11 @@ data class ProductDto(
     val createdAt: String? = null,
     @SerialName("updated_at")
     val updatedAt: String? = null
-)
+) {
+    /** The reference the website renders: the seller photo, else category artwork. */
+    val imageReference: String?
+        get() = displayImage?.takeIf(String::isNotBlank) ?: image?.takeIf(String::isNotBlank)
+}
 
 @Serializable
 data class VariantDto(

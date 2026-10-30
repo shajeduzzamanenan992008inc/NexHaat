@@ -19,3 +19,12 @@ val NexHaatDarkSurface = Color(0xFF1A2430)
 val NexHaatDarkRaised = Color(0xFF243140)
 val NexHaatDarkInk = Color(0xFFF3F6FA)
 val NexHaatDarkMuted = Color(0xFFB2C0CF)
+
+object NexHaatColors {
+    fun surface() = NexHaatSurface
+    fun surfaceVariant() = NexHaatSurfaceRaised
+    fun onSurface() = NexHaatInk
+    fun onSurfaceVariant() = NexHaatMuted
+    fun error() = NexHaatRed
+    fun onError() = Color.White
+}

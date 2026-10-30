@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="nexhaat_page">#F4F6F8</color>
+    <color name="nexhaat_launcher_plate">#E7EBF0</color>
     <color name="nexhaat_surface">#FFFFFF</color>
     <color name="nexhaat_ink">#1A2332</color>
     <color name="nexhaat_muted">#5C6B7A</color>

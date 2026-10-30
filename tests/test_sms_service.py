@@ -1,5 +1,4 @@
 from app.services import sms
-from app.services.sms_adapters import SmsErrorClass, SmsResult
 
 
 class DummyAdapter:
@@ -31,11 +30,12 @@ def test_verify_phone_otp_expired(app):
     app.config["SMS_ENABLED"] = True
     with app.app_context():
         # Create an expired challenge directly
+        import secrets
+        from datetime import UTC, datetime, timedelta
+
         from app.extensions import db
         from app.models import PhoneOtpChallenge
-        from datetime import UTC, datetime, timedelta
         from app.routes.auth import _reset_code_digest
-        import secrets
 
         challenge = PhoneOtpChallenge(
             id=secrets.token_urlsafe(32),
@@ -57,11 +57,12 @@ def test_verify_phone_otp_expired(app):
 def test_verify_phone_otp_wrong_code(app):
     app.config["SMS_ENABLED"] = True
     with app.app_context():
+        import secrets
+        from datetime import UTC, datetime, timedelta
+
         from app.extensions import db
         from app.models import PhoneOtpChallenge
-        from datetime import UTC, datetime, timedelta
         from app.routes.auth import _reset_code_digest
-        import secrets
 
         challenge = PhoneOtpChallenge(
             id=secrets.token_urlsafe(32),

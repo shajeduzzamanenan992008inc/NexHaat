@@ -1,32 +1,43 @@
 package com.nexhaat.app.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.width
-import com.nexhaat.app.R
 import com.nexhaat.app.data.remote.dto.ProductDto
-import java.math.BigDecimal
-import java.text.NumberFormat
-import java.util.Locale
+import com.nexhaat.app.ui.components.ProductImage
+import com.nexhaat.app.ui.theme.NexHaatColors
+import com.nexhaat.app.ui.theme.NexHaatTypography
 
 @Composable
 fun ProductCard(
@@ -34,105 +45,122 @@ fun ProductCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val title = product.localizedName?.takeIf(String::isNotBlank) ?: product.name
-    val price = product.displayPrice ?: product.discountPrice ?: product.price
-    val previousPrice = product.discountPrice?.let { product.price }
-    val currentPriceNumber = price?.toBigDecimalOrNull()
-    val previousPriceNumber = previousPrice?.toBigDecimalOrNull()
-    val discount = if (currentPriceNumber != null && previousPriceNumber != null && previousPriceNumber > BigDecimal.ZERO) {
-        ((previousPriceNumber - currentPriceNumber) * BigDecimal(100) / previousPriceNumber)
-            .toInt()
-            .coerceIn(0, 100)
-    } else {
-        0
-    }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        label = "scale"
+    )
 
-    Card(
+    val price = product.displayPrice?.toDoubleOrNull()
+    val previous = product.price?.toDoubleOrNull()
+    val showPrevious = previous != null &&
+        price != null &&
+        previous > 0 &&
+        price < previous
+    val discounted = showPrevious && product.isAvailable
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(NexHaatColors.surface())
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(
+                    bounded = true,
+                    color = NexHaatColors.onSurface().copy(alpha = 0.18f)
+                ),
+                onClick = onClick
+            )
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
     ) {
-        Column {
-            androidx.compose.foundation.layout.Box {
-                ProductImage(
-                    imageUrl = product.image,
-                    contentDescription = title,
+        // Product image
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(96.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(NexHaatColors.surfaceVariant())
+        ) {
+            ProductImage(
+                imageUrl = product.imageReference,
+                contentDescription = product.name.ifBlank { null },
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            if (discounted) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(152.dp)
-                )
-                if (discount > 0) {
-                    Text(
-                        text = stringResource(R.string.discount_percent, discount),
-                        color = MaterialTheme.colorScheme.onError,
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(9.dp)
-                            .background(MaterialTheme.colorScheme.error, RoundedCornerShape(999.dp))
-                            .padding(horizontal = 9.dp, vertical = 5.dp)
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                product.brandName?.takeIf(String::isNotBlank)?.let { brand ->
-                    Text(
-                        text = brand,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2,
-                    minLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    price?.let { amount ->
-                        Text(
-                            text = formatPrice(amount),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .background(
+                            NexHaatColors.error(),
+                            RoundedCornerShape(4.dp)
                         )
-                    }
-                    if (previousPrice != null) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = formatPrice(previousPrice),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
-                }
-                if ((product.stock ?: 0) > 0) {
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = stringResource(R.string.inventory_count, product.stock ?: 0),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary
+                        text = "SALE",
+                        style = NexHaatTypography.labelSmall,
+                        color = NexHaatColors.onError(),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = product.brandName ?: "",
+            style = NexHaatTypography.bodySmall,
+            color = NexHaatColors.onSurfaceVariant()
+        )
+
+        Text(
+            text = product.name.ifBlank { "Product name" },
+            style = NexHaatTypography.bodyMedium,
+            color = NexHaatColors.onSurface(),
+            maxLines = 2,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = product.displayPrice ?: "0.00",
+                style = NexHaatTypography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (discounted) NexHaatColors.error() else NexHaatColors.onSurface()
+            )
+
+            if (showPrevious) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = String.format("%.2f", previous!!),
+                    style = NexHaatTypography.bodySmall,
+                    color = NexHaatColors.onSurfaceVariant(),
+                    textDecoration = TextDecoration.LineThrough
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = if (product.stock != null && product.stock > 0) "In stock" else "Out of stock",
+            style = NexHaatTypography.bodySmall,
+            color = if ((product.stock ?: 0) > 0) NexHaatColors.onSurface() else NexHaatColors.onSurfaceVariant()
+        )
     }
 }
 
-private fun formatPrice(value: String): String {
-    val amount = value.toBigDecimalOrNull() ?: return value
-    val formatted = NumberFormat.getNumberInstance(Locale("en", "BD")).apply {
-        minimumFractionDigits = 2
-        maximumFractionDigits = 2
-    }.format(amount)
-    return "৳$formatted"
-}
