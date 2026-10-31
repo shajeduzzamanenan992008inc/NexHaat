@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { ProductVariant } from '../types';
+import { ProductVariant, Product } from '../types';
 import { ProductCard } from '../components/ProductCard';
 import { 
   Star, Heart, ShoppingBag, Truck, ShieldCheck, 
   RotateCcw, CheckCircle2, ChevronRight, Share2, 
   Plus, Minus, ArrowLeft, MessageSquarePlus, Layers, 
-  Sparkles, HelpCircle, Send, Check, Eye 
+  Sparkles, HelpCircle, Send, Check, Eye, Clock, 
+  ThumbsUp, CheckSquare, Square, PackageCheck, Zap, RefreshCw, Store 
 } from 'lucide-react';
+import { 
+  calculateBundlePrice, 
+  calculateReviewDistribution, 
+  calculateDeliveryPromise 
+} from '../lib/amazonFeatures';
 
 export const ProductDetailPage: React.FC = () => {
   const {
@@ -27,6 +33,7 @@ export const ProductDetailPage: React.FC = () => {
     addQuestion,
     isPrimeMember,
     setIsPrimeModalOpen,
+    showToast,
     t,
     language,
   } = useApp();
@@ -42,7 +49,63 @@ export const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState<number>(1);
   const [activeImage, setActiveImage] = useState<string>(product.image);
 
-  // Tabs: Reviews, Q&A, Specifications
+  // Amazon Purchase Type: One-time vs Subscribe & Save (10% discount)
+  const [purchaseType, setPurchaseType] = useState<'one-time' | 'subscribe'>('one-time');
+
+  // Amazon Delivery Promise Countdown
+  const [countdown, setCountdown] = useState<{ hours: number; minutes: number; seconds: number }>({
+    hours: 2,
+    minutes: 48,
+    seconds: 20,
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev.seconds > 0) {
+          return { ...prev, seconds: prev.seconds - 1 };
+        } else if (prev.minutes > 0) {
+          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
+        } else if (prev.hours > 0) {
+          return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
+        }
+        return { hours: 3, minutes: 30, seconds: 0 };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Amazon Frequently Bought Together bundle items
+  const complementaryProducts = products
+    .filter((p) => p.id !== product.id && p.category_slug === product.category_slug)
+    .slice(0, 2);
+  const bundlePool: Product[] = [product, ...complementaryProducts];
+  const [bundleSelectedIds, setBundleSelectedIds] = useState<number[]>(() =>
+    bundlePool.map((p) => p.id)
+  );
+
+  const toggleBundleItem = (id: number) => {
+    setBundleSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const selectedBundleProducts = bundlePool.filter((p) => bundleSelectedIds.includes(p.id));
+  const bundlePricing = calculateBundlePrice(selectedBundleProducts, 10);
+
+  // Amazon Star Rating Filter & Helpful Votes
+  const [filterStar, setFilterStar] = useState<number | null>(null);
+  const [helpfulVotes, setHelpfulVotes] = useState<Record<string, number>>({});
+
+  const handleHelpfulVote = (reviewId: string) => {
+    setHelpfulVotes((prev) => ({
+      ...prev,
+      [reviewId]: (prev[reviewId] || 0) + 1,
+    }));
+    showToast(t('Marked review as helpful!', 'রিভিউটি সহায়ক হিসেবে চিহ্নিত করা হয়েছে!'), 'success');
+  };
+
+  // Tabs: Details, Specs, Reviews, Q&A
   const [activeTab, setActiveTab] = useState<'details' | 'specs' | 'reviews' | 'qa'>('details');
 
   // Review Form
@@ -72,16 +135,47 @@ export const ProductDetailPage: React.FC = () => {
     }
   }
 
-  const totalItemPrice = unitPrice * quantity;
+  const effectiveUnitPrice = purchaseType === 'subscribe'
+    ? Math.round(unitPrice * 0.90)
+    : unitPrice;
+  const totalItemPrice = effectiveUnitPrice * quantity;
   const availableStock = selectedVariant ? selectedVariant.stock : product.stock_quantity;
 
   const handleAddToCart = () => {
-    addToCart(product, selectedVariant, quantity);
+    const itemToAdd = purchaseType === 'subscribe'
+      ? { ...product, discount_price: effectiveUnitPrice }
+      : product;
+    addToCart(itemToAdd, selectedVariant, quantity);
+    if (purchaseType === 'subscribe') {
+      showToast(t('Added monthly subscription with 10% discount to cart!', '১০% ছাড়সহ মাসিক সাবস্ক্রিপশন কার্টে যোগ হয়েছে!'), 'success');
+    }
   };
 
   const handleBuyNow = () => {
-    addToCart(product, selectedVariant, quantity);
+    const itemToAdd = purchaseType === 'subscribe'
+      ? { ...product, discount_price: effectiveUnitPrice }
+      : product;
+    addToCart(itemToAdd, selectedVariant, quantity);
     setCurrentView('checkout');
+  };
+
+  const handleAddBundleToCart = () => {
+    if (selectedBundleProducts.length === 0) return;
+    selectedBundleProducts.forEach((p) => {
+      const discountedPrice = Math.round((p.discount_price ?? p.price) * 0.90);
+      addToCart(
+        { ...p, discount_price: discountedPrice },
+        p.variants && p.variants.length > 0 ? p.variants[0] : undefined,
+        1
+      );
+    });
+    showToast(
+      t(
+        `Added ${selectedBundleProducts.length} bundle items to cart! (10% Bundle Discount Applied)`,
+        `বান্ডেলের ${selectedBundleProducts.length}টি পণ্য কার্টে যোগ হয়েছে! (১০% বিশেষ ছাড়)`
+      ),
+      'success'
+    );
   };
 
   const handleReviewSubmit = (e: React.FormEvent) => {
@@ -205,17 +299,24 @@ export const ProductDetailPage: React.FC = () => {
             <div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black text-ink">
-                  {formatPrice(unitPrice)}
+                  {formatPrice(effectiveUnitPrice)}
                 </span>
                 {product.discount_price && (
                   <span className="text-base text-slate-400 line-through">
                     {formatPrice(product.price + modifier)}
                   </span>
                 )}
-                {bulkDiscountPercent > 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold">
-                    {bulkDiscountPercent}% Bulk Discount Applied!
+                {purchaseType === 'subscribe' ? (
+                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 text-amber-700 animate-spin" />
+                    <span>10% Subscribe & Save Discount</span>
                   </span>
+                ) : (
+                  bulkDiscountPercent > 0 && (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold">
+                      {bulkDiscountPercent}% Bulk Discount Applied!
+                    </span>
+                  )
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-1">
@@ -237,24 +338,99 @@ export const ProductDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Prime Delivery Tag */}
-          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-amber-50/50 border border-blue-200/60 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-black italic text-primary text-sm">prime</span>
-              <span className="text-slate-700">
-                {isPrimeMember 
-                  ? t('You get FREE 3-Hour Express Doorstep Delivery on this item!', 'প্রাইম মেম্বার: ৩ ঘণ্টায় সম্পূর্ণ ফ্রি ডেলিভারি!')
-                  : t('Get FREE Express Delivery with NexHaat Prime', 'প্রাইম মেম্বার হয়ে উপভোগ করুন ফ্রি ডেলিভারি')}
-              </span>
+          {/* Amazon-style Purchase Options: One-Time Purchase vs Subscribe & Save */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => setPurchaseType('one-time')}
+              className={`p-3 rounded-2xl border text-left transition-all ${
+                purchaseType === 'one-time'
+                  ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-ink">{t('One-time purchase', 'এককালীন ক্রয়')}</span>
+                <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                  purchaseType === 'one-time' ? 'border-primary bg-primary' : 'border-slate-300'
+                }`}>
+                  {purchaseType === 'one-time' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </span>
+              </div>
+              <span className="text-sm font-black text-ink">{formatPrice(unitPrice)}</span>
+              <p className="text-[10px] text-muted mt-0.5">{t('Standard one-time checkout', 'সাধারণ একক অর্ডার')}</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPurchaseType('subscribe')}
+              className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                purchaseType === 'subscribe'
+                  ? 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-slate-900 text-[9px] font-black px-2 py-0.5 rounded-bl-lg">
+                SAVE 10%
+              </div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-ink flex items-center gap-1">
+                  <RefreshCw className="w-3 h-3 text-amber-600" />
+                  <span>{t('Subscribe & Save', 'সাবস্ক্রাইব ও সঞ্চয়')}</span>
+                </span>
+                <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                  purchaseType === 'subscribe' ? 'border-amber-600 bg-amber-600' : 'border-slate-300'
+                }`}>
+                  {purchaseType === 'subscribe' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </span>
+              </div>
+              <span className="text-sm font-black text-amber-700">{formatPrice(Math.round(unitPrice * 0.90))}</span>
+              <p className="text-[10px] text-slate-600 mt-0.5">{t('Auto-delivered every month. Cancel anytime.', 'প্রতি মাসে অটো ডেলিভারি। যেকোনো সময় বাতিলযোগ্য।')}</p>
+            </button>
+          </div>
+
+          {/* Amazon Prime Delivery Promise & Live Countdown Box */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/90 via-slate-50 to-amber-50/60 border border-blue-200/80 space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-black italic text-primary text-sm">prime</span>
+                <span className="font-bold text-slate-800">
+                  {t('Fastest Guaranteed Delivery', 'দ্রুততম গ্যারান্টিযুক্ত ডেলিভারি')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 font-mono text-[11px] font-bold bg-white px-2 py-0.5 rounded-lg border border-slate-200 text-slate-800 shadow-2xs">
+                <Clock className="w-3 h-3 text-amber-500" />
+                <span>
+                  {countdown.hours}h {countdown.minutes}m {countdown.seconds}s
+                </span>
+              </div>
             </div>
-            {!isPrimeMember && (
-              <button
-                onClick={() => setIsPrimeModalOpen(true)}
-                className="font-bold text-primary hover:underline shrink-0"
-              >
-                {t('Learn more', 'বিস্তারিত')}
-              </button>
-            )}
+
+            <p className="text-xs text-slate-600">
+              {t(
+                `Order within ${countdown.hours} hrs ${countdown.minutes} mins and choose Prime Express for delivery by Today 8:00 PM!`,
+                `${countdown.hours} ঘণ্টা ${countdown.minutes} মিনিটের মধ্যে অর্ডার করলে আজ রাত ৮টার মধ্যে ডেলিভারি পাবেন!`
+              )}
+            </p>
+
+            <div className="pt-2 border-t border-slate-200/80 grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+              <div className="flex items-center gap-1.5">
+                <PackageCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>NexHaat Hub Fulfillment</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>7-Day Return Guarantee</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="truncate">Sold by {product.seller_name} (4.8 ★)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>Secure Escrow Protection</span>
+              </div>
+            </div>
           </div>
 
           {/* Bulk Buying / Wholesale Tier (Amazon B2B feature) */}
@@ -356,9 +532,10 @@ export const ProductDetailPage: React.FC = () => {
                 type="button"
                 onClick={handleBuyNow}
                 disabled={availableStock <= 0}
-                className="neu-button py-3.5 px-6 rounded-2xl bg-accent hover:bg-amber-500 text-slate-900 font-bold text-sm shadow-md disabled:bg-slate-200 disabled:text-slate-400"
+                className="neu-button py-3.5 px-6 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-sm shadow-md disabled:bg-slate-200 disabled:text-slate-400 flex items-center justify-center gap-1.5"
               >
-                {t('Buy Now', 'এখনই কিনুন')}
+                <Zap className="w-4 h-4 fill-slate-950" />
+                <span>{t('Buy Now', 'এখনই কিনুন')}</span>
               </button>
 
               <button
@@ -501,58 +678,160 @@ export const ProductDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Tab: Reviews */}
+        {/* Tab: Reviews (Amazon Customer Reviews with Star Breakdown) */}
         {activeTab === 'reviews' && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-sm text-ink">{t('Verified Purchase Reviews', 'যাচাইকৃত ক্রেতাদের মতামত')}</h3>
-              <button
-                onClick={() => setIsReviewFormOpen(!isReviewFormOpen)}
-                className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover"
-              >
-                {isReviewFormOpen ? t('Cancel', 'বাতিল') : t('Write a Review', 'রিভিউ লিখুন')}
-              </button>
-            </div>
+            {/* Amazon Rating Breakdown Header */}
+            {(() => {
+              const reviewDist = calculateReviewDistribution(reviews);
+              const displayedReviews = filterStar
+                ? reviews.filter((r) => Math.round(r.rating) === filterStar)
+                : reviews;
 
-            {isReviewFormOpen && (
-              <form onSubmit={handleReviewSubmit} className="p-4 rounded-2xl bg-surface-raised border border-border space-y-3">
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button key={star} type="button" onClick={() => setReviewRating(star)}>
-                      <Star className={`w-5 h-5 ${star <= reviewRating ? 'text-amber-400 fill-current' : 'text-slate-300'}`} />
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder="Share details of your experience with this product..."
-                  rows={3}
-                  required
-                  className="w-full p-3 text-xs border rounded-xl"
-                />
-                <button type="submit" className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold">
-                  {t('Post Review', 'পোস্ট করুন')}
-                </button>
-              </form>
-            )}
+              return (
+                <div className="space-y-6">
+                  <div className="p-5 rounded-2xl bg-surface-raised border border-border flex flex-col md:flex-row items-center gap-6 justify-between">
+                    {/* Left: Overall rating */}
+                    <div className="text-center md:text-left shrink-0">
+                      <div className="text-4xl font-black text-ink">{product.rating}</div>
+                      <div className="flex text-amber-400 my-1 justify-center md:justify-start">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className={`w-4 h-4 ${i < Math.round(product.rating) ? 'fill-current' : 'text-slate-200'}`} />
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted">
+                        {t(`Based on ${reviewDist.total} global ratings`, `${reviewDist.total}টি ভেরিফাইড রেটিংয়ের ভিত্তিতে`)}
+                      </p>
+                      <p className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1 justify-center md:justify-start">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>100% Verified Customer Reviews</span>
+                      </p>
+                    </div>
 
-            <div className="space-y-3">
-              {reviews.map((rev) => (
-                <div key={rev.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-ink">{rev.user_name}</span>
-                    <span className="text-slate-400 text-[11px]">{rev.created_at}</span>
+                    {/* Middle: Star breakdown progress bars */}
+                    <div className="w-full max-w-sm space-y-1.5">
+                      {reviewDist.breakdown.map((tier) => (
+                        <button
+                          key={tier.star}
+                          type="button"
+                          onClick={() => setFilterStar(filterStar === tier.star ? null : tier.star)}
+                          className={`w-full flex items-center gap-2 text-xs group hover:text-primary transition-colors ${
+                            filterStar === tier.star ? 'font-bold text-primary' : 'text-slate-600'
+                          }`}
+                        >
+                          <span className="w-10 text-left shrink-0 group-hover:underline">
+                            {tier.star} star
+                          </span>
+                          <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                filterStar === tier.star ? 'bg-primary' : 'bg-amber-400 group-hover:bg-amber-500'
+                              }`}
+                              style={{ width: `${tier.percentage}%` }}
+                            />
+                          </div>
+                          <span className="w-8 text-right shrink-0 text-muted text-[11px]">
+                            {tier.percentage}%
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Right: Write review button */}
+                    <div className="shrink-0 text-center">
+                      <button
+                        onClick={() => setIsReviewFormOpen(!isReviewFormOpen)}
+                        className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-sm transition-colors"
+                      >
+                        {isReviewFormOpen ? t('Cancel', 'বাতিল') : t('Write a Customer Review', 'রিভিউ লিখুন')}
+                      </button>
+                      <p className="text-[10px] text-slate-400 mt-1.5">Share thoughts with other buyers</p>
+                    </div>
                   </div>
-                  <div className="flex text-amber-400">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className={`w-3.5 h-3.5 ${i < rev.rating ? 'fill-current' : 'text-slate-200'}`} />
-                    ))}
+
+                  {filterStar && (
+                    <div className="flex items-center justify-between p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-slate-700">
+                      <span>{t(`Filtered by: ${filterStar} Star Reviews`, `${filterStar} স্টার রিভিউ ফিল্টার করা হয়েছে`)}</span>
+                      <button
+                        onClick={() => setFilterStar(null)}
+                        className="font-bold text-primary hover:underline text-[11px]"
+                      >
+                        {t('Clear filter (Show all)', 'ফিল্টার মুছুন')}
+                      </button>
+                    </div>
+                  )}
+
+                  {isReviewFormOpen && (
+                    <form onSubmit={handleReviewSubmit} className="p-4 rounded-2xl bg-surface-raised border border-border space-y-3 animate-fade-in">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-ink">Rating:</span>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button key={star} type="button" onClick={() => setReviewRating(star)}>
+                              <Star className={`w-5 h-5 ${star <= reviewRating ? 'text-amber-400 fill-current' : 'text-slate-300'}`} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <textarea
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        placeholder="Share details of your experience with this product..."
+                        rows={3}
+                        required
+                        className="w-full p-3 text-xs border border-slate-200 rounded-xl bg-white"
+                      />
+                      <button type="submit" className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold shadow-sm">
+                        {t('Submit Review', 'রিভিউ জমা দিন')}
+                      </button>
+                    </form>
+                  )}
+
+                  <div className="space-y-3">
+                    {displayedReviews.length === 0 ? (
+                      <p className="text-xs text-muted italic text-center py-4">No reviews match this star rating.</p>
+                    ) : (
+                      displayedReviews.map((rev) => {
+                        const count = helpfulVotes[rev.id] || rev.helpful_count || 0;
+                        return (
+                          <div key={rev.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-ink">{rev.user_name}</span>
+                                {rev.verified_purchase && (
+                                  <span className="text-[10px] text-amber-700 bg-amber-100 font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5">
+                                    <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                                    <span>Verified Purchase</span>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-slate-400 text-[11px]">{rev.created_at}</span>
+                            </div>
+                            <div className="flex text-amber-400">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star key={i} className={`w-3.5 h-3.5 ${i < rev.rating ? 'fill-current' : 'text-slate-200'}`} />
+                              ))}
+                            </div>
+                            <p className="text-slate-700 leading-relaxed">{rev.comment}</p>
+                            <div className="pt-2 flex items-center gap-3 text-[11px] text-slate-500 border-t border-slate-100">
+                              <span>Was this review helpful?</span>
+                              <button
+                                type="button"
+                                onClick={() => handleHelpfulVote(rev.id)}
+                                className="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-100 font-semibold text-slate-700 flex items-center gap-1 transition-colors"
+                              >
+                                <ThumbsUp className="w-3 h-3 text-primary" />
+                                <span>Helpful ({count})</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
-                  <p className="text-xs text-slate-700">{rev.comment}</p>
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </div>
         )}
 
@@ -604,13 +883,139 @@ export const ProductDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* Frequently Bought Together Shelf */}
+      {/* Amazon-style Frequently Bought Together Interactive Bundle Box */}
+      {complementaryProducts.length > 0 && (
+        <section className="bg-white rounded-3xl border border-border shadow-card p-6 sm:p-8 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-lg sm:text-xl font-bold text-ink">
+                {t('Frequently Bought Together', 'একত্রে বেশি বিক্রিত পণ্যসমূহ')}
+              </h3>
+              <p className="text-xs text-muted">
+                {t('Buy these items together and get an automatic 10% bundle discount', 'একসাথে কিনুন এবং পান অতিরিক্ত ১০% বান্ডেল ছাড়')}
+              </p>
+            </div>
+            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-100 text-amber-900">
+              Bundle Savings 10%
+            </span>
+          </div>
+
+          <div className="flex flex-col lg:flex-row items-center gap-6 justify-between">
+            {/* Visual Products joined by '+' signs */}
+            <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto pb-2 w-full lg:w-auto justify-center lg:justify-start">
+              {bundlePool.map((bProduct, idx) => {
+                const isSelected = bundleSelectedIds.includes(bProduct.id);
+                return (
+                  <React.Fragment key={bProduct.id}>
+                    {idx > 0 && (
+                      <span className="text-slate-400 font-black text-xl shrink-0">+</span>
+                    )}
+                    <div
+                      onClick={() => toggleBundleItem(bProduct.id)}
+                      className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-2 p-1.5 cursor-pointer transition-all shrink-0 bg-slate-50 flex items-center justify-center ${
+                        isSelected
+                          ? 'border-primary ring-2 ring-primary/20 shadow-xs'
+                          : 'border-slate-200 opacity-40 hover:opacity-75'
+                      }`}
+                    >
+                      <img
+                        src={bProduct.image}
+                        alt={bProduct.name}
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                      <div className="absolute top-1.5 right-1.5 bg-white/90 rounded-md p-0.5 shadow-xs">
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-400" />
+                        )}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            {/* Price & Add to Cart calculation column */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 w-full lg:w-80 shrink-0 space-y-3">
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase">
+                    {t('Bundle Price:', 'বান্ডেল মূল্য:')}
+                  </span>
+                  <span className="text-2xl font-black text-ink">
+                    {formatPrice(bundlePricing.discountedTotal)}
+                  </span>
+                </div>
+                {bundlePricing.savings > 0 && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-slate-400 line-through">
+                      {formatPrice(bundlePricing.originalTotal)}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                      {t(`Save ${formatPrice(bundlePricing.savings)}`, `সাশ্রয় ${formatPrice(bundlePricing.savings)}`)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddBundleToCart}
+                disabled={selectedBundleProducts.length === 0}
+                className="neu-button w-full py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs shadow-md disabled:bg-slate-200 disabled:text-slate-400 flex items-center justify-center gap-2"
+              >
+                <ShoppingBag className="w-4 h-4 fill-slate-950" />
+                <span>
+                  {t(
+                    `Add all ${selectedBundleProducts.length} to Cart`,
+                    `সব ${selectedBundleProducts.length}টি পণ্য কার্টে যোগ করুন`
+                  )}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Individual Checkbox selection rows */}
+          <div className="pt-4 border-t border-slate-100 space-y-2 text-xs">
+            {bundlePool.map((bProduct, idx) => {
+              const isSelected = bundleSelectedIds.includes(bProduct.id);
+              const price = bProduct.discount_price ?? bProduct.price;
+              return (
+                <label
+                  key={bProduct.id}
+                  className="flex items-center gap-2.5 cursor-pointer text-slate-700 hover:text-ink select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleBundleItem(bProduct.id)}
+                    className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300"
+                  />
+                  <span>
+                    <strong>{idx === 0 ? t('This item: ', 'এই পণ্য: ') : ''}</strong>
+                    <span>{language === 'bn' && bProduct.name_bn ? bProduct.name_bn : bProduct.name}</span>
+                    <span className="font-bold text-primary ml-1.5">{formatPrice(price)}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Customers Also Viewed / Related Products Shelf */}
       {relatedProducts.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-ink">
-              {t('Frequently Bought Together', 'সম্পর্কিত অন্যান্য পণ্য')}
-            </h3>
+            <div>
+              <h3 className="text-xl font-bold text-ink">
+                {t('Customers Also Viewed', 'অন্যান্য ক্রেতারা যা দেখেছেন')}
+              </h3>
+              <p className="text-xs text-muted">
+                {t('Popular complementary items in this category', 'এই ক্যাটাগরির অন্যান্য জনপ্রিয় পণ্যসমূহ')}
+              </p>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {relatedProducts.map(rel => (

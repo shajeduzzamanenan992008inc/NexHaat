@@ -4,8 +4,9 @@ import { UserRole } from '../types';
 import { 
   Search, ShoppingCart, Heart, Bell, Menu, X, ChevronDown, 
   User, Shield, Truck, Store, Phone, Sparkles, Tag, ArrowRight,
-  Sun, Moon, Layers, Mic, Camera 
+  Sun, Moon, Layers, Mic, Camera, Clock, TrendingUp, History, Trash2
 } from 'lucide-react';
+import { manageSearchHistory } from '../lib/amazonFeatures';
 
 export const Navbar: React.FC = () => {
   const {
@@ -48,37 +49,100 @@ export const Navbar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [isDepartmentMenuOpen, setIsDepartmentMenuOpen] = useState(false);
+
+  // Search History from localStorage
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('nexhaat_recent_searches');
+      return stored ? JSON.parse(stored) : ['Padma Ilish', 'Chinigura Rice', 'Cold-Pressed Mustard Oil'];
+    } catch {
+      return ['Padma Ilish', 'Chinigura Rice', 'Cold-Pressed Mustard Oil'];
+    }
+  });
+
+  const trendingKeywords = [
+    'Padma Ilish',
+    'Chinigura Rice',
+    'Cold-Pressed Mustard Oil',
+    'Fazli Mango',
+    'Sundarbans Honey',
+    'Organic Ghee',
+  ];
 
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Close search suggestions on click outside
+  // Close search suggestions and department menu on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsSearchFocused(false);
+        setIsDepartmentMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter search suggestions
+  const saveSearchQuery = (term: string) => {
+    const updated = manageSearchHistory(recentSearches, term);
+    setRecentSearches(updated);
+    try {
+      localStorage.setItem('nexhaat_recent_searches', JSON.stringify(updated));
+    } catch (e) {
+      // Storage unavailable or disabled
+    }
+  };
+
+  const removeSearchItem = (term: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = recentSearches.filter(q => q.toLowerCase() !== term.toLowerCase());
+    setRecentSearches(updated);
+    try {
+      localStorage.setItem('nexhaat_recent_searches', JSON.stringify(updated));
+    } catch (e) {}
+  };
+
+  const clearAllSearchHistory = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('nexhaat_recent_searches');
+    } catch (e) {}
+  };
+
+  const executeSearch = (term: string) => {
+    const trimmed = term.trim();
+    if (trimmed) {
+      saveSearchQuery(trimmed);
+      setSearchQuery(trimmed);
+      if (selectedDepartment !== 'all') {
+        setActiveCategorySlug(selectedDepartment);
+      }
+      setIsSearchFocused(false);
+      setIsDepartmentMenuOpen(false);
+      setCurrentView('catalog');
+    }
+  };
+
+  // Filter search suggestions with department filter
   const searchSuggestions = searchQuery.trim() === ''
     ? []
-    : products.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.name_bn?.includes(searchQuery) ||
-        p.category_slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.seller_name.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 6);
+    : products.filter(p => {
+        const matchesDept = selectedDepartment === 'all' || p.category_slug === selectedDepartment;
+        const matchesQuery = 
+          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.name_bn?.includes(searchQuery) ||
+          p.category_slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.brand_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.seller_name.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesDept && matchesQuery;
+      }).slice(0, 6);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      setIsSearchFocused(false);
-      setCurrentView('catalog');
-    }
+    executeSearch(searchQuery);
   };
 
   const handleVoiceSearch = () => {
@@ -288,22 +352,76 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          {/* Search bar with live suggestions, Voice & Image Search */}
+          {/* Search bar with Amazon Department Selector, Search History, Voice & Image Search */}
           <div ref={searchRef} className="relative flex-1 max-w-2xl hidden md:block">
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setIsSearchFocused(true)}
-                placeholder={t(
-                  'Search fresh vegetables, river ilish, rice, mustard oil, gadgets...',
-                  'তাজা শাকসবজি, পদ্মার ইলিশ, চাল, খাঁটি সরিষার তেল খুঁজুন...'
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-inset focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+              {/* Amazon Department Selector */}
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsDepartmentMenuOpen(!isDepartmentMenuOpen)}
+                  className="h-full px-3 py-2.5 bg-slate-100 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 rounded-l-2xl text-xs font-semibold flex items-center gap-1 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors whitespace-nowrap"
+                  title="Filter by Department"
+                >
+                  <span className="max-w-[90px] truncate">
+                    {selectedDepartment === 'all' 
+                      ? t('All', 'সকল') 
+                      : (categories.find(c => c.slug === selectedDepartment)?.name || selectedDepartment)}
+                  </span>
+                  <ChevronDown className="w-3 h-3 opacity-60" />
+                </button>
+
+                {isDepartmentMenuOpen && (
+                  <div className="absolute left-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-fade-in max-h-64 overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDepartment('all');
+                        setIsDepartmentMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold ${
+                        selectedDepartment === 'all'
+                          ? 'bg-primary/10 text-primary font-bold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {t('All Departments', 'সকল ডিপার্টমেন্ট')}
+                    </button>
+                    {categories.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDepartment(c.slug);
+                          setIsDepartmentMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-xs truncate ${
+                          selectedDepartment === c.slug
+                            ? 'bg-primary/10 text-primary font-bold'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {language === 'bn' ? c.name_bn : c.name}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                className="w-full pl-11 pr-32 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-hidden focus:border-primary focus:bg-white dark:focus:bg-slate-900 transition-all shadow-inset text-ink dark:text-white"
-              />
-              <Search className="absolute left-3.5 w-4 h-4 text-slate-400" />
-              
+              </div>
+
+              <div className="relative flex-1 flex items-center">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  placeholder={t(
+                    'Search fresh fish, organic rice, cold-pressed oil, farm produce...',
+                    'তাজা ইলিশ, সুগন্ধি চাল, সরিষার তেল, খামারের পণ্য খুঁজুন...'
+                  )}
+                  className="w-full pl-3 pr-28 py-2.5 bg-transparent text-sm focus:outline-hidden text-ink dark:text-white placeholder:text-slate-400"
+                />
+              </div>
+
               {/* Mic & Visual Search Icons inside search bar */}
               <div className="absolute right-20 flex items-center gap-1">
                 <button
@@ -328,62 +446,137 @@ export const Navbar: React.FC = () => {
 
               <button
                 type="submit"
-                className="absolute right-1.5 px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-hover transition-colors shadow-sm"
+                className="mr-1.5 px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-hover transition-colors shadow-sm flex items-center gap-1"
               >
-                {t('Search', 'খুঁজুন')}
+                <Search className="w-3.5 h-3.5" />
+                <span>{t('Search', 'খুঁজুন')}</span>
               </button>
             </form>
 
-            {/* Live Search Suggestions Dropdown */}
-            {isSearchFocused && searchSuggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-elevated border border-slate-100 dark:border-slate-700 overflow-hidden z-50 animate-fade-in">
-                <div className="p-2 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs text-muted">
-                  <span>{t('Matching Products', 'সম্পর্কিত পণ্যসমূহ')}</span>
-                  <span className="text-[11px]">{searchSuggestions.length} {t('results', 'ফলাফল')}</span>
-                </div>
-                <div className="max-h-72 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-700">
-                  {searchSuggestions.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        navigateToProduct(item.slug);
-                        setIsSearchFocused(false);
-                      }}
-                      className="flex items-center gap-3 p-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
-                    >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-12 h-12 rounded-lg object-cover bg-slate-100 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-ink dark:text-white truncate">
-                          {language === 'bn' && item.name_bn ? item.name_bn : item.name}
-                        </p>
-                        <p className="text-[11px] text-muted truncate">
-                          {item.seller_name} • {item.unit}
-                        </p>
+            {/* Dropdown: Recent Search History & Trending or Live Matching Suggestions */}
+            {isSearchFocused && (
+              <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-elevated border border-slate-100 dark:border-slate-700 overflow-hidden z-50 animate-fade-in divide-y divide-slate-100 dark:divide-slate-700">
+                {searchQuery.trim() === '' ? (
+                  /* Amazon-style Recent Search History & Trending Suggestions */
+                  <div className="p-3 space-y-3">
+                    {recentSearches.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                          <span className="flex items-center gap-1.5">
+                            <History className="w-3.5 h-3.5 text-primary" />
+                            {t('Recent Searches', 'সাম্প্রতিক অনুসন্ধান')}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={clearAllSearchHistory}
+                            className="text-slate-400 hover:text-rose-500 font-semibold lowercase transition-colors"
+                          >
+                            {t('Clear all', 'সব মুছুন')}
+                          </button>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          {recentSearches.map((term, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => executeSearch(term)}
+                              className="group flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/60 cursor-pointer text-xs transition-colors"
+                            >
+                              <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-200">
+                                <Clock className="w-3.5 h-3.5 text-slate-400 group-hover:text-primary transition-colors" />
+                                <span className="font-medium group-hover:text-primary">{term}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => removeSearchItem(term, e)}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-500 rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
+                                title="Remove from history"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-bold text-primary">
-                          {formatPrice(item.discount_price ?? item.price)}
-                        </span>
+                    )}
+
+                    {/* Trending searches */}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-2">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                        <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{t('Trending on NexHaat', 'জনপ্রিয় অনুসন্ধান')}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {trendingKeywords.map((kw, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => executeSearch(kw)}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs hover:bg-primary/10 hover:text-primary transition-colors font-medium flex items-center gap-1"
+                          >
+                            <span>{kw}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-800 text-center border-t border-slate-100 dark:border-slate-700">
-                  <button
-                    onClick={() => {
-                      setIsSearchFocused(false);
-                      setCurrentView('catalog');
-                    }}
-                    className="text-xs font-semibold text-primary hover:underline flex items-center justify-center gap-1 mx-auto"
-                  >
-                    <span>{t('View all search results', 'সব ফলাফল দেখুন')}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                  </div>
+                ) : (
+                  /* Matching Products */
+                  <div>
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs text-muted">
+                      <span>{t('Matching Products', 'সম্পর্কিত পণ্যসমূহ')}</span>
+                      <span className="text-[11px]">{searchSuggestions.length} {t('results', 'ফলাফল')}</span>
+                    </div>
+                    {searchSuggestions.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        {t('No direct matches found. Press Search to view catalog.', 'কোন সরাসরি পণ্য পাওয়া যায়নি।')}
+                      </div>
+                    ) : (
+                      <div className="max-h-72 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-700">
+                        {searchSuggestions.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              saveSearchQuery(item.name);
+                              navigateToProduct(item.slug);
+                              setIsSearchFocused(false);
+                            }}
+                            className="flex items-center gap-3 p-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
+                          >
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-12 h-12 rounded-lg object-cover bg-slate-100 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-ink dark:text-white truncate">
+                                {language === 'bn' && item.name_bn ? item.name_bn : item.name}
+                              </p>
+                              <p className="text-[11px] text-muted truncate">
+                                {item.seller_name} • {item.unit}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-xs font-bold text-primary">
+                                {formatPrice(item.discount_price ?? item.price)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800 text-center border-t border-slate-100 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => executeSearch(searchQuery)}
+                        className="text-xs font-semibold text-primary hover:underline flex items-center justify-center gap-1 mx-auto"
+                      >
+                        <span>{t('View all search results', 'সব ফলাফল দেখুন')}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

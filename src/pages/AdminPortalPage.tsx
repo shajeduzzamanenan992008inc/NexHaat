@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   Shield, Check, X, Layers, Users, ShoppingCart, 
-  Activity, AlertCircle, Plus, Sparkles, Building, Percent, RefreshCw 
+  Activity, AlertCircle, Plus, Sparkles, Building, Percent, RefreshCw,
+  Search, TrendingUp 
 } from 'lucide-react';
+import { SearchAnalyticsDashboard } from '../components/SearchAnalyticsDashboard';
 
 export const AdminPortalPage: React.FC = () => {
   const { 
@@ -16,7 +18,7 @@ export const AdminPortalPage: React.FC = () => {
     t 
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'moderation' | 'categories' | 'warehouses' | 'commissions' | 'audit'>('moderation');
+  const [activeTab, setActiveTab] = useState<'search-trends' | 'moderation' | 'categories' | 'warehouses' | 'commissions' | 'audit'>('search-trends');
 
   const totalGMV = orders.reduce((sum, ord) => sum + ord.total_amount, 0);
 
@@ -106,6 +108,19 @@ export const AdminPortalPage: React.FC = () => {
       {/* Tabs */}
       <div className="flex gap-2 border-b border-border pb-2 overflow-x-auto">
         <button
+          onClick={() => setActiveTab('search-trends')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'search-trends' ? 'bg-primary text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <Search className="w-3.5 h-3.5" />
+          <span>User Search Trends & Keywords</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-900 font-black">
+            LIVE
+          </span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('moderation')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeTab === 'moderation' ? 'bg-primary text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-50'
@@ -150,6 +165,11 @@ export const AdminPortalPage: React.FC = () => {
           Security Audit Trail
         </button>
       </div>
+
+      {/* Tab: Search Trends & Keyword Analytics Dashboard */}
+      {activeTab === 'search-trends' && (
+        <SearchAnalyticsDashboard />
+      )}
 
       {/* Tab: Catalog Moderation */}
       {activeTab === 'moderation' && (

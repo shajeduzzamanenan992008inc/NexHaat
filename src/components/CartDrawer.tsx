@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, 
-  Tag, ShieldCheck, Bookmark, Sparkles, Check 
+  Tag, ShieldCheck, Bookmark, Sparkles, Check, Zap 
 } from 'lucide-react';
+import { calculateFreeShippingProgress } from '../lib/amazonFeatures';
 
 export const CartDrawer: React.FC = () => {
   const {
@@ -26,6 +27,8 @@ export const CartDrawer: React.FC = () => {
     setCurrentView,
     isPrimeMember,
     setIsPrimeModalOpen,
+    products,
+    addToCart,
     t,
   } = useApp();
 
@@ -33,16 +36,11 @@ export const CartDrawer: React.FC = () => {
 
   if (!isCartDrawerOpen) return null;
 
-  const freeDeliveryThreshold = 1500;
-  const progressPercent = isPrimeMember 
-    ? 100 
-    : Math.min(100, Math.round((cartSubtotal / freeDeliveryThreshold) * 100));
-  const remainingForFreeShipping = isPrimeMember 
-    ? 0 
-    : Math.max(0, freeDeliveryThreshold - cartSubtotal);
+  const shippingInfo = calculateFreeShippingProgress(cartSubtotal, 1500, isPrimeMember);
+  const { progressPercent, remainingAmount: remainingForFreeShipping, isFreeEligible } = shippingInfo;
 
   const estimatedDelivery = cart.length > 0 
-    ? (isPrimeMember || activeCoupon?.code === 'FREESHIP' || cartSubtotal >= freeDeliveryThreshold ? 0 : 60) 
+    ? (isFreeEligible || activeCoupon?.code === 'FREESHIP' ? 0 : 60) 
     : 0;
   const grandTotal = Math.max(0, cartSubtotal - appliedPromoDiscount + estimatedDelivery);
 
@@ -288,6 +286,51 @@ export const CartDrawer: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Amazon-style "Customers Also Added" Cross-sell Shelf */}
+            {cart.length > 0 && (
+              <div className="pt-4 border-t border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{t('Customers Also Added', 'অন্যান্য ক্রেতারা আরও নিয়েছেন')}</span>
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {products
+                    .filter((p) => !cart.some((ci) => ci.product.id === p.id))
+                    .slice(0, 2)
+                    .map((item) => (
+                      <div
+                        key={`cross-sell-${item.id}`}
+                        className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-10 h-10 rounded-lg object-cover shrink-0"
+                          />
+                          <div className="truncate">
+                            <p className="font-bold text-ink truncate">{item.name}</p>
+                            <p className="text-[11px] text-primary font-semibold">
+                              {formatPrice(item.discount_price ?? item.price)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => addToCart(item, item.variants && item.variants.length > 0 ? item.variants[0] : undefined, 1)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold text-[11px] hover:bg-primary transition-colors flex items-center gap-1 shrink-0"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{t('Add', 'যোগ')}</span>
+                        </button>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
