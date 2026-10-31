@@ -1,0 +1,8 @@
+{
+  "name": "NexHaat",
+  "description": "NexHaat is Bangladesh's premier hyper-local multivendor marketplace for fresh foods, groceries, electronics, fashion, and local products with full customer, seller, rider, and admin workspaces.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

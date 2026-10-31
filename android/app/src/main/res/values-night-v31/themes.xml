@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.NexHaat.Starting" parent="Theme.NexHaat">
-        <item name="android:windowSplashScreenBackground">@color/nexhaat_dark_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
-        <item name="android:windowBackground">@drawable/nexhaat_launch_screen</item>
-    </style>
-</resources>
