@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --page: #f4f6f8;
+  --surface: #ffffff;
+  --surface-raised: #f8fafc;
+  --ink: #1a2332;
+  --muted: #5c6b7a;
+  --line: #dde3ea;
+  --blue: #0a66c2;
+  --blue-deep: #074f96;
+  --green: #1b7a43;
+  --orange: #e8890c;
+  --red: #b3261e;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background-color: var(--page);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Ambient gradient background blobs from original NexHaat */
+body::before,
+body::after {
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.7;
+}
+
+body::before {
+  width: 26rem;
+  height: 26rem;
+  top: 5%;
+  left: -10rem;
+  background: radial-gradient(circle at 65% 38%, #d2e4ff, transparent 70%);
+  animation: ambient-drift 16s ease-in-out infinite;
+}
+
+body::after {
+  width: 30rem;
+  height: 30rem;
+  bottom: 5%;
+  right: -12rem;
+  background: radial-gradient(circle at 38% 46%, #fef0db, transparent 70%);
+  animation: ambient-drift 20s ease-in-out -5s infinite reverse;
+}
+
+@keyframes ambient-drift {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(30px) scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after {
+    animation: none;
+  }
+}
+
+/* Neumorphic UI utility classes */
+.neu-flat {
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(20, 34, 52, 0.06), 0 1px 3px rgba(20, 34, 52, 0.04);
+  border: 1px solid rgba(221, 227, 234, 0.8);
+}
+
+.neu-raised {
+  background: #ffffff;
+  box-shadow: 6px 6px 16px rgba(20, 34, 52, 0.07), -6px -6px 16px rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.neu-inset {
+  background: #f8fafc;
+  box-shadow: inset 2px 2px 5px rgba(20, 34, 52, 0.06), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(221, 227, 234, 0.7);
+}
+
+.neu-button {
+  transition: all 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.neu-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(10, 102, 194, 0.2);
+}
+
+.neu-button:active {
+  transform: translateY(1px);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
