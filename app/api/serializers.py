@@ -1,5 +1,7 @@
 """Model-to-dict serializers shared by the versioned REST API."""
 
+from urllib.parse import urlparse
+
 from flask import has_request_context
 from flask_babel import get_locale
 
@@ -161,12 +163,24 @@ def notification_to_dict(notification):
 
 
 def banner_to_dict(banner):
+    link_url = banner.link_url
+    if link_url:
+        link_url_stripped = str(link_url).strip()
+        if link_url_stripped.lower().startswith(("javascript:", "data:", "vbscript:")) or link_url_stripped.startswith("//"):
+            link_url = None
+        else:
+            parsed = urlparse(link_url_stripped)
+            if parsed.scheme and parsed.scheme not in {"http", "https"} or parsed.scheme in {"http", "https"} and not parsed.netloc:
+                link_url = None
+            else:
+                link_url = link_url_stripped
+
     return {
         "id": banner.id,
         "title": banner.title,
         "subtitle": banner.subtitle,
         "image_url": banner.display_image,
-        "link_url": banner.link_url,
+        "link_url": link_url,
         "link_type": banner.link_type,
         "is_active": banner.is_active,
         "display_order": banner.display_order,

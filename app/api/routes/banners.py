@@ -9,7 +9,6 @@ from flask import Blueprint, request
 
 from ...extensions import db
 from ...models import Banner
-from ..errors import ApiError
 from ..responses import success_response
 from ..serializers import banner_to_dict
 

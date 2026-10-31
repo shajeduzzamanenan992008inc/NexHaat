@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from urllib.parse import urlparse
 
+from sqlalchemy import select
 from sqlalchemy.orm import validates
 
 from ..extensions import db
@@ -407,6 +408,9 @@ class PromotionRedemption(db.Model):
         db.CheckConstraint("discount_amount >= 0", name="ck_promotion_redemption_amount_nonnegative"),
     )
 
+    promotion = db.relationship("PromotionCode", back_populates="redemptions")
+    user = db.relationship("User", foreign_keys=[user_id])
+
 class Banner(db.Model):
     __tablename__ = "banners"
 
@@ -429,6 +433,32 @@ class Banner(db.Model):
         db.Index("ix_banners_active_order", "is_active", "display_order"),
     )
 
+    @validates("image_url")
+    def validate_image_url(self, key, value):
+        if value is None or value == "":
+            return None
+        parsed = urlparse(value)
+        if parsed.scheme and parsed.scheme not in {"http", "https"}:
+            raise ValueError("Banner image must use HTTP(S).")
+        if value.startswith(("//", "data:")):
+            raise ValueError("Unsafe banner image reference.")
+        return value
+
+    @validates("link_url")
+    def validate_link_url(self, key, value):
+        if value is None or value == "":
+            return None
+        if value.startswith(("javascript:", "data:", "vbscript:")):
+            raise ValueError("Unsafe banner link.")
+        if value.startswith("//"):
+            raise ValueError("Unsafe banner link.")
+        parsed = urlparse(value)
+        if parsed.scheme and parsed.scheme not in {"http", "https", ""}:
+            raise ValueError("Banner link scheme not allowed.")
+        if parsed.scheme in {"http", "https"} and not parsed.netloc:
+            raise ValueError("Invalid banner link.")
+        return value
+
     @property
     def display_image(self):
         if not self.image_url:
@@ -440,11 +470,11 @@ class Banner(db.Model):
             return None
         return self.image_url
 
-@classmethod
-def get_active_banners(cls):
-    """Return active banners ordered by display_order for the home carousel."""
-    return db.session.scalars(
-        select(cls)
-        .where(cls.is_active.is_(True))
-        .order_by(cls.display_order.asc(), cls.id.asc())
-    ).all()
+    @classmethod
+    def get_active_banners(cls):
+        """Return active banners ordered by display_order for the home carousel."""
+        return db.session.scalars(
+            select(cls)
+            .where(cls.is_active.is_(True))
+            .order_by(cls.display_order.asc(), cls.id.asc())
+        ).all()

@@ -1,8 +1,0 @@
-[
-  {
-    "label": "Run Android unit tests once JAVA_HOME / Gradle task error is fixed",
-    "prompt": "Fix the Android test blocker and run ImageUrlResolverTest (and related home/catalog tests if available), then report the real result here."
-  },
-  "prompt": "Decide whether Phase 5 should actually lower the Python floor to 3.11, and if yes, adjust pyproject.toml, CI matrix, Ruff target, and runtime/config in one coherent change.",
-  "prompt": "If there is a real backend banner endpoint or banner model to wire next, share it and I will connect the existing BannerDto/HomeViewModel/HomeScreen path to it without inventing fields."
-]

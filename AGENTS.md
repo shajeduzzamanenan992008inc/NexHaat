@@ -11,4 +11,5 @@ Before making changes, read the canonical marketplace roadmap at docs/plans/nexh
 - Use additive database migrations for schema changes. Do not mutate production data or credentials as part of a code change.
 - Verify the relevant behavior before marking a stage Complete. Then update the master plan with status, date, evidence, remaining operator gates, and the next stage. Report that status to the user.
 - Never claim that every external AI service was notified. The repository plan is shared context for tools that load or sync this repository.
+- Leave no scratch artifacts behind. Any temporary file, helper script, downloaded archive, log dump, test-output capture, or throwaway folder you create while working must be deleted before you report the task as done, and must never be committed. Write scratch output under an ignored path (such as `tmp_*`) and remove it at the end; `git status` must show only the intended change set before you finish.
 

@@ -61,7 +61,7 @@ private const val AUTO_SLIDE_PAUSE_MS = 3000L
  * Swipeable banner carousel with automatic sliding.
  *
  * When [banners] is empty the carousel shows a branded discovery card instead of
- * inventing promotions, because no banner endpoint exists yet.
+ * inventing promotions.
  *
  * Supports light and dark themes through MaterialTheme color scheme. Banner images
  * are loaded through [ProductImage], which uses Coil and the existing media URL

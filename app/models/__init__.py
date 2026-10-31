@@ -1,6 +1,7 @@
 from .ai import AIPreferences, AIRequestWindow
 from .audit import AuditEvent
 from .catalog import (
+    Banner,
     Category,
     Product,
     ProductTranslation,
@@ -71,7 +72,7 @@ from .user import (
 from .wishlist import WishlistItem
 
 __all__ = [
-    "AccountInvitation", "AdminLoginChallenge", "AdminProfile", "AppSetting", "AuditEvent", "AuthThrottle", "Category", "CustomerAddress", "CustomerProfile",
+    "AccountInvitation", "AdminLoginChallenge", "AdminProfile", "AppSetting", "AuditEvent", "AuthThrottle", "Banner", "Category", "CustomerAddress", "CustomerProfile",
     "AIRequestWindow", "AIPreferences",
     "SupportConversation", "SupportMessage",
     "DELIVERY_STATUSES", "DELIVERY_TRANSITIONS", "delivery_transition_valid",

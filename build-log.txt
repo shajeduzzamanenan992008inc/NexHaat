@@ -1,8 +1,0 @@
-STARTED
-
-ERROR: JAVA_HOME is set to an invalid directory: :USERPROFILE\.jdks\temurin-17-jdk
-
-Please set the JAVA_HOME variable in your environment to match the
-location of your Java installation.
-
-DONE
