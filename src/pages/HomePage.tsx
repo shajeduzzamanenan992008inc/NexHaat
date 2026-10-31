@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCard } from '../components/ProductCard';
 import { 
   Sparkles, Flame, Clock, ArrowRight, ShieldCheck, 
-  Truck, Award, Store, ChevronRight, CheckCircle2, History 
+  Truck, Award, Store, ChevronRight, ChevronLeft, CheckCircle2, History,
+  Apple, Fish, Smartphone, Shirt, Wheat, Egg, Cookie, Grid, Tag, Zap, ShoppingBag
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
@@ -12,6 +13,8 @@ export const HomePage: React.FC = () => {
     categories, 
     recentlyViewed, 
     navigateToCategory, 
+    navigateToProduct,
+    addToCart,
     setCurrentView, 
     isPrimeMember, 
     setIsPrimeModalOpen, 
@@ -35,9 +38,63 @@ export const HomePage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const dealProducts = products.filter(p => p.discount_price && p.is_available).slice(0, 4);
+  const dealProducts = products.filter(p => p.discount_price && p.is_available);
   const nexhaatChoiceProducts = products.filter(p => p.is_nexhaat_choice && p.is_available).slice(0, 4);
   const featuredProducts = products.filter(p => p.is_featured && p.is_available).slice(0, 8);
+
+  // Horizontal Deals carousel scroll ref
+  const dealsScrollRef = useRef<HTMLDivElement>(null);
+  const scrollDeals = (direction: 'left' | 'right') => {
+    if (dealsScrollRef.current) {
+      dealsScrollRef.current.scrollBy({
+        left: direction === 'left' ? -340 : 340,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  // Category navigation bar state and definitions
+  const [selectedCategoryType, setSelectedCategoryType] = useState<string>('all');
+
+  const getCategoryIcon = (slug: string) => {
+    switch (slug) {
+      case 'fruits-vegetables':
+        return Apple;
+      case 'meat-seafood':
+        return Fish;
+      case 'electronics':
+        return Smartphone;
+      case 'fashion-accessories':
+        return Shirt;
+      case 'rice-grains-pasta':
+        return Wheat;
+      case 'dairy-eggs':
+        return Egg;
+      case 'spices-seasonings':
+        return Flame;
+      case 'snacks-sweets':
+        return Cookie;
+      default:
+        return Sparkles;
+    }
+  };
+
+  const categoryTypes = [
+    { id: 'all', label: 'All Items', label_bn: 'সকল ধরন', icon: Grid, color: 'text-primary' },
+    { id: 'fresh-food', label: 'Fresh Food', label_bn: 'তাজা খাবার', icon: Apple, slugs: ['fruits-vegetables', 'meat-seafood'], color: 'text-emerald-600' },
+    { id: 'electronics', label: 'Electronics', label_bn: 'ইলেকট্রনিক্স', icon: Smartphone, slugs: ['electronics'], color: 'text-blue-600' },
+    { id: 'fashion', label: 'Fashion', label_bn: 'ফ্যাশন ও তাঁত', icon: Shirt, slugs: ['fashion-accessories'], color: 'text-purple-600' },
+    { id: 'grains', label: 'Grains & Rice', label_bn: 'চাল ও খাদ্যশস্য', icon: Wheat, slugs: ['rice-grains-pasta'], color: 'text-amber-600' },
+    { id: 'dairy', label: 'Dairy & Sweets', label_bn: 'দুধ ও মিষ্টি', icon: Egg, slugs: ['dairy-eggs', 'snacks-sweets'], color: 'text-cyan-600' },
+    { id: 'spices', label: 'Spices & Oils', label_bn: 'মসলা ও তেল', icon: Flame, slugs: ['spices-seasonings'], color: 'text-orange-600' },
+  ];
+
+  const filteredCategories = selectedCategoryType === 'all'
+    ? categories
+    : categories.filter(cat => {
+        const typeObj = categoryTypes.find(t => t.id === selectedCategoryType);
+        return typeObj?.slugs?.includes(cat.slug);
+      });
 
   const sellers = [
     {
@@ -166,50 +223,127 @@ export const HomePage: React.FC = () => {
         </button>
       </section>
 
-      {/* Categories Grid */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
+      {/* Category Navigation Bar & Quick Browse Grid */}
+      <section className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-ink">
-              {t('Popular Marketplace Categories', 'জনপ্রিয় হাট ক্যাটাগরি')}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-light text-primary text-xs font-bold mb-1.5">
+              <Grid className="w-3.5 h-3.5" />
+              <span>{t('CATEGORY DIRECTORY', 'হাট ক্যাটাগরি ডিরেক্টরি')}</span>
+            </div>
+            <h2 className="text-xl sm:text-3xl font-black text-ink">
+              {t('Browse Marketplace by Category', 'ক্যাটাগরি অনুযায়ী কেনাকাটা করুন')}
             </h2>
             <p className="text-xs sm:text-sm text-muted mt-0.5">
-              {t('Fresh essentials hand-picked by local specialists', 'বিশেষজ্ঞদের বাছাইকৃত তাজা খাদ্য ও নিত্যপণ্য')}
+              {t('Explore authentic Bangladeshi fresh food, electronics, fashion, and daily staples', 'খামারের খাঁটি খাবার, ইলেকট্রনিক্স, ঐতিহ্যবাহী ফ্যাশন ও নিত্যপণ্য')}
             </p>
           </div>
-          <button
-            onClick={() => setCurrentView('catalog')}
-            className="text-xs sm:text-sm font-bold text-primary hover:text-primary-hover flex items-center gap-1"
-          >
-            <span>{t('View All', 'সব দেখুন')}</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => setCurrentView('catalog')}
+              className="neu-button px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-ink hover:text-primary flex items-center gap-1.5 shadow-xs"
+            >
+              <span>{t('Explore Full Catalog', 'সব পণ্য দেখুন')}</span>
+              <ChevronRight className="w-4 h-4 text-primary" />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              onClick={() => navigateToCategory(cat.slug)}
-              className="group relative overflow-hidden rounded-2xl bg-white border border-border p-4 shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between"
-            >
-              <div className="aspect-video w-full rounded-xl overflow-hidden mb-3 bg-slate-100">
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
+        {/* Category Navigation Bar (Type Pills) */}
+        <div className="bg-white rounded-2xl p-2.5 border border-slate-200/80 shadow-xs flex items-center gap-2 overflow-x-auto scrollbar-none">
+          {categoryTypes.map((type) => {
+            const Icon = type.icon;
+            const isSelected = selectedCategoryType === type.id;
+            return (
+              <button
+                key={type.id}
+                onClick={() => setSelectedCategoryType(type.id)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                  isSelected
+                    ? 'bg-primary text-white shadow-md shadow-primary/20 scale-102'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-ink'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : type.color}`} />
+                <span>{language === 'bn' ? type.label_bn : type.label}</span>
+                {type.id === 'fresh-food' && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                    Hot
+                  </span>
+                )}
+                {type.id === 'electronics' && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'}`}>
+                    New
+                  </span>
+                )}
+                {type.id === 'fashion' && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-800'}`}>
+                    Deshi
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Category Cards Grid with Icons and Rich Visuals */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-5">
+          {filteredCategories.map((cat) => {
+            const CategoryIcon = getCategoryIcon(cat.slug);
+            const categoryItemCount = products.filter(p => p.category_slug === cat.slug).length;
+
+            return (
+              <div
+                key={cat.id}
+                onClick={() => navigateToCategory(cat.slug)}
+                className="group relative overflow-hidden rounded-2xl bg-white border border-slate-200/90 p-3.5 sm:p-4 shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1.5 cursor-pointer flex flex-col justify-between"
+              >
+                <div>
+                  {/* Category Image with Icon Badge Overlay */}
+                  <div className="relative aspect-4/3 w-full rounded-xl overflow-hidden mb-3 bg-slate-100">
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
+
+                    {/* Floating Thematic Category Icon */}
+                    <div className="absolute top-2.5 left-2.5 p-2 rounded-xl bg-white/95 backdrop-blur-md shadow-md text-primary group-hover:scale-110 transition-transform">
+                      <CategoryIcon className="w-4 h-4 text-primary" />
+                    </div>
+
+                    {/* Item count chip */}
+                    <div className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur-xs text-white text-[10px] font-bold flex items-center gap-1">
+                      <Tag className="w-3 h-3 text-amber-400" />
+                      <span>{categoryItemCount > 0 ? `${categoryItemCount}+ ${t('Products', 'পণ্য')}` : t('Available', 'উপলব্ধ')}</span>
+                    </div>
+                  </div>
+
+                  {/* Title & Description */}
+                  <h3 className="font-extrabold text-sm sm:text-base text-ink group-hover:text-primary transition-colors flex items-center justify-between">
+                    <span>{language === 'bn' ? cat.name_bn : cat.name}</span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  </h3>
+
+                  <p className="text-xs text-muted line-clamp-2 mt-1 leading-relaxed">
+                    {cat.description}
+                  </p>
+                </div>
+
+                {/* Card Action Footer */}
+                <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-primary">
+                  <span className="text-slate-500 font-semibold text-[10px]">
+                    {t('Direct from verified sellers', 'যাচাইকৃত বিক্রেতা')}
+                  </span>
+                  <span className="flex items-center gap-0.5 group-hover:underline">
+                    {t('Browse', 'ব্রাউজ')} →
+                  </span>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-sm sm:text-base text-ink group-hover:text-primary transition-colors">
-                  {language === 'bn' ? cat.name_bn : cat.name}
-                </h3>
-                <p className="text-xs text-muted line-clamp-1 mt-0.5">
-                  {cat.description}
-                </p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -243,52 +377,188 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Flash Deals Section */}
-      <section className="rounded-3xl bg-amber-500/10 border border-amber-200/80 p-6 sm:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-accent text-white rounded-2xl shadow-sm">
-              <Flame className="w-6 h-6 animate-bounce" />
+      {/* Featured Deals Section with Countdown Timer and Horizontal Carousel */}
+      <section className="rounded-3xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-rose-500/10 border border-amber-300/60 p-5 sm:p-8 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/20 text-accent font-bold text-xs uppercase tracking-wider">
+              <Zap className="w-3.5 h-3.5 fill-current animate-pulse text-amber-600" />
+              <span className="text-amber-800">{t('Time-Sensitive Offers', 'সীমিত সময়ের মেগা অফার')}</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-black text-ink">
-                  {t('Flash Deals & Haat Discounts', 'ফ্ল্যাশ ডিল ও মেগা ছাড়')}
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-danger text-white uppercase">
-                  Live
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-600">
-                {t('Limited-time discounts directly supported by our verified vendors', 'সীমিত সময়ের জন্য বিশেষ মূল্যছাড়')}
-              </p>
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-xl sm:text-3xl font-black text-ink">
+                {t('Featured Deals', 'ফিচার্ড ডিলসমূহ')}
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-600 text-white uppercase tracking-wider animate-pulse">
+                Live
+              </span>
             </div>
+            <p className="text-xs sm:text-sm text-slate-600">
+              {t('Deep discounts on verified local produce and top sellers. Grab yours before time runs out!', 'যাচাইকৃত চাষী ও সেরা ভেন্ডরদের পণ্যে বিশেষ মূল্যছাড়। সময় শেষ হওয়ার আগেই লুফে নিন!')}
+            </p>
           </div>
 
-          {/* Countdown Clock */}
-          <div className="flex items-center gap-1.5 self-start sm:self-auto bg-white px-4 py-2 rounded-2xl border border-amber-200 shadow-sm">
-            <Clock className="w-4 h-4 text-accent mr-1" />
-            <span className="text-xs font-semibold text-slate-500 mr-1">{t('Ends in:', 'বাকি:')}</span>
-            <div className="flex items-center gap-1 font-mono text-sm font-extrabold text-ink">
-              <span className="p-1 rounded bg-slate-100 min-w-[26px] text-center">
-                {String(timeLeft.hours).padStart(2, '0')}
-              </span>
-              <span>:</span>
-              <span className="p-1 rounded bg-slate-100 min-w-[26px] text-center">
-                {String(timeLeft.minutes).padStart(2, '0')}
-              </span>
-              <span>:</span>
-              <span className="p-1 rounded bg-slate-100 min-w-[26px] text-center">
-                {String(timeLeft.seconds).padStart(2, '0')}
-              </span>
+          {/* Countdown Clock and Carousel Navigation Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Countdown Clock */}
+            <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-2xl border border-amber-200/90 shadow-xs">
+              <Clock className="w-4 h-4 text-rose-500 animate-spin-slow" />
+              <div className="text-left">
+                <span className="text-[10px] font-bold text-slate-400 block -mb-0.5 uppercase tracking-wide">
+                  {t('Deal Expires In', 'মেয়াদ বাকি')}
+                </span>
+                <div className="flex items-center gap-1 font-mono text-sm font-black text-ink">
+                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-rose-600 min-w-[26px] text-center">
+                    {String(timeLeft.hours).padStart(2, '0')}h
+                  </span>
+                  <span>:</span>
+                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-rose-600 min-w-[26px] text-center">
+                    {String(timeLeft.minutes).padStart(2, '0')}m
+                  </span>
+                  <span>:</span>
+                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-rose-600 min-w-[26px] text-center">
+                    {String(timeLeft.seconds).padStart(2, '0')}s
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Carousel Controls */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => scrollDeals('left')}
+                className="neu-button p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-primary hover:bg-slate-50 shadow-xs transition-colors"
+                title="Scroll Left"
+                aria-label="Scroll Deals Left"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollDeals('right')}
+                className="neu-button p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-primary hover:bg-slate-50 shadow-xs transition-colors"
+                title="Scroll Right"
+                aria-label="Scroll Deals Right"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentView('deals')}
+                className="neu-button px-3.5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-xs flex items-center gap-1 transition-colors"
+              >
+                <span>{t('All Deals', 'সব ডিল')}</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          {dealProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+        {/* Horizontal Scrollable Deals List */}
+        <div
+          ref={dealsScrollRef}
+          className="flex overflow-x-auto gap-4 pb-4 pt-1 scroll-smooth snap-x snap-mandatory scrollbar-thin"
+        >
+          {dealProducts.map((product) => {
+            const discountPercent = product.discount_price 
+              ? Math.round(((product.price - product.discount_price) / product.price) * 100) 
+              : 0;
+            // Simulated claim percentage based on stock_quantity
+            const claimPercent = Math.min(95, Math.max(45, (100 - (product.stock_quantity % 40) * 2)));
+
+            return (
+              <div
+                key={product.id}
+                className="group w-[280px] sm:w-[300px] shrink-0 snap-start bg-white rounded-2xl border border-slate-200/90 p-4 shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between"
+              >
+                <div>
+                  {/* Image & Discount Badge */}
+                  <div 
+                    className="relative aspect-4/3 w-full rounded-xl overflow-hidden mb-3 bg-slate-100 cursor-pointer"
+                    onClick={() => navigateToProduct(product.slug)}
+                  >
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-500"
+                    />
+                    
+                    {/* Discount Pill */}
+                    <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-rose-600 text-white text-xs font-black shadow-md flex items-center gap-1">
+                      <Flame className="w-3.5 h-3.5 fill-current" />
+                      <span>{discountPercent}% OFF</span>
+                    </div>
+
+                    {/* Fast Express Delivery Tag */}
+                    <div className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-slate-900/85 backdrop-blur-xs text-amber-300 text-[10px] font-extrabold flex items-center gap-1">
+                      <Truck className="w-3 h-3" />
+                      <span>3-Hr Express</span>
+                    </div>
+                  </div>
+
+                  {/* Title & Seller */}
+                  <p className="text-[11px] font-semibold text-slate-500 truncate mb-0.5">
+                    {product.seller_name}
+                  </p>
+                  <h3 
+                    onClick={() => navigateToProduct(product.slug)}
+                    className="font-bold text-sm text-ink line-clamp-2 hover:text-primary transition-colors cursor-pointer leading-snug"
+                  >
+                    {language === 'bn' ? product.name_bn || product.name : product.name}
+                  </h3>
+
+                  {/* Rating & Stock */}
+                  <div className="flex items-center gap-2 mt-2 text-xs">
+                    <div className="flex items-center text-amber-500 font-bold">
+                      <span>★</span>
+                      <span className="ml-1 text-ink">{product.rating}</span>
+                    </div>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-muted text-[11px]">
+                      {product.review_count} {t('ratings', 'মতামত')}
+                    </span>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <span className="text-lg font-black text-rose-600">
+                      {formatPrice(product.discount_price ?? product.price)}
+                    </span>
+                    {product.discount_price && (
+                      <span className="text-xs text-slate-400 line-through">
+                        {formatPrice(product.price)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Deal Progress Meter */}
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                      <span>{claimPercent}% {t('Claimed', 'বিক্রি সম্পন্ন')}</span>
+                      <span className="text-rose-600">{t('Only few left', 'সীমিত স্টক')}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-amber-500 to-rose-600 rounded-full transition-all duration-500"
+                        style={{ width: `${claimPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Add to Cart button */}
+                <button
+                  type="button"
+                  onClick={() => addToCart(product)}
+                  className="neu-button mt-4 w-full py-2.5 px-3 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-xs flex items-center justify-center gap-2 transition-colors"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>{t('Claim Deal & Add', 'ডিল লুফে নিন')}</span>
+                </button>
+              </div>
+            );
+          })}
         </div>
       </section>
 

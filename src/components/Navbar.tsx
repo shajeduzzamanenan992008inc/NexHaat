@@ -37,6 +37,10 @@ export const Navbar: React.FC = () => {
     setSearchQuery,
     setActiveCategorySlug,
     showToast,
+    firebaseUser,
+    loginWithGoogle,
+    logoutFirebase,
+    isFirebaseAuthLoading,
   } = useApp();
 
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
@@ -206,6 +210,46 @@ export const Navbar: React.FC = () => {
                 </div>
               )}
             </div>
+            {/* Google Firebase Auth */}
+            {firebaseUser ? (
+              <div className="flex items-center gap-1.5 bg-slate-800 rounded-md px-2 py-1 border border-slate-700 text-xs text-white">
+                {firebaseUser.photoURL ? (
+                  <img src={firebaseUser.photoURL} alt="User" className="w-4 h-4 rounded-full" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full bg-emerald-500 text-[10px] flex items-center justify-center font-bold">
+                    {firebaseUser.displayName?.[0] || 'U'}
+                  </span>
+                )}
+                <span className="max-w-[90px] truncate hidden sm:inline text-[11px]">
+                  {firebaseUser.displayName || firebaseUser.email}
+                </span>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-semibold">Firestore</span>
+                <button
+                  type="button"
+                  onClick={logoutFirebase}
+                  className="text-[10px] text-slate-400 hover:text-white ml-1 underline"
+                  title="Sign Out"
+                >
+                  Exit
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={loginWithGoogle}
+                disabled={isFirebaseAuthLoading}
+                className="flex items-center gap-1.5 px-2 py-1 bg-white hover:bg-slate-100 text-slate-900 rounded-md text-xs font-semibold shadow-xs transition-colors shrink-0"
+                title="Sign in with Google via Firebase Auth"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.15z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 10.03 0 12s.45 3.83 1.25 5.42l4.03-3.15z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                </svg>
+                <span className="hidden sm:inline">{t('Google Sign-In', 'গুগল সাইন ইন')}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

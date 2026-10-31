@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { 
   User, UserRole, Product, Category, CartItem, Order, 
   Review, Notification, Promotion, ProductVariant, OrderStatus, 
@@ -9,6 +9,11 @@ import {
   INITIAL_PROMOTIONS, INITIAL_REVIEWS, INITIAL_NOTIFICATIONS, 
   INITIAL_QUESTIONS, INITIAL_SPONSORED_CAMPAIGNS 
 } from '../data/mockData';
+import { 
+  auth, googleProvider, signInWithPopup, fbSignOut, 
+  onAuthStateChanged, FirebaseUser, db, handleFirestoreError, OperationType 
+} from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export type AppView = 
   | 'home' 
@@ -56,6 +61,10 @@ interface AppContextType {
   // User & Roles
   currentUser: User;
   setUserRole: (role: UserRole) => void;
+  firebaseUser: FirebaseUser | null;
+  loginWithGoogle: () => Promise<void>;
+  logoutFirebase: () => Promise<void>;
+  isFirebaseAuthLoading: boolean;
 
   // NexHaat Prime
   isPrimeMember: boolean;
@@ -173,8 +182,84 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return localStorage.getItem('nexhaat_prime') !== 'false';
   });
 
-  const currentUser = {
-    ...(INITIAL_USERS[currentRole] || INITIAL_USERS.customer),
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [isFirebaseAuthLoading, setIsFirebaseAuthLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
+      setIsFirebaseAuthLoading(false);
+      if (user) {
+        showToast(`Google Auth verified: ${user.displayName || user.email}`, 'success');
+        try {
+          await setDoc(doc(db, 'users', user.uid), {
+            userId: user.uid,
+            name: user.displayName || 'Google User',
+            email: user.email || '',
+            role: currentRole,
+            isPrime: isPrimeMember,
+            createdAt: new Date().toISOString(),
+          }, { merge: true });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [currentRole, isPrimeMember]);
+
+  const isSigningInRef = useRef<boolean>(false);
+
+  const loginWithGoogle = async () => {
+    if (isSigningInRef.current) return;
+    isSigningInRef.current = true;
+    setIsFirebaseAuthLoading(true);
+
+    try {
+      const res = await signInWithPopup(auth, googleProvider);
+      if (res.user) {
+        showToast(`Welcome, ${res.user.displayName || 'Shopper'}!`, 'success');
+      }
+    } catch (err: any) {
+      const errorCode = err?.code;
+      if (errorCode === 'auth/cancelled-popup-request' || errorCode === 'auth/popup-closed-by-user') {
+        // User closed or dismissed the popup, ignore silently
+        return;
+      }
+      if (errorCode === 'auth/popup-blocked') {
+        showToast(
+          t(
+            'Sign-in pop-up was blocked by browser. Please allow pop-ups to sign in with Google.',
+            'ব্রাউজার সাইন-ইন পপ-আপ ব্লক করেছে। গুগল সাইন ইন করতে পপ-আপ অনুমোদন করুন।'
+          ),
+          'warning'
+        );
+        return;
+      }
+      console.warn('Google sign-in notice:', err?.message || err);
+      showToast(err?.message || 'Google sign-in was unable to complete', 'error');
+    } finally {
+      isSigningInRef.current = false;
+      setIsFirebaseAuthLoading(false);
+    }
+  };
+
+  const logoutFirebase = async () => {
+    try {
+      await fbSignOut(auth);
+      showToast('Signed out of Firebase Google Auth', 'info');
+    } catch (err: any) {
+      showToast(err.message || 'Sign-out failed', 'error');
+    }
+  };
+
+  const baseUser = INITIAL_USERS[currentRole] || INITIAL_USERS.customer;
+  const currentUser: User = {
+    ...baseUser,
+    id: firebaseUser ? firebaseUser.uid : baseUser.id,
+    name: firebaseUser?.displayName || baseUser.name,
+    email: firebaseUser?.email || baseUser.email,
+    avatar: firebaseUser?.photoURL || baseUser.avatar,
     isPrimeMember,
   };
 
@@ -620,6 +705,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setNotifications(prev => [orderNotification, ...prev]);
 
+    // Persist to Cloud Firestore
+    if (auth.currentUser) {
+      setDoc(doc(db, 'orders', newOrder.id), {
+        id: newOrder.id,
+        orderNumber: newOrder.order_number,
+        userId: auth.currentUser.uid,
+        totalAmount: newOrder.total_amount,
+        status: newOrder.status,
+        paymentMethod: newOrder.payment_method,
+        createdAt: newOrder.created_at,
+      }).catch(err => {
+        handleFirestoreError(err, OperationType.CREATE, `orders/${newOrder.id}`);
+      });
+    }
+
     return newOrder;
   };
 
@@ -744,6 +844,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     showToast(t('Review submitted! Thank you.', 'আপনার মতামত গ্রহণ করা হয়েছে। ধন্যবাদ!'));
+
+    if (auth.currentUser) {
+      setDoc(doc(db, 'reviews', newReview.id), {
+        id: newReview.id,
+        productId: newReview.product_id,
+        userId: auth.currentUser.uid,
+        userName: newReview.user_name,
+        rating: newReview.rating,
+        comment: newReview.comment,
+        createdAt: newReview.created_at,
+      }).catch(err => {
+        handleFirestoreError(err, OperationType.CREATE, `reviews/${newReview.id}`);
+      });
+    }
   };
 
   const getProductReviews = (productId: number) => {
@@ -935,6 +1049,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         markAllNotificationsAsRead,
         toasts,
         showToast,
+        firebaseUser,
+        loginWithGoogle,
+        logoutFirebase,
+        isFirebaseAuthLoading,
       }}
     >
       {children}
