@@ -1,0 +1,87 @@
+- generic [active] [ref=f6e1]:
+  - link "Skip to content" [ref=f6e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f6e3]:
+    - generic [ref=f6e4]:
+      - link "NexHaat home" [ref=f6e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f6e7]: NexHaat
+      - navigation "Main navigation" [ref=f6e8]:
+        - link "Home" [ref=f6e9] [cursor=pointer]:
+          - /url: /
+        - link "Explore" [ref=f6e10] [cursor=pointer]:
+          - /url: /menu
+        - link "Deals" [ref=f6e11] [cursor=pointer]:
+          - /url: /deals
+        - link "Shopping AI" [ref=f6e12] [cursor=pointer]:
+          - /url: /ai/
+      - generic [ref=f6e13]:
+        - generic [ref=f6e14]:
+          - generic [ref=f6e15]: Language
+          - combobox "Language" [ref=f6e16] [cursor=pointer]:
+            - option "English (US)" [selected]
+            - option "বাংলা"
+            - option "हिन्दी"
+            - option "العربية"
+          - button "Go" [ref=f6e17] [cursor=pointer]
+        - link "Sign in" [ref=f6e18] [cursor=pointer]:
+          - /url: /auth/login
+  - main [ref=f6e19]:
+    - generic [ref=f6e20]:
+      - generic [ref=f6e21]:
+        - generic [ref=f6e22]:
+          - paragraph [ref=f6e23]: LIMITED-TIME PRICES
+          - heading "Local deals" [level=1] [ref=f6e24]
+          - paragraph [ref=f6e25]: Compare currently discounted listings from approved neighborhood stores.
+        - link "Explore all listings" [ref=f6e26] [cursor=pointer]:
+          - /url: /menu
+      - form "Filter deals" [ref=f6e27]:
+        - generic [ref=f6e28]:
+          - generic [ref=f6e29]: Store
+          - combobox "Store" [ref=f6e30] [cursor=pointer]:
+            - option "All stores" [selected]
+        - generic [ref=f6e31]:
+          - generic [ref=f6e32]: Brand
+          - combobox "Brand" [ref=f6e33] [cursor=pointer]:
+            - option "All brands" [selected]
+        - generic [ref=f6e34]:
+          - generic: Product option
+          - textbox "Product option" [ref=f6e35]:
+            - /placeholder: " "
+        - generic [ref=f6e36]:
+          - generic: Minimum price
+          - spinbutton "Minimum price" [ref=f6e37]
+        - generic [ref=f6e38]:
+          - generic: Maximum price
+          - spinbutton "Maximum price" [ref=f6e39]
+        - generic [ref=f6e40]:
+          - generic [ref=f6e41]: Minimum rating
+          - combobox "Minimum rating" [ref=f6e42] [cursor=pointer]:
+            - option "Any rating" [selected]
+            - option "4 stars and up"
+            - option "3 stars and up"
+            - option "2 stars and up"
+            - option "1 stars and up"
+        - generic [ref=f6e43]:
+          - generic [ref=f6e44]: Sort by
+          - combobox "Sort by" [ref=f6e45] [cursor=pointer]:
+            - option "Newest" [selected]
+            - option "Featured"
+            - 'option "Price: low to high"'
+            - 'option "Price: high to low"'
+        - generic [ref=f6e46]:
+          - generic [ref=f6e47]: Availability
+          - generic [ref=f6e48]:
+            - checkbox "Availability In stock" [ref=f6e49]
+            - text: In stock
+        - button "Apply filters" [ref=f6e50] [cursor=pointer]
+      - generic [ref=f6e51]:
+        - strong [ref=f6e52]: No discounted listings match these filters
+        - text: Check back as local stores add new deals.
+  - contentinfo [ref=f6e53]:
+    - generic [ref=f6e54]:
+      - link "NexHaat" [ref=f6e55] [cursor=pointer]:
+        - /url: /
+        - generic [aria-hidden] [ref=f6e56]: "N"
+      - paragraph [ref=f6e58]: Good food and thoughtful finds, close to home.
+      - generic [ref=f6e59]: © NexHaat · All rights reserved.

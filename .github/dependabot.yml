@@ -1,40 +1,95 @@
-# Dependabot keeps runtime and CI dependencies current without silent major jumps.
+# NexHaat dependency-update policy.
+# IMPORTANT: Keep each directory aligned with real manifests/lockfiles.
+# Remove ecosystems not used by the repository and add entries for every
+# additional frontend/backend/monorepo directory discovered by REA.
+
 version: 2
+
 updates:
+  # JavaScript / TypeScript application (npm, pnpm, or Yarn manifests).
+  # Keep this entry only if a package.json and supported lockfile exist at repo root.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "Asia/Dhaka"
+    open-pull-requests-limit: 8
+    cooldown:
+      default-days: 3
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      npm-development-nonmajor:
+        applies-to: "version-updates"
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(npm)"
+
+  # Python backend (pip requirements/pyproject manifests).
+  # Keep this entry only if a pip-compatible manifest/lockfile exists at repo root.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "06:00"
+      day: "tuesday"
+      time: "04:00"
       timezone: "Asia/Dhaka"
-    open-pull-requests-limit: 5
-    versioning-strategy: "increase-if-necessary"
-    labels:
-      - "dependencies"
-      - "python"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
+    open-pull-requests-limit: 8
+    cooldown:
+      default-days: 3
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
     groups:
-      python-minor-and-patch:
-        patterns:
-          - "*"
+      python-development-nonmajor:
+        applies-to: "version-updates"
+        dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(python)"
 
+  # GitHub Actions in .github/workflows.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "06:00"
+      day: "wednesday"
+      time: "04:00"
       timezone: "Asia/Dhaka"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 8
+    cooldown:
+      default-days: 3
     labels:
       - "dependencies"
-      - "github-actions"
     commit-message:
-      prefix: "ci"
-      include: "scope"
+      prefix: "deps(actions)"
+
+  # Container image references in Dockerfile(s) at repository root.
+  # Add separate entries for Dockerfiles in other directories.
+  # Remove this entry if NexHaat does not use Dockerfiles.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "04:00"
+      timezone: "Asia/Dhaka"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(docker)"

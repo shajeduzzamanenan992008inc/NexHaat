@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- The NexHaat "N" mark, isolated for themed (monochrome) launcher icons. -->
+    <group
+        android:scaleX="0.72"
+        android:scaleY="0.72"
+        android:translateX="19.44"
+        android:translateY="19.44">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M29,60V30h7l22,19V30h7v30h-7L36,41v19z" />
+    </group>
+</vector>

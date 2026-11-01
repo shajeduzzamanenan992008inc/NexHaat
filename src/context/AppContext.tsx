@@ -14,6 +14,15 @@ import {
   onAuthStateChanged, FirebaseUser, db, handleFirestoreError, OperationType 
 } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import {
+  FlaskAuthError,
+  FlaskUser,
+  getCurrentFlaskUser,
+  loginWithFlask as authenticateWithFlask,
+  logoutFromFlask,
+  RegistrationRequest,
+  startFlaskRegistration,
+} from '../lib/flaskAuth';
 
 export type AppView = 
   | 'home' 
@@ -65,6 +74,11 @@ interface AppContextType {
   loginWithGoogle: () => Promise<void>;
   logoutFirebase: () => Promise<void>;
   isFirebaseAuthLoading: boolean;
+  flaskUser: FlaskUser | null;
+  isFlaskAuthLoading: boolean;
+  loginWithFlask: (email: string, password: string) => Promise<void>;
+  logoutFlask: () => Promise<void>;
+  startFlaskRegistration: (request: RegistrationRequest) => Promise<void>;
 
   // NexHaat Prime
   isPrimeMember: boolean;
@@ -184,6 +198,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isFirebaseAuthLoading, setIsFirebaseAuthLoading] = useState<boolean>(true);
+  const [flaskUser, setFlaskUser] = useState<FlaskUser | null>(null);
+  const [isFlaskAuthLoading, setIsFlaskAuthLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let active = true;
+    getCurrentFlaskUser()
+      .then((user) => {
+        if (active) setFlaskUser(user);
+      })
+      .catch((error: unknown) => {
+        if (active && !(error instanceof FlaskAuthError && error.status === 401)) {
+          console.warn('Flask session check was unavailable:', error);
+        }
+      })
+      .finally(() => {
+        if (active) setIsFlaskAuthLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -250,6 +285,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       showToast('Signed out of Firebase Google Auth', 'info');
     } catch (err: any) {
       showToast(err.message || 'Sign-out failed', 'error');
+    }
+  };
+
+  const loginWithFlask = async (email: string, password: string) => {
+    setIsFlaskAuthLoading(true);
+    try {
+      const user = await authenticateWithFlask(email, password);
+      setFlaskUser(user);
+      showToast(t('Signed in to the NexHaat marketplace.', 'NexHaat মার্কেটপ্লেসে সাইন ইন হয়েছে।'), 'success');
+    } finally {
+      setIsFlaskAuthLoading(false);
+    }
+  };
+
+  const logoutFlask = async () => {
+    setIsFlaskAuthLoading(true);
+    try {
+      await logoutFromFlask();
+      setFlaskUser(null);
+      showToast(t('Marketplace session ended.', 'মার্কেটপ্লেস session শেষ হয়েছে।'), 'info');
+    } finally {
+      setIsFlaskAuthLoading(false);
+    }
+  };
+
+  const beginFlaskRegistration = async (request: RegistrationRequest) => {
+    setIsFlaskAuthLoading(true);
+    try {
+      await startFlaskRegistration(request);
+    } finally {
+      setIsFlaskAuthLoading(false);
     }
   };
 
@@ -1053,6 +1119,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loginWithGoogle,
         logoutFirebase,
         isFirebaseAuthLoading,
+        flaskUser,
+        isFlaskAuthLoading,
+        loginWithFlask,
+        logoutFlask,
+        startFlaskRegistration: beginFlaskRegistration,
       }}
     >
       {children}

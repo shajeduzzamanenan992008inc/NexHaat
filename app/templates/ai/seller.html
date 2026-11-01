@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Seller AI') }} · {{ app_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261006_ai1') }}">{% endblock %}
+{% block page_content %}
+<div class="page-shell ai-page">
+  <header class="page-heading"><div><p class="eyebrow">{{ _('Seller tools') }}</p><h1>{{ _('Seller AI workspace') }}</h1>
+    <p>{{ _('Draft listing content, review similar catalog items, and understand your own sales and inventory.') }}</p></div>
+    <a class="button button--secondary" href="{{ url_for('seller.dashboard') }}">{{ _('Seller dashboard') }}</a></header>
+  <div class="ai-layout">
+    <section class="surface surface-card">
+      <h2>{{ _('Listing content suggestions') }}</h2>
+      <p class="muted">{{ _('Suggestions never change a listing or price. Review and save through the normal product form.') }}</p>
+      <form id="seller-ai-suggest-form" class="ai-chat__form">
+        <input type="hidden" id="ai-csrf" value="{{ csrf_token() }}">
+        <label for="seller-ai-product">{{ _('Existing listing (optional)') }}</label>
+        <select id="seller-ai-product"><option value="">{{ _('New draft') }}</option>{% for product in products %}<option value="{{ product.id }}">{{ product.name }}</option>{% endfor %}</select>
+        <label for="seller-ai-title">{{ _('Product title') }}</label><input id="seller-ai-title" maxlength="160" required>
+        <label for="seller-ai-description">{{ _('Product description') }}</label><textarea id="seller-ai-description" maxlength="3000" rows="6"></textarea>
+        <button class="button" type="submit">{{ _('Generate suggestions') }}</button>
+      </form>
+      <div id="seller-ai-suggest-result" class="ai-result" aria-live="polite"></div>
+    </section>
+    <section class="surface surface-card">
+      <h2>{{ _('Sales and inventory insight') }}</h2>
+      <p class="muted">{{ _('Ask about sales, fast-moving products, stock levels, and possible stock-out timing. Forecasts include uncertainty.') }}</p>
+      <form id="seller-ai-query-form" class="ai-chat__form">
+        <label for="seller-ai-query">{{ _('Your question') }}</label><textarea id="seller-ai-query" maxlength="2000" rows="4" required placeholder="{{ _('Which of my products may run out soon?') }}"></textarea>
+        <button class="button button--secondary" type="submit">{{ _('Analyze my store') }}</button>
+      </form>
+      <div id="seller-ai-query-result" class="ai-result" aria-live="polite"></div>
+    </section>
+    <section class="surface surface-card">
+      <h2>{{ _('Pricing reference') }}</h2>
+      <p class="muted">{{ _('Compare your price with public NexHaat category prices. A competitor value is used only if you enter it.') }}</p>
+      <form id="seller-ai-price-form" class="ai-chat__form">
+        <label for="seller-ai-price-product">{{ _('Your product') }}</label><select id="seller-ai-price-product" required><option value="">{{ _('Choose a listing') }}</option>{% for product in products %}<option value="{{ product.id }}">{{ product.name }}</option>{% endfor %}</select>
+        <label for="seller-ai-competitor">{{ _('Competitor price supplied by you (optional)') }}</label><input id="seller-ai-competitor" type="number" min="0" max="100000000" step="0.01">
+        <button class="button button--secondary" type="submit">{{ _('Compare price') }}</button>
+      </form>
+      <div id="seller-ai-price-result" class="ai-result" aria-live="polite"></div>
+    </section>
+  </div>
+  <input id="seller-ai-suggest-endpoint" type="hidden" value="{{ url_for('seller.ai_listing_suggest') }}">
+  <input id="seller-ai-query-endpoint" type="hidden" value="{{ url_for('seller.ai_analytics_query') }}">
+  <input id="seller-ai-price-endpoint" type="hidden" value="{{ url_for('seller.ai_price_suggestion') }}">
+</div>
+<script src="{{ url_for('static', filename='js/ai-panels.js', v='20261006_ai1') }}" defer></script>
+{% endblock %}

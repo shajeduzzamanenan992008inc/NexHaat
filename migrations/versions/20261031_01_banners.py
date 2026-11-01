@@ -23,10 +23,9 @@ Manual rollback sequence (documented, not executed by this migration):
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
-import re as _re
 
 revision = "20261031_01"
-down_revision = "20261012_03"
+down_revision = "20261012_04"
 branch_labels = None
 depends_on = None
 
@@ -270,10 +269,7 @@ def _server_default_matches(actual, expected):
     if actual_str == str(expected):
         return True
 
-    if actual_str == repr(expected):
-        return True
-
-    return False
+    return actual_str == repr(expected)
 
 
 def _check_indexes(inspector):
@@ -336,25 +332,22 @@ def _type_compatible(actual, expected, dialect):
             return True
         if dialect == "postgresql" and actual_cls_name == "BOOLEAN":
             return True
-        if dialect == "mysql" and actual_cls_name in {"TINYINT", "BOOLEAN"}:
-            return True
-        return False
+        return dialect == "mysql" and actual_cls_name in {"TINYINT", "BOOLEAN"}
 
     if expected_cls_name == "Integer" and actual_cls_name == "Integer":
         return True
 
     if expected_cls_name == "DateTime":
-        if actual_cls_name != "DateTime":
-            return False
-        return True
+        return actual_cls_name == "DateTime"
 
     if expected_cls_name == "String":
         expected_len = getattr(expected, "length", None)
         actual_len = getattr(actual, "length", None)
-        if expected_len is not None and actual_len is not None:
-            if actual_len < expected_len:
-                return False
-        return True
+        return not (
+            expected_len is not None
+            and actual_len is not None
+            and actual_len < expected_len
+        )
 
     return True
 

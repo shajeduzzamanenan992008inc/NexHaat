@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Payment status') }} · {{ app_name }}{% endblock %}
+{% block page_content %}
+<div class="page-shell">
+  <section class="surface surface-card login-required">
+    <p class="eyebrow">{{ _('Secure payment') }}</p>
+    <h1>{{ _('Payment status') }}</h1>
+    <p>{{ _('Checkout reference') }}: <strong>{{ payment.checkout_group }}</strong></p>
+    <p>{{ _('Amount') }}: <strong>৳{{ '%.2f'|format(payment.amount) }}</strong></p>
+    <p><span class="status-pill status-pill--{{ payment.status }}">{{ _(payment.status|replace('_', ' ')|capitalize) }}</span></p>
+    {% if payment.status == 'paid' %}
+      <p>{{ _('Your payment was verified. Sellers can now review your orders.') }}</p>
+    {% elif payment.status == 'review_required' %}
+      <p>{{ _('Your payment is being reviewed before the orders are released to sellers.') }}</p>
+    {% elif payment.status == 'pending' %}
+      {% if latest_attempt and latest_attempt.status == 'failed' %}<p>{{ _('The last payment attempt failed. You can try again while this checkout is still active.') }}</p>
+      {% else %}<p>{{ _('Payment is not confirmed yet. This page will show the verified status after the provider notification arrives.') }}</p>{% endif %}
+    {% elif payment.status in ('expired', 'cancelled') %}
+      <p>{{ _('This checkout is no longer active. Start a new order to try again.') }}</p>
+    {% elif payment.status in ('partially_refunded', 'refunded') %}
+      <p>{{ _('A refund has been requested or completed. Admin can refresh the provider status.') }}</p>
+    {% endif %}
+    {% if can_retry %}<form method="post" action="{{ url_for('orders.payment_retry', checkout_group=payment.checkout_group) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button" type="submit">{{ _('Retry online payment') }}</button></form>{% endif %}
+    {% if orders %}<div class="summary-list" style="margin-top:22px">{% for order in orders %}<div class="summary-row"><span>{{ order.order_number }} · {{ _(order.status|capitalize) }}</span><strong>৳{{ '%.2f'|format(order.total) }}</strong></div>{% endfor %}</div>{% endif %}
+    <div class="form-actions" style="justify-content:center"><a class="button-secondary" href="{{ url_for('main.menu') }}">{{ _('Continue shopping') }}</a>{% if payment.user_id %}<a class="button-secondary" href="{{ url_for('orders.my_orders') }}">{{ _('My orders') }}</a>{% endif %}</div>
+  </section>
+</div>
+{% endblock %}

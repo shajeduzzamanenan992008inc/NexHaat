@@ -1,0 +1,19 @@
+# Runtime dependencies. Keep upper bounds so a future upstream major release
+# cannot silently change production behavior; refresh deliberately with tests.
+Flask>=3.1,<4.0
+Flask-Login>=0.6.3,<0.8.0
+Flask-Babel>=4.0,<5.0
+Flask-Migrate>=4.0,<5.0
+Flask-SQLAlchemy>=3.1,<4.0
+Flask-WTF>=1.2,<2.0
+boto3>=1.40,<2.0
+Pillow>=12.3,<13.0
+reportlab>=4.0,<6.0
+gunicorn>=22.0,<24.0
+itsdangerous>=2.2,<3.0
+requests>=2.32,<3.0
+psycopg[binary]>=3.2.10,<4.0
+python-dotenv>=1.0,<2.0
+
+# Test-only dependency. Production packaging excludes the tests directory.
+pytest>=8.0,<9.0

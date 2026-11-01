@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Marketplace settings') }} · {{ app_name }}{% endblock %}
+{% block page_content %}
+<div class="form-page"><section class="surface form-page__panel"><p class="eyebrow">{{ _('Operations') }}</p><h1>{{ _('Marketplace settings') }}</h1><p>{{ _('Update the marketplace name and logo.') }}</p>
+  <form method="post" action="{{ url_for('orders.admin_settings') }}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="field-grid">
+    <div class="form-field form-field--wide"><label for="app-name">{{ _('Marketplace name') }}</label><input id="app-name" name="app_name" maxlength="120" minlength="2" required value="{{ request.form.get('app_name', setting.app_name) }}"></div>
+    <div class="form-field"><label for="commission-rate">{{ _('Seller commission (%)') }}</label><input id="commission-rate" name="commission_rate_percent" type="number" min="0" max="100" step="0.01" value="{{ request.form.get('commission_rate_percent', setting.commission_rate_percent if setting.commission_rate_percent is not none else '0.00') }}"><small>{{ _('Applied to item subtotal only. Development treats an unset rate as 0%.') }}</small></div>
+    <div class="form-field"><label for="return-window">{{ _('Seller payout hold after delivery (days)') }}</label><input id="return-window" name="seller_return_window_days" type="number" min="0" max="90" step="1" required value="{{ request.form.get('seller_return_window_days', setting.seller_return_window_days if setting.seller_return_window_days is not none else 14) }}"><small>{{ _('The hold starts when delivery is marked complete.') }}</small></div>
+    <div class="form-field form-field--wide"><label for="app-logo">{{ _('Logo image (optional)') }}</label><input id="app-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp"></div>
+  </div><div class="form-actions"><button class="button" type="submit">{{ _('Save settings') }}</button><a class="button-secondary" href="{{ url_for('admin.dashboard') }}">{{ _('Cancel') }}</a></div></form>
+</section></div>
+{% endblock %}

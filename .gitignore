@@ -51,13 +51,6 @@ app/static/uploads/products/*
 tmp_*
 tests/tmp_*
 
-# Captured test/build reports (never commit these; delete after the run)
-pytest_*.txt
-*-output.txt
-build-log.txt
-client_followups.json
-freebuff_final_report.md
-
 # IDE / Editor settings
 .vscode/
 .idea/

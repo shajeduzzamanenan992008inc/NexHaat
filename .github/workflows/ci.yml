@@ -58,3 +58,19 @@ jobs:
         run: python -m pip install --upgrade pip "ruff==0.17.0"
       - name: Ruff check
         run: python -m ruff check .
+
+  web-build:
+    name: React and Express build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked Node dependencies
+        run: npm ci
+      - name: Type-check and build web application
+        run: npm run build

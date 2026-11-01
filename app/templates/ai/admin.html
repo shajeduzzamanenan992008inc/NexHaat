@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Admin AI Copilot') }} · {{ app_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/ai.css', v='20261006_ai1') }}">{% endblock %}
+{% block page_content %}
+<div class="page-shell ai-page">
+  <header class="page-heading"><div><p class="eyebrow">{{ _('Read-only operations') }}</p><h1>{{ _('Admin AI Copilot') }}</h1>
+    <p>{{ _('Ask about real sales, orders, product performance, inventory, customer activity, reviews, and support cases.') }}</p></div>
+    <a class="button button--secondary" href="{{ url_for('admin.dashboard') }}">{{ _('Admin dashboard') }}</a></header>
+  <section class="surface surface-card ai-admin-panel">
+    <input type="hidden" id="ai-csrf" value="{{ csrf_token() }}">
+    <form id="admin-ai-query-form" class="ai-chat__form">
+      <label for="admin-ai-query">{{ _('Admin question') }}</label>
+      <textarea id="admin-ai-query" maxlength="2000" rows="4" required placeholder="{{ _('How did sales perform this week?') }}"></textarea>
+      <button class="button" type="submit">{{ _('Analyze marketplace data') }}</button>
+    </form>
+    <div class="ai-quick-queries">
+      <button type="button" data-ai-query="Show this week's sales summary">{{ _('Sales summary') }}</button>
+      <button type="button" data-ai-query="Which products have low stock or poor performance?">{{ _('Inventory and products') }}</button>
+      <button type="button" data-ai-query="Summarize open customer support conversations">{{ _('Support summary') }}</button>
+      <button type="button" data-ai-query="Flag suspicious pending reviews for human review">{{ _('Review risk flags') }}</button>
+    </div>
+    <div id="admin-ai-result" class="ai-result" aria-live="polite"></div>
+  </section>
+  <input id="admin-ai-query-endpoint" type="hidden" value="{{ url_for('admin.ai_query') }}">
+</div>
+<script src="{{ url_for('static', filename='js/ai-panels.js', v='20261006_ai1') }}" defer></script>
+{% endblock %}

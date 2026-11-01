@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Payments and seller payouts') }} · {{ app_name }}{% endblock %}
+{% block page_content %}
+<div class="page-shell">
+  <header class="page-heading">
+    <div><p class="eyebrow">{{ _('Finance operations') }}</p><h1>{{ _('Payments and seller payouts') }}</h1>
+      <p>{{ _('Review validated payments, refunds, and eligible seller balances.') }}</p></div>
+    <a class="button-secondary" href="{{ url_for('admin.dashboard') }}">{{ _('Admin dashboard') }}</a>
+  </header>
+
+  <section class="admin-section">
+    <header class="admin-section__header"><div><p class="eyebrow">{{ _('CHECKOUT') }}</p><h2>{{ _('Recent online payments') }}</h2></div></header>
+    {% if payments %}
+      <div class="admin-record-list">
+      {% for payment in payments %}
+        <article class="admin-record">
+          <div class="admin-record__details">
+            <h2>{{ payment.checkout_group }} · ৳{{ '%.2f'|format(payment.amount) }}</h2>
+            <p>{{ payment.currency }} · <span class="status-pill status-pill--{{ payment.status }}">{{ _(payment.status|replace('_', ' ')|capitalize) }}</span> · {{ payment.created_at.strftime('%b %d, %Y %H:%M') }}{% if payment.paid_at %} · {{ _('Paid') }} {{ payment.paid_at.strftime('%b %d, %Y %H:%M') }}{% endif %}</p>
+            {% if payment.bank_tran_id or payment.validation_id %}<p>{{ _('Provider transaction') }}: {{ payment.bank_tran_id or _('Pending') }}{% if payment.validation_id %} · {{ _('Validation reference') }}: {{ payment.validation_id }}{% endif %}</p>{% endif %}
+            {% for attempt in payment.attempts %}
+              <p>{{ _('Attempt') }} {{ attempt.transaction_id }} · {{ _(attempt.status|replace('_', ' ')|capitalize) }}{% if attempt.bank_tran_id %} · {{ _('Provider transaction') }}: {{ attempt.bank_tran_id }}{% endif %}{% if attempt.validation_id %} · {{ _('Validation reference') }}: {{ attempt.validation_id }}{% endif %}{% if attempt.risk_level == 1 %} · {{ _('High-risk review') }}{% endif %}</p>
+            {% endfor %}
+            {% for order in payment.orders %}
+              <div class="surface surface-card" style="margin:12px 0;padding:14px">
+                <strong>{{ order.order_number }}</strong> · {{ order.seller.seller_profile.store_name if order.seller and order.seller.seller_profile else _('Marketplace seller') }}
+                <span class="status-pill status-pill--{{ order.status }}">{{ _(order.status|capitalize) }}</span>
+                <p>{{ _('Items') }} ৳{{ '%.2f'|format(order.items_subtotal) }} · {{ _('Delivery') }} ৳{{ '%.2f'|format(order.delivery_fee) }} · {{ _('Commission') }} ৳{{ '%.2f'|format(order.commission_amount or 0) }}</p>
+                {% set existing_refund = payment.refunds|selectattr('order_id', 'equalto', order.id)|first %}
+                {% if existing_refund %}
+                  <p>{{ _('Refund') }} ৳{{ '%.2f'|format(existing_refund.amount) }} · <span class="status-pill status-pill--{{ existing_refund.status }}">{{ _(existing_refund.status|capitalize) }}</span></p>
+                  {% if existing_refund.status in ('processing', 'initiating') and existing_refund.provider_refund_id %}
+                    <form method="post" action="{{ url_for('orders.admin_refund_refresh', refund_id=existing_refund.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-button admin-button--quiet" type="submit">{{ _('Refresh refund status') }}</button></form>
+                  {% endif %}
+                  {% if existing_refund.status == 'initiating' and not existing_refund.provider_refund_id %}<p>{{ _('The gateway has not returned a refund reference. Reconcile with the provider before retrying this refund.') }}</p>{% endif %}
+                  {% if existing_refund.status == 'failed' %}<form method="post" action="{{ url_for('orders.admin_payment_refund_order', payment_id=payment.id, order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="visually-hidden" for="refund-retry-reason-{{ order.id }}">{{ _('Refund reason') }}</label><input id="refund-retry-reason-{{ order.id }}" name="reason" maxlength="255" value="{{ existing_refund.reason }}"><button class="admin-button admin-button--quiet" type="submit">{{ _('Retry failed refund request') }}</button></form>{% endif %}
+                {% elif payment.status in ('paid', 'review_required', 'partially_refunded') and order.status in ('pending', 'confirmed', 'cancelled', 'declined') %}
+                  <form method="post" action="{{ url_for('orders.admin_payment_refund_order', payment_id=payment.id, order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="visually-hidden" for="refund-reason-{{ order.id }}">{{ _('Refund reason') }}</label><input id="refund-reason-{{ order.id }}" name="reason" maxlength="255" placeholder="{{ _('Refund reason') }}"><button class="admin-button admin-button--quiet" type="submit">{{ _('Request full sub-order refund') }}</button></form>
+                {% endif %}
+              </div>
+            {% endfor %}
+            {% set review_state = namespace(cancelled=false) %}
+            {% for order in payment.orders %}{% if order.status in ('cancelled', 'declined') %}{% set review_state.cancelled = true %}{% endif %}{% endfor %}
+            {% if payment.status == 'review_required' and not review_state.cancelled %}
+              <form method="post" action="{{ url_for('orders.admin_payment_approve_review', payment_id=payment.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-button" type="submit">{{ _('Approve verified high-risk payment') }}</button></form>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+      </div>
+    {% else %}<p class="admin-empty">{{ _('No online payments yet.') }}</p>{% endif %}
+  </section>
+
+  <section class="admin-section">
+    <header class="admin-section__header"><div><p class="eyebrow">{{ _('RETURNS') }}</p><h2>{{ _('Customer return requests') }}</h2></div></header>
+    {% if return_requests %}
+      <div class="admin-record-list">
+      {% for return_request in return_requests %}
+        {% set order = return_request.order %}
+        {% set refund = return_refunds.get(order.id) %}
+        <article class="admin-record">
+          <div class="admin-record__details">
+            <h3>{{ order.order_number }} · ৳{{ '%.2f'|format(return_request.refund_amount) }}</h3>
+            <p>{{ return_request.customer.email if return_request.customer else order.customer_name }} · {{ return_request.created_at.strftime('%b %d, %Y %H:%M') }}</p>
+            <p>{{ return_request.reason }}</p>
+            <p>{{ _('Payment') }}: {{ _('Online') if order.payment_method == 'sslcommerz' else _('Cash on delivery') }} · <span class="status-pill status-pill--{{ return_request.status }}">{{ _(return_request.status|replace('_', ' ')|capitalize) }}</span></p>
+            {% if return_request.review_note %}<p>{{ _('Review note') }}: {{ return_request.review_note }}</p>{% endif %}
+            {% if refund %}<p>{{ _('Gateway refund') }}: {{ _(refund.status|capitalize) }}{% if refund.provider_refund_id %} · {{ refund.provider_refund_id }}{% endif %}</p>{% endif %}
+            {% if return_request.manual_refund_reference %}<p>{{ _('Manual refund reference') }}: {{ return_request.manual_refund_reference }}</p>{% endif %}
+
+            {% if return_request.status == 'requested' %}
+              <div class="admin-review-form">
+              {% for decision in ('approved', 'rejected') %}
+                <form method="post" action="{{ url_for('orders.admin_review_order_return', return_id=return_request.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="decision" value="{{ decision }}">
+                  <label for="admin-return-note-{{ return_request.id }}-{{ decision }}">{{ _('Review note') }}</label><input id="admin-return-note-{{ return_request.id }}-{{ decision }}" name="note" maxlength="500"{% if decision == 'rejected' %} required{% endif %}>
+                  <button class="admin-button{% if decision == 'rejected' %} admin-button--quiet{% endif %}" type="submit">{{ _('Approve return') if decision == 'approved' else _('Reject return') }}</button>
+                </form>
+              {% endfor %}
+              </div>
+            {% elif return_request.status == 'approved' %}
+              <form method="post" action="{{ url_for('orders.admin_return_received', return_id=return_request.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-button" type="submit">{{ _('Mark returned items received') }}</button></form>
+            {% elif return_request.status in ('received', 'failed') and order.payment_method == 'sslcommerz' %}
+              {% if refund and refund.status in ('initiating', 'processing') and not refund.provider_refund_id %}<p>{{ _('The gateway response needs reconciliation before retrying this refund.') }}</p>{% endif %}
+              {% if refund and refund.status == 'processing' and refund.provider_refund_id %}<form method="post" action="{{ url_for('orders.admin_refund_refresh', refund_id=refund.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-button admin-button--quiet" type="submit">{{ _('Refresh refund status') }}</button></form>{% endif %}
+              {% if not refund or refund.status == 'failed' %}<form method="post" action="{{ url_for('orders.admin_return_refund', return_id=return_request.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-button" type="submit">{{ _('Request provider refund') }}</button></form>{% endif %}
+            {% elif return_request.status in ('received', 'failed') and order.payment_method == 'cod' %}
+              <form method="post" action="{{ url_for('orders.admin_manual_return_refund', return_id=return_request.id) }}" class="field-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="form-field"><label for="manual-return-reference-{{ return_request.id }}">{{ _('Manual refund reference') }}</label><input id="manual-return-reference-{{ return_request.id }}" name="reference" minlength="3" maxlength="120" required></div><div class="form-actions"><button class="admin-button" type="submit">{{ _('Record completed manual refund') }}</button></div></form>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+      </div>
+    {% else %}<p class="admin-empty">{{ _('No customer return requests.') }}</p>{% endif %}
+  </section>
+
+  <section class="admin-section">
+    <header class="admin-section__header"><div><p class="eyebrow">{{ _('SELLER SETTLEMENT') }}</p><h2>{{ _('Eligible manual payouts') }}</h2></div></header>
+    {% if sellers %}
+      <div class="admin-record-list">
+      {% for seller in sellers %}
+        {% set balance = seller_balances[seller.id] %}
+        {% if balance.eligible > 0 %}
+          <article class="admin-record">
+            <div class="admin-record__details">
+              <h3>{{ seller.seller_profile.store_name if seller.seller_profile else seller.email }}</h3>
+              <p>{{ seller.email }} · {{ _('Eligible') }} ৳{{ '%.2f'|format(balance.eligible) }} · {{ _('On hold') }} ৳{{ '%.2f'|format(balance.held) }}</p>
+              <form method="post" action="{{ url_for('orders.admin_seller_payout', seller_id=seller.id) }}" class="field-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-field"><label for="payout-reference-{{ seller.id }}">{{ _('Transfer reference') }}</label><input id="payout-reference-{{ seller.id }}" name="reference" required minlength="3" maxlength="120"></div>
+                <div class="form-field"><label for="payout-note-{{ seller.id }}">{{ _('Note (optional)') }}</label><input id="payout-note-{{ seller.id }}" name="note" maxlength="500"></div>
+                <div class="form-actions"><button class="admin-button" type="submit">{{ _('Record payout of ৳%(amount)s', amount='%.2f'|format(balance.eligible)) }}</button></div>
+              </form>
+            </div>
+          </article>
+        {% endif %}
+      {% endfor %}
+      </div>
+    {% else %}<p class="admin-empty">{{ _('No sellers are available.') }}</p>{% endif %}
+  </section>
+
+  <section class="admin-section">
+    <header class="admin-section__header"><div><p class="eyebrow">{{ _('PAYOUT HISTORY') }}</p><h2>{{ _('Recent recorded payouts') }}</h2></div></header>
+    {% if payouts %}
+      <div class="table-wrap"><table><thead><tr><th>{{ _('Seller') }}</th><th>{{ _('Amount') }}</th><th>{{ _('Transfer reference') }}</th><th>{{ _('Recorded') }}</th></tr></thead>
+        <tbody>{% for payout in payouts %}<tr><td>{{ payout.seller.seller_profile.store_name if payout.seller and payout.seller.seller_profile else payout.seller.email if payout.seller else '—' }}</td><td>৳{{ '%.2f'|format(payout.amount) }}</td><td>{{ payout.reference }}</td><td>{{ payout.created_at.strftime('%b %d, %Y') }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    {% else %}<p class="admin-empty">{{ _('No payouts have been recorded.') }}</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

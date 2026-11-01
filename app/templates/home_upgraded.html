@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app_name }} · {{ _('Shop local finds') }}{% endblock %}
+
+{% block meta_description %}{{ _('Discover neighborhood food, groceries, and local stores on NexHaat.') }}{% endblock %}
+
+{% block extra_head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "{{ app_name }}",
+  "url": "{{ request.base_url }}",
+  "logo": "{{ url_for('static', filename=app_logo) }}",
+  "sameAs": []
+}
+</script>
+{% endblock %}
+
+{% block page_content %}
+<div class="page-shell">
+  <!-- HERO -->
+  <section class="hero" aria-labelledby="home-title">
+    <div class="hero__copy">
+      <p class="hero__eyebrow">✦ {{ _('Local finds, delivered with care') }}</p>
+      <h1 id="home-title">{{ _('Shop the') }}<br><span class="hero__highlight">{{ _('best local deals') }}</span></h1>
+      <p class="hero__sub">{{ _('Fresh food, everyday essentials, and unique finds from local sellers — all in one place.') }}</p>
+      <div class="hero__actions">
+        <a class="button button--primary" href="{{ url_for('main.menu') }}">{{ _('Explore marketplace') }} <span aria-hidden="true">→</span></a>
+        {% if g.current_user and g.current_user.role == 'customer' %}
+        <a class="button button--secondary" href="{{ url_for('orders.cart') }}">{{ _('Open cart') }}</a>
+        {% else %}
+        <a class="button button--secondary" href="{{ url_for('auth.login') }}">{{ _('Sign in to order') }}</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="hero__art" aria-hidden="true">
+      <svg class="hero__badge hero__badge--1" viewBox="0 0 200 160">
+        <defs>
+          <linearGradient id="badgeGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0a66c2"/>
+            <stop offset="100%" stop-color="#074f96"/>
+          </linearGradient>
+        </defs>
+        <circle cx="80" cy="60" r="42" fill="url(#badgeGrad1)" opacity="0.9">
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="4s" repeatCount="indefinite"/>
+        </circle>
+        <text x="80" y="68" text-anchor="middle" fill="white" font-size="36" font-weight="800" font-family="Inter, sans-serif">📦</text>
+      </svg>
+      <svg class="hero__badge hero__badge--2" viewBox="0 0 200 160">
+        <defs>
+          <linearGradient id="badgeGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#e8890c"/>
+            <stop offset="100%" stop-color="#b56a08"/>
+          </linearGradient>
+        </defs>
+        <circle cx="120" cy="100" r="30" fill="url(#badgeGrad2)" opacity="0.9">
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="5s" repeatCount="indefinite"/>
+        </circle>
+        <text x="120" y="108" text-anchor="middle" fill="white" font-size="26" font-weight="800" font-family="Inter, sans-serif">🍎</text>
+      </svg>
+      <svg class="hero__badge hero__badge--3" viewBox="0 0 200 160">
+        <circle cx="80" cy="100" r="22" fill="#0a66c2" opacity="0.8">
+          <animate attributeName="opacity" values="0.5;1;0.5" dur="6s" repeatCount="indefinite"/>
+        </circle>
+        <text x="80" y="108" text-anchor="middle" fill="white" font-size="18" font-weight="800" font-family="Inter, sans-serif">⭐</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- TRENDING NOW SECTION -->
+  <section class="section-block" aria-labelledby="trending-heading">
+    <div class="section-header">
+      <div class="section-header__left">
+        <p class="eyebrow">{{ _('Trending right now') }}</p>
+        <h2 id="trending-heading">{{ _('Trending in the marketplace') }}</h2>
+      </div>
+    </div>
+    <div class="trending-grid">
+      {% for product in popular_products_func()[:8] %}
+      <a class="trending-card" href="{{ url_for('main.food', slug=product.slug) }}">
+        <div class="trending-card__media">
+          {% if product.display_image %}
+          <img src="{{ product.display_image }}" alt="{{ product.localized_name(current_locale) }}" loading="lazy" decoding="async">
+          {% else %}
+          <div class="trending-card__placeholder"><span>✦</span></div>
+          {% endif %}
+          {% if product.discount_price %}
+          <span class="trending-card__badge">{{ _('Sale') }}</span>
+          {% endif %}
+        </div>
+        <div class="trending-card__body">
+          <span class="trending-card__category">{{ product.category.name }}</span>
+          <h3 class="trending-card__title">{{ product.localized_name(current_locale) }}</h3>
+          <div class="trending-card__footer">
+            <span class="trending-card__price">৳{{ '%.2f'|format(product.display_price) }}</span>
+            {% if product.discount_price %}
+            <span class="trending-card__was">৳{{ '%.2f'|format(product.price) }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if recent_products %}
+  <section class="section-block" aria-labelledby="recently-viewed-home-heading">
+    <div class="section-header">
+      <div class="section-header__left">
+        <p class="eyebrow">{{ _('Your recent picks') }}</p>
+        <h2 id="recently-viewed-home-heading">{{ _('Recently viewed') }}</h2>
+      </div>
+    </div>
+    <div class="product-grid">
+      {% for product in recent_products %}{% include "_product_card.html" %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if personalized_products %}
+  <section class="section-block" aria-labelledby="picked-for-you-heading">
+    <div class="section-header">
+      <div class="section-header__left">
+        <p class="eyebrow">{{ _('Based on your saved and viewed categories') }}</p>
+        <h2 id="picked-for-you-heading">{{ _('Picked for you') }}</h2>
+      </div>
+    </div>
+    <div class="product-grid">
+      {% for product in personalized_products %}{% include "_product_card.html" %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- TWO-COL DISCOVERY -->
+  {% if products or popular_products_func() or categories %}
+  <div class="two-col">
+    <!-- CATEGORIES -->
+    <section class="section-block" aria-labelledby="categories-heading">
+      <div class="section-header">
+        <div class="section-header__left">
+          <p class="eyebrow">{{ _('Browse by category') }}</p>
+          <h2 id="categories-heading">{{ _('Explore all categories') }}</h2>
+        </div>
+        <a class="text-link" href="{{ url_for('main.menu') }}">{{ _('See all →') }}</a>
+      </div>
+      <div class="category-grid">
+        {% for category in categories[:12] %}
+        <a class="category-tile" href="{{ url_for('main.category', slug=category.slug) }}">
+          <span class="category-tile__icon" aria-hidden="true">{{ ['🍲','🥤','🥐','☕','🛒','🏃','📚','🧀','🍛','🧼','⚽','📦'][loop.index0 % 12] }}</span>
+          <span class="category-tile__label"><strong>{{ category.name }}</strong></span>
+          <span class="category-tile__count">{{ _('Shop now') }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- PROMO STRIP -->
+    <section class="section-block promo-strip" aria-label="{{ _('Today\'s deals') }}">
+      <div class="promo-strip__inner">
+        <span class="promo-strip__badge">{{ _('TODAY\'S DEAL') }}</span>
+        <span class="promo-strip__text">{{ _('Fresh picks and everyday essentials at special prices.') }}</span>
+        <a class="promo-strip__btn" href="{{ url_for('main.deals') }}">{{ _('View deals →') }}</a>
+      </div>
+    </section>
+
+    <!-- FEATURED PRODUCTS -->
+    <section class="section-block" aria-labelledby="featured-heading">
+      <div class="section-header">
+        <div class="section-header__left">
+          <p class="eyebrow">{{ _('Handpicked for you') }}</p>
+          <h2 id="featured-heading">{{ _('Featured picks') }}</h2>
+        </div>
+        <a class="text-link" href="{{ url_for('main.menu') }}">{{ _('View all →') }}</a>
+      </div>
+      <div class="product-grid">
+        {% for product in products[:12] %}
+        <a class="product-card" href="{{ url_for('main.food', slug=product.slug) }}">
+          <div class="product-card__media">
+            {% if product.display_image %}
+            <img src="{{ product.display_image }}" alt="{{ product.localized_name(current_locale) }}" loading="lazy" decoding="async">
+            {% else %}
+            <div class="product-card__placeholder"><span>✦</span></div>
+            {% endif %}
+            {% if product.discount_price %}
+            <span class="product-card__badge">{{ _('Sale') }}</span>
+            {% endif %}
+          </div>
+          <div class="product-card__body">
+            <span class="product-card__category">{{ product.category.name }}</span>
+            <h3 class="product-card__title">{{ product.localized_name(current_locale) }}</h3>
+            <p class="product-card__desc">{{ product.localized_description(current_locale)|truncate(50) }}</p>
+            <div class="product-card__footer">
+              <div class="product-card__price-row">
+                <span class="product-card__price">৳{{ '%.2f'|format(product.display_price) }}</span>
+                {% if product.discount_price %}
+                <del class="product-card__was-price">৳{{ '%.2f'|format(product.price) }}</del>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  {% endif %}
+
+  <!-- SELLER STORIES -->
+  <section class="section-block seller-strip" aria-labelledby="sellers-heading">
+    <div class="section-header">
+      <div class="section-header__left">
+        <p class="eyebrow">{{ _('From local sellers') }}</p>
+        <h2 id="sellers-heading">{{ _('Shop local sellers') }}</h2>
+      </div>
+      <a class="text-link" href="{{ url_for('main.menu') }}">{{ _('Explore all stores →') }}</a>
+    </div>
+    <div class="seller-grid">
+      {% for seller in get_active_sellers_func()[:6] %}
+      <div class="seller-card">
+        <span class="seller-card__icon" aria-hidden="true">{{ ['🥇','🥈','🥉','⭐','🏆','🎯'][loop.index0 % 6] }}</span>
+        <span class="seller-card__name">{{ seller.store_name }}</span>
+        <span class="seller-card__meta">{{ _('Accepted payments: Cash, Card') }}</span>
+        <a class="seller-card__link" href="{{ url_for('main.store', slug=seller.store_name) }}">{{ _('Visit store →') }}</a>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- NEW ARRIVALS -->
+  <section class="section-block" aria-labelledby="new-arrivals-heading">
+    <div class="section-header">
+      <div class="section-header__left">
+        <p class="eyebrow">{{ _('New in this week') }}</p>
+        <h2 id="new-arrivals-heading">{{ _('Fresh arrivals') }}</h2>
+      </div>
+      <a class="text-link" href="{{ url_for('main.menu') }}">{{ _('Browse all →') }}</a>
+    </div>
+    <div class="product-grid">
+      {% set fresh_products = new_arrivals_func(12) %}
+      {% for product in fresh_products[:8] %}
+      <a class="product-card card" href="{{ url_for('main.food', slug=product.slug) }}">
+        <div class="product-card__media">
+          {% if product.display_image %}
+          <img src="{{ product.display_image }}" alt="{{ product.localized_name(current_locale) }}" loading="lazy" decoding="async">
+          {% else %}
+          <div class="product-card__placeholder"><span>✦</span></div>
+          {% endif %}
+          <span class="product-card__badge new-badge">{{ _('New') }}</span>
+        </div>
+        <div class="product-card__body">
+          <span class="product-card__category">{{ product.category.name }}</span>
+          <h3 class="product-card__title">{{ product.localized_name(current_locale) }}</h3>
+          <p class="product-card__desc">{{ product.localized_description(current_locale)|truncate(50) }}</p>
+          <div class="product-card__footer">
+            <div class="product-card__price-row">
+              <span class="product-card__price">৳{{ '%.2f'|format(product.display_price) }}</span>
+              {% if product.discount_price %}
+              <del class="product-card__was-price">৳{{ '%.2f'|format(product.price) }}</del>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- CART USER GUIDE -->
+  <section class="section-block how-to-buy" aria-labelledby="how-to-heading">
+    <div class="section-header">
+      <div class="section-header__left">
+        <p class="eyebrow">{{ _('How it works') }}</p>
+        <h2 id="how-to-heading">{{ _('Three easy steps') }}</h2>
+      </div>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <span class="step-number">1</span>
+        <h3>{{ _('Browse & find') }}</h3>
+        <p>{{ _('Search or browse categories to discover what nearby sellers have to offer.') }}</p>
+      </div>
+      <div class="step-card">
+        <span class="step-number">2</span>
+        <h3>{{ _('Add to cart') }}</h3>
+        <p>{{ _('Select your items, choose options, and review your order total with delivery fee.') }}</p>
+      </div>
+      <div class="step-card">
+        <span class="step-number">3</span>
+        <h3>{{ _('Get delivered') }}</h3>
+        <p>{{ _('Pay by cash on delivery or online, then track your order until it arrives.') }}</p>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

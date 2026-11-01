@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Neumorphic backing plate from logo.svg (rect x=7 y=7 rx=27). -->
+    <path
+        android:fillColor="#E7EBF0"
+        android:pathData="M34,7H62A27,27 0 0 1 89,34V62A27,27 0 0 1 62,89H34A27,27 0 0 1 7,62V34A27,27 0 0 1 34,7Z" />
+    <!-- Primary tile (rect x=13 y=12 rx=23) with the SVG blue gradient. -->
+    <path
+        android:pathData="M36,12H60A23,23 0 0 1 83,35V59A23,23 0 0 1 60,82H36A23,23 0 0 1 13,59V35A23,23 0 0 1 36,12Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="14"
+                android:startY="10"
+                android:endX="82"
+                android:endY="88">
+                <item android:offset="0" android:color="#42B8FF" />
+                <item android:offset="0.48" android:color="#087CFF" />
+                <item android:offset="1" android:color="#0750B5" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Shadowed letter offset, then the white letter. -->
+    <path
+        android:fillColor="#064F9F"
+        android:fillAlpha="0.48"
+        android:pathData="M30.5,62.5V32.5h7l22,19v-19h7v30h-7l-22,-19v19z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M29,60V30h7l22,19V30h7v30h-7L36,41v19z" />
+    <!-- Orbit accent and satellite dot. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#48B7FF"
+        android:strokeWidth="2.2"
+        android:pathData="M83.3,33.9C80.5,48.6 60.5,66.1 42.5,69.8C28,72.8 19.6,66.2 22.4,53.5C25.2,40.9 42.6,24.2 59.2,18.5C75.9,12.9 86.1,19.3 83.3,33.9z" />
+    <path
+        android:fillColor="#B8ECFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M8.8,29.5a4.2,4.2 0,1 0,8.4 0a4.2,4.2 0,1 0,-8.4 0" />
+</vector>

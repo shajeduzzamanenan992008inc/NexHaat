@@ -7,6 +7,7 @@ import {
   Sun, Moon, Layers, Mic, Camera, Clock, TrendingUp, History, Trash2
 } from 'lucide-react';
 import { manageSearchHistory } from '../lib/amazonFeatures';
+import { FlaskAuthPanel } from './FlaskAuthPanel';
 
 export const Navbar: React.FC = () => {
   const {
@@ -42,6 +43,7 @@ export const Navbar: React.FC = () => {
     loginWithGoogle,
     logoutFirebase,
     isFirebaseAuthLoading,
+    flaskUser,
   } = useApp();
 
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
@@ -51,6 +53,7 @@ export const Navbar: React.FC = () => {
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [isDepartmentMenuOpen, setIsDepartmentMenuOpen] = useState(false);
+  const [isFlaskAuthPanelOpen, setIsFlaskAuthPanelOpen] = useState(false);
 
   // Search History from localStorage
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
@@ -275,6 +278,15 @@ export const Navbar: React.FC = () => {
               )}
             </div>
             {/* Google Firebase Auth */}
+            <button
+              type="button"
+              onClick={() => setIsFlaskAuthPanelOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+              title="Sign in with the authoritative Flask marketplace session"
+            >
+              <span className="hidden sm:inline">{flaskUser ? flaskUser.email : t('NexHaat Login', 'NexHaat লগইন')}</span>
+              <span className="sm:hidden">ID</span>
+            </button>
             {firebaseUser ? (
               <div className="flex items-center gap-1.5 bg-slate-800 rounded-md px-2 py-1 border border-slate-700 text-xs text-white">
                 {firebaseUser.photoURL ? (
@@ -317,6 +329,7 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       </div>
+      {isFlaskAuthPanelOpen && <FlaskAuthPanel onClose={() => setIsFlaskAuthPanelOpen(false)} />}
 
       {/* Main Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">

@@ -1,0 +1,109 @@
+- generic [active] [ref=f5e1]:
+  - link "Skip to content" [ref=f5e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f5e3]:
+    - generic [ref=f5e4]:
+      - link "NexHaat home" [ref=f5e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f5e7]: NexHaat
+      - navigation "Main navigation" [ref=f5e8]:
+        - link "Home" [ref=f5e9] [cursor=pointer]:
+          - /url: /
+        - link "Explore" [ref=f5e10] [cursor=pointer]:
+          - /url: /menu
+        - link "Deals" [ref=f5e11] [cursor=pointer]:
+          - /url: /deals
+        - link "Shopping AI" [ref=f5e12] [cursor=pointer]:
+          - /url: /ai/
+      - generic [ref=f5e13]:
+        - generic [ref=f5e14]:
+          - generic [ref=f5e15]: Language
+          - combobox "Language" [ref=f5e16] [cursor=pointer]:
+            - option "English (US)" [selected]
+            - option "বাংলা"
+            - option "हिन्दी"
+            - option "العربية"
+          - button "Go" [ref=f5e17] [cursor=pointer]
+        - link "Sign in" [ref=f5e18] [cursor=pointer]:
+          - /url: /auth/login
+  - main [ref=f5e19]:
+    - generic [ref=f5e20]:
+      - generic [ref=f5e21]:
+        - generic [ref=f5e22]:
+          - paragraph [ref=f5e23]: Find your next favorite
+          - heading "Explore the marketplace" [level=1] [ref=f5e24]
+          - paragraph [ref=f5e25]: Browse active local listings, compare prices, and search the food reference library for quick discovery.
+        - search [ref=f5e26]:
+          - generic [ref=f5e27]: Search products
+          - combobox "Search products" [ref=f5e29]
+          - button "Search" [ref=f5e30] [cursor=pointer]
+      - form "Filter marketplace listings" [ref=f5e31]:
+        - generic [ref=f5e32]:
+          - generic [ref=f5e33]: Category
+          - combobox "Category" [ref=f5e34] [cursor=pointer]:
+            - option "All categories" [selected]
+        - generic [ref=f5e35]:
+          - generic [ref=f5e36]: Store
+          - combobox "Store" [ref=f5e37] [cursor=pointer]:
+            - option "All stores" [selected]
+        - generic [ref=f5e38]:
+          - generic [ref=f5e39]: Brand
+          - combobox "Brand" [ref=f5e40] [cursor=pointer]:
+            - option "All brands" [selected]
+        - generic [ref=f5e41]:
+          - generic: Product option
+          - textbox "Product option" [ref=f5e42]:
+            - /placeholder: "For example: Large"
+        - generic [ref=f5e43]:
+          - generic: Minimum price
+          - spinbutton "Minimum price" [ref=f5e44]
+        - generic [ref=f5e45]:
+          - generic: Maximum price
+          - spinbutton "Maximum price" [ref=f5e46]
+        - generic [ref=f5e47]:
+          - generic [ref=f5e48]: Minimum rating
+          - combobox "Minimum rating" [ref=f5e49] [cursor=pointer]:
+            - option "Any rating" [selected]
+            - option "4 stars and up"
+            - option "3 stars and up"
+            - option "2 stars and up"
+            - option "1 stars and up"
+        - generic [ref=f5e50]:
+          - generic [ref=f5e51]: Discounts
+          - generic [ref=f5e52]:
+            - checkbox "Discounts On sale" [ref=f5e53]
+            - text: On sale
+        - generic [ref=f5e54]:
+          - generic [ref=f5e55]: Sort by
+          - combobox "Sort by" [ref=f5e56] [cursor=pointer]:
+            - option "Featured" [selected]
+            - option "Relevance"
+            - option "Newest"
+            - 'option "Price: low to high"'
+            - 'option "Price: high to low"'
+        - generic [ref=f5e57]:
+          - generic [ref=f5e58]: In stock
+          - generic [ref=f5e59]:
+            - checkbox "In stock Available now" [ref=f5e60]
+            - text: Available now
+        - button "Apply filters" [ref=f5e61] [cursor=pointer]
+      - region [ref=f5e62]:
+        - generic [ref=f5e64]:
+          - paragraph [ref=f5e65]: Available to order
+          - heading "Local listings" [level=2] [ref=f5e66]
+        - generic [ref=f5e67]:
+          - strong [ref=f5e68]: No local listings found yet
+          - text: Try another search, or browse the food reference library below.
+      - region [ref=f5e69]:
+        - generic [ref=f5e71]:
+          - paragraph [ref=f5e72]: Food data reference
+          - heading "Food reference library" [level=2] [ref=f5e73]
+        - paragraph [ref=f5e74]: Reference records are for information only. They are not seller listings, have no marketplace price, and cannot be added to your cart.
+        - generic [ref=f5e75]: Search above to look up a food in the reference library.
+  - contentinfo [ref=f5e76]:
+    - generic [ref=f5e77]:
+      - link "NexHaat" [ref=f5e78] [cursor=pointer]:
+        - /url: /
+        - generic [aria-hidden] [ref=f5e79]: "N"
+      - paragraph [ref=f5e81]: Good food and thoughtful finds, close to home.
+      - generic [ref=f5e82]: © NexHaat · All rights reserved.

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Payout history') }} · {{ app_name }}{% endblock %}
+{% block page_content %}
+<div class="page-shell">
+  <header class="page-heading"><div><p class="eyebrow">{{ seller.seller_profile.store_name if seller.seller_profile else _('Seller account') }}</p><h1>{{ _('Payout history') }}</h1><p>{{ _('Online-order earnings become eligible after delivery and the configured return window.') }}</p></div><a class="button-secondary" href="{{ url_for('seller.dashboard') }}">{{ _('Seller dashboard') }}</a></header>
+  <section class="admin-summary" aria-label="{{ _('Seller settlement balance') }}">
+    <article><span>{{ _('Eligible balance') }}</span><strong>৳{{ '%.2f'|format(balance.eligible) }}</strong></article>
+    <article><span>{{ _('On hold') }}</span><strong>৳{{ '%.2f'|format(balance.held) }}</strong></article>
+  </section>
+  {% if payouts %}<section class="admin-section"><h2>{{ _('Recorded payouts') }}</h2><div class="table-wrap"><table><thead><tr><th>{{ _('Date') }}</th><th>{{ _('Amount') }}</th><th>{{ _('Transfer reference') }}</th><th>{{ _('Note') }}</th></tr></thead><tbody>{% for payout in payouts %}<tr><td>{{ payout.created_at.strftime('%b %d, %Y') }}</td><td>৳{{ '%.2f'|format(payout.amount) }}</td><td>{{ payout.reference }}</td><td>{{ payout.note or '—' }}</td></tr>{% endfor %}</tbody></table></div></section>
+  {% else %}<div class="empty-state"><strong>{{ _('No payouts recorded yet.') }}</strong><p>{{ _('Your eligible online-order earnings will appear here after Admin records a transfer.') }}</p></div>{% endif %}
+</div>
+{% endblock %}

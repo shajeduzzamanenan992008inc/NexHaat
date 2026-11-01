@@ -1,0 +1,5 @@
+{% extends "auth/base.html" %}
+{% block title %}{{ _('Apply to sell') }} · {{ app_name }}{% endblock %}
+{% block auth_content %}
+  {% with mode='seller' %}{% include "auth/_auth_card.html" %}{% endwith %}
+{% endblock %}
