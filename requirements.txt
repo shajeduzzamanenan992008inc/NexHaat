@@ -1,6 +1,6 @@
 # Runtime dependencies. Keep upper bounds so a future upstream major release
 # cannot silently change production behavior; refresh deliberately with tests.
-Flask>=3.1,<4.0
+Flask>=3.1.3,<4.0
 Flask-Login>=0.6.3,<0.8.0
 Flask-Babel>=4.0,<5.0
 Flask-Migrate>=4.0,<5.0
