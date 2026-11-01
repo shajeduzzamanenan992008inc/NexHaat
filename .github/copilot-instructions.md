@@ -329,8 +329,10 @@ Preservation rules:
 
 Dependency-manager baseline:
 - The supplied CI workflow uses `npm ci` at the repository root and installs
-  `requirements.txt` at the repository root. The Dependabot starter therefore includes
-  root-level npm and pip entries, plus GitHub Actions.
+  `requirements-dev.txt` at the repository root (which includes runtime
+  `requirements.txt`). Production runtime dependencies remain in root
+  `requirements.txt`. The Dependabot starter therefore includes root-level
+  npm and pip entries, plus GitHub Actions.
 - The GitHub configuration archive does not prove that a root Dockerfile or other
   ecosystem manifests exist. Do not add Docker, uv, pnpm, Poetry, or other ecosystem
   entries until the corresponding real files and locations have been confirmed.

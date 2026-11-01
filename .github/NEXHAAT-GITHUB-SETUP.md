@@ -161,8 +161,10 @@ loading has been verified. Never give an agent broader MCP permissions than need
   not by adding a YAML file.
 - GitHub plans affect CodeQL, Dependency Review, and environment protection availability.
 - The CI workflow assumes the same repository facts as the supplied workflow:
-  root `requirements.txt`, `app`, `migrations`, `tests`, `run.py`, `wsgi.py`,
-  root `package-lock.json`, and `npm run build`. Verify these paths before production.
+  root `requirements.txt` and `requirements-dev.txt`, `app`, `migrations`,
+  `tests`, `run.py`, `wsgi.py`, root `package-lock.json`, and `npm run build`.
+  The development manifest layers test dependencies over the runtime manifest.
+  Verify these paths before production.
 - npm lint/typecheck/test run only if the corresponding scripts exist.
 - No Docker ecosystem was added because the supplied archive does not prove a
   Dockerfile exists.

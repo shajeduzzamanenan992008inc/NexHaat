@@ -1,6 +1,6 @@
 # Shared tooling configuration for local development and CI.
-# Runtime dependencies intentionally stay in requirements.txt so the deployment
-# build installs the same pinned ranges that are tested here.
+# Runtime dependencies stay in requirements.txt; test-only dependencies are
+# layered on through requirements-dev.txt for development and CI.
 
 [project]
 requires-python = ">=3.11,<4.0"

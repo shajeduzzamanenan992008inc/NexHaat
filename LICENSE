@@ -1,0 +1,716 @@
+NEXHAAT PROPRIETARY SOFTWARE LICENSE
+INTERNATIONAL RESTRICTED EDITION — ALL RIGHTS RESERVED
+
+SPDX-License-Identifier: LicenseRef-NexHaat-Proprietary
+License identifier: LicenseRef-NexHaat-Proprietary-International
+License version: 3.0
+Effective date: 2 November 2026
+Project: NexHaat
+Copyright notice: Copyright (c) 2026 Shajeduzzaman Enan
+
+IMPORTANT — READ BEFORE USE
+
+This is a proprietary rights notice and draft set of permission terms. It is
+NOT an open-source license, NOT a public grant of permission, NOT a guarantee
+of worldwide enforcement, and NOT legal advice. No general permission is
+provided to reuse the Licensor-owned Covered Materials. All rights are reserved
+except for rights expressly granted in a separate, valid written agreement or
+that cannot lawfully be restricted.
+
+This document applies only to material that the named Licensor actually owns
+or is legally authorized to license. It does not claim ownership over
+third-party, open-source, independently authored, customer-owned, or otherwise
+uncontrolled material. Applicable mandatory law, platform terms, third-party
+licenses, and non-waivable rights take precedence over inconsistent wording.
+
+This document is a template for review. Before relying on it as a commercial
+contract, obtain advice from a qualified lawyer in the relevant jurisdictions.
+If the named rights holder is below the age of majority, legal capacity and any
+required parent, guardian, or representative involvement must be checked
+before signing or issuing a commercial agreement.
+
+==========================================================================
+1. DEFINITIONS
+==========================================================================
+
+1.1 "Licensor" means Shajeduzzaman Enan, but only to the extent that the
+Licensor is the legal owner of, or is authorized in writing to license, the
+relevant Covered Materials.
+
+1.2 "Project" means the software project known as NexHaat, including its
+repository, website, marketplace software, applications, services, APIs,
+source code, documentation, and associated project materials.
+
+1.3 "Covered Materials" means only original materials in the Project that are
+owned or controlled by the Licensor, including original source code, object
+code, scripts, original documentation, original text, original artwork,
+original interface assets, original designs, original database schemas,
+original migrations, original API implementation, original configuration,
+and original project-specific compilations, in each case only to the extent
+protected by rights held by the Licensor.
+
+1.4 "Project Marks" means the NexHaat name, logos, symbols, product names,
+brand identity, and other marks, but only to the extent owned or controlled by
+the relevant rights holder.
+
+1.5 "You" or "User" means a person or legal entity that accesses, receives,
+views, downloads, or seeks to use Covered Materials.
+
+1.6 "Written Permission" means prior, explicit permission in a durable
+written record issued by the relevant rights holder or an authorized
+representative. It must identify the materials, permitted acts, purpose,
+territory, duration, recipients, distribution method, and conditions. A
+request, discussion, repository view, issue comment, silence, non-response,
+public availability, or assumption is not Written Permission.
+
+1.7 "Commercial Use" includes use for payment, revenue, advertising, resale,
+subscription, client work, paid implementation, commercial advantage,
+white-labeling, hosted services, SaaS, or inclusion in a paid product, to the
+extent such use exercises rights controlled by the Licensor.
+
+1.8 "Derivative Work" means an adaptation or other derivative material based
+on protected expression in Covered Materials, as recognized by applicable law.
+
+1.9 "Applicable Law" means mandatory laws, regulations, binding court orders,
+and enforceable legal requirements applicable to the relevant person,
+conduct, work, territory, and dispute.
+
+1.10 "Third-Party Materials" means software, libraries, SDKs, frameworks,
+fonts, icons, images, datasets, content, APIs, services, and other material
+owned or licensed by a person other than the Licensor.
+
+==========================================================================
+2. TERRITORIAL SCOPE AND RIGHTS RESERVED
+==========================================================================
+
+2.1 This notice is intended to apply worldwide only to the extent the
+Licensor owns the relevant rights, those rights are recognized in the
+relevant territory, and the restrictions are permitted by Applicable Law.
+
+2.2 The Licensor reserves all rights in Covered Materials that are not
+expressly granted in a separate valid Written Permission. No general public
+license is granted by this document.
+
+2.3 Copyright and other intellectual-property rights may arise and be
+protected under national laws and international agreements as implemented by
+individual countries. This document does not turn those instruments into a
+single worldwide code or guarantee that every clause will be enforceable in
+every country.
+
+2.4 Nothing in this document extends the Licensor's rights beyond the scope
+of rights actually owned or lawfully controlled by the Licensor. Copyright
+protects qualifying expression, not ideas, facts, methods, procedures,
+mathematical concepts, or functionality as such.
+
+==========================================================================
+3. OWNERSHIP; NO TRANSFER; NO IMPLIED LICENSE
+==========================================================================
+
+3.1 As between You and the relevant rights holder, all right, title, and
+interest in Covered Materials remain with that rights holder. No assignment,
+transfer, sale, or co-ownership is granted by access to the Project.
+
+3.2 No license or permission arises by implication, estoppel, repository
+visibility, possession of a copy, account access, prior tolerance, course of
+dealing, or failure to enforce a right on an earlier occasion, except where
+Applicable Law provides otherwise.
+
+3.3 You must not knowingly falsify authorship, ownership, provenance,
+copyright notices, or license notices attached to Covered Materials.
+
+3.4 No ownership is claimed over independently created material, public
+domain material, facts, ideas, or any other subject matter not controlled by
+the Licensor.
+
+==========================================================================
+4. NO GENERAL PUBLIC LICENSE
+==========================================================================
+
+4.1 Unless a separate valid Written Permission states otherwise, You receive
+no permission under this document to use, execute, reproduce, copy, modify,
+adapt, translate, publish, distribute, sublicense, sell, host, deploy, or
+otherwise exploit Covered Materials.
+
+4.2 Viewing or accessing a repository does not create a general right to
+reuse its contents. Technical access granted by a hosting platform is not,
+by itself, a separate commercial or reuse license from the Licensor.
+
+4.3 GitHub-specific notice. Under the GitHub Terms of Service, making a
+repository public grants other GitHub users certain non-exclusive, worldwide
+rights to view and fork its content through GitHub's service, as permitted by
+GitHub's functionality. GitHub's terms also explain that users may view and
+fork public repositories. This document does not cancel, narrow, or override
+those platform rights. It does not grant any additional right to exploit
+Covered Materials outside the scope of the applicable platform terms and
+Applicable Law. The Licensor does not represent that a proprietary notice
+prevents platform-enabled viewing or forking.
+
+4.4 To keep source code non-public, the repository owner should use private
+repository settings and appropriate access controls. A LICENSE file is not a
+technical access-control mechanism and does not make a public repository
+private.
+
+==========================================================================
+5. PROHIBITED ACTS WITHOUT WRITTEN PERMISSION
+==========================================================================
+
+To the maximum extent permitted by Applicable Law, and subject to mandatory
+exceptions and platform rights, You must not knowingly do, authorize, procure,
+or materially assist another person to:
+
+(a) reproduce, copy, mirror, scrape, extract, or archive Covered Materials
+    for reuse beyond platform-enabled actions or other lawful permissions;
+(b) create a clone, port, adaptation, translation, modification, or
+    Derivative Work based on protected expression in Covered Materials;
+(c) publish, upload, disclose, transmit, distribute, sublicense, sell, rent,
+    lease, lend, or commercially transfer Covered Materials;
+(d) incorporate protected portions of Covered Materials into another
+    application, repository, codebase, template, deliverable, or service;
+(e) make Covered Materials available to customers, clients, subscribers,
+    contractors, or the public outside a valid permission;
+(f) remove, conceal, alter, forge, or misrepresent ownership, copyright,
+    attribution, provenance, or license notices;
+(g) claim authorship, ownership, endorsement, sponsorship, partnership, or
+    official affiliation that You do not have;
+(h) use non-public source code, credentials, private endpoints, infrastructure,
+    project data, or restricted documentation without authorization;
+(i) publish non-public material received through unauthorized access or in
+    breach of a valid confidentiality duty;
+(j) use protected expression from Covered Materials to create or market a
+    competing or substantially similar product;
+(k) circumvent a valid restriction or written permission by arranging for
+    another person or entity to perform an otherwise prohibited act; or
+(l) knowingly assist an infringement of rights actually held by the Licensor.
+
+This section does not prohibit independent development, lawful competition,
+use of unprotected ideas or functionality, or any activity protected by
+Applicable Law.
+
+==========================================================================
+6. STRICT COMMERCIAL AND DISTRIBUTION RESTRICTIONS
+==========================================================================
+
+6.1 Without Written Permission, You must not commercially exploit protected
+Covered Materials by resale, relicensing, paid distribution, client delivery,
+white-labeling, hosted operation, SaaS, subscription service, paid API,
+app-store distribution, or inclusion in a paid product or service.
+
+6.2 You must not represent Covered Materials as Your own product, or claim
+the right to license, sell, or transfer rights that You do not own.
+
+6.3 You must not remove a license notice and redistribute the material under
+terms that purport to grant rights belonging to the Licensor.
+
+6.4 This document does not prohibit commercial activity that does not use
+protected expression or other rights controlled by the Licensor.
+
+==========================================================================
+7. SOURCE CODE, OBJECT CODE, AND REVERSE ENGINEERING
+==========================================================================
+
+7.1 No permission is granted to decompile, disassemble, reverse engineer, or
+attempt to derive source code from a distributed copy, except to the extent
+such activity is permitted by a mandatory statutory right or exception that
+cannot lawfully be excluded or restricted.
+
+7.2 Nothing in this document removes any lawful right to observe, study, test,
+make a necessary backup copy, correct an error, or carry out interoperability
+acts where the applicable jurisdiction protects that right.
+
+7.3 You must not use reverse engineering as a pretext to obtain non-public
+credentials, private data, trade secrets, or unauthorized system access.
+
+7.4 No permission for penetration testing, vulnerability scanning, or other
+active security testing of live Project systems is granted. Such testing
+requires prior authorization from the responsible system owner, unless
+Applicable Law expressly provides otherwise.
+
+==========================================================================
+8. SECURITY, ACCESS CONTROL, AND CREDENTIALS
+==========================================================================
+
+8.1 You must not access, use, disclose, sell, publish, or attempt to exploit
+an API key, token, password, private key, session credential, private
+configuration, non-public endpoint, or confidential information without
+valid authorization.
+
+8.2 Accidental exposure of a secret does not grant permission to use it,
+test it, validate it, or access the system it protects.
+
+8.3 You must not knowingly introduce malicious code, hidden access paths,
+unauthorized tracking, destructive payloads, or deliberately concealed
+security weaknesses into Covered Materials or Project systems.
+
+8.4 This document does not authorize access to any system, account, network,
+or data. All access remains subject to the system owner's authorization and
+Applicable Law.
+
+==========================================================================
+9. ARTIFICIAL INTELLIGENCE AND TEXT/DATA MINING
+==========================================================================
+
+9.1 To the extent permitted by Applicable Law and to the extent the Licensor
+holds the relevant rights, the Licensor reserves the right to control the use
+of Covered Materials for text and data mining, dataset creation, model
+training, fine-tuning, distillation, evaluation, benchmarking, embeddings,
+retrieval indexes, and similar automated analysis.
+
+9.2 Without Written Permission, You must not use substantial protected
+portions of Covered Materials to create or populate an AI training corpus,
+code dataset, embedding index, retrieval corpus, or model-evaluation set
+where that activity exercises rights controlled by the Licensor.
+
+9.3 This section does not override mandatory text-and-data-mining exceptions,
+research exceptions, fair use, fair dealing, or other statutory rights. Where
+a jurisdiction requires a particular machine-readable or other reservation
+method for a rights reservation to be effective, this document alone may not
+satisfy that requirement; the rights holder must use the legally required
+method separately.
+
+9.4 No restriction is asserted over model outputs or independently created
+material merely because it is produced by an AI system, unless the output
+actually uses protected expression or otherwise infringes rights controlled
+by the Licensor.
+
+==========================================================================
+10. DATABASES, CONTENT, AND PERSONAL DATA
+==========================================================================
+
+10.1 This document grants no right to access or use customer, seller, rider,
+employee, payment, authentication, analytics, or other personal or
+confidential data.
+
+10.2 Sample data, test records, screenshots, logs, backups, database exports,
+and accidentally exposed information must not be treated as authorization
+to access real personal data or production systems.
+
+10.3 The Licensor does not claim ownership of personal data, customer content,
+facts, or data that the Licensor does not own or lawfully control.
+
+10.4 Any personal-data processing must have an independent lawful basis and
+comply with applicable privacy and data-protection laws, including any
+applicable data-subject rights, security obligations, international-transfer
+rules, and processor/controller requirements.
+
+10.5 This document is not a Privacy Policy, Data Processing Agreement,
+consent form, or substitute for legally required privacy notices.
+
+==========================================================================
+11. TRADEMARKS, BRANDING, AND FALSE AFFILIATION
+==========================================================================
+
+11.1 No trademark, service-mark, trade-name, logo, domain-name, or branding
+license is granted by this document.
+
+11.2 Without Written Permission, You must not use Project Marks in a way that
+falsely suggests ownership, approval, sponsorship, operation, partnership,
+or official affiliation with the Project or Licensor.
+
+11.3 You must not register or use a confusingly similar name, logo, domain,
+account name, or social identity to impersonate the Project, to the extent
+such conduct infringes rights held by the relevant rights holder.
+
+11.4 Truthful, non-misleading references, nominative use, and other uses
+protected by Applicable Law remain permitted.
+
+==========================================================================
+12. TRADE SECRETS AND CONFIDENTIAL INFORMATION
+==========================================================================
+
+12.1 Non-public code, credentials, architecture details, commercial plans,
+security reports, customer records, and other information may be protected
+by confidentiality, trade-secret, privacy, or other laws independently of
+copyright.
+
+12.2 No confidential information is disclosed or licensed merely because it
+is accidentally committed, exposed, uploaded, or accessible through a
+misconfigured repository or service.
+
+12.3 A confidentiality obligation applies only where it arises from a valid
+agreement, relationship, law, or other enforceable legal duty. This document
+does not automatically create a confidentiality contract with every viewer.
+
+==========================================================================
+13. THIRD-PARTY AND OPEN-SOURCE COMPONENTS
+==========================================================================
+
+13.1 This document covers only materials owned or controlled by the Licensor.
+It does not replace, override, narrow, or modify a third-party or open-source
+license.
+
+13.2 Dependencies, frameworks, SDKs, fonts, icons, images, datasets, APIs,
+services, and other Third-Party Materials remain subject to their own
+licenses, notices, terms, and rights.
+
+13.3 Where a third-party license grants You permission, that permission
+continues under that license and is not withdrawn by this document.
+
+13.4 If a component is not owned by the Licensor, the Licensor cannot grant
+rights in that component. Where required, the Project should provide accurate
+third-party notices, attribution, and corresponding source or license
+information.
+
+13.5 If a conflict exists, the applicable third-party license controls the
+Third-Party Materials, and this document controls only the Licensor-owned
+Covered Materials to the extent lawful.
+
+==========================================================================
+14. CONTRIBUTIONS, COLLABORATORS, AND EMPLOYEES
+==========================================================================
+
+14.1 A pull request, issue, suggestion, patch, design, or other submission
+does not automatically transfer ownership of independently owned material
+to the Licensor unless a valid written assignment or other legal rule does so.
+
+14.2 A contributor must not submit material they do not own or are not
+authorized to contribute. Repository platform terms and any separate
+contributor agreement may apply.
+
+14.3 Employees, contractors, contributors, and collaborators should have a
+separate written agreement addressing ownership, permitted use,
+confidentiality, compensation, moral rights where applicable, and the rights
+to use pre-existing materials.
+
+14.4 This document does not resolve a dispute about employment ownership,
+work-for-hire status, commissioned work, joint authorship, or assignment.
+
+==========================================================================
+15. SEPARATE PERMISSIONS AND COMMERCIAL LICENSES
+==========================================================================
+
+15.1 A request for permission should identify the material, purpose,
+territory, duration, intended users, distribution method, commercial status,
+and Third-Party Materials involved.
+
+15.2 Permission exists only when granted by the relevant rights holder or
+authorized representative in a valid Written Permission.
+
+15.3 A separate permission may be limited, non-exclusive, non-transferable,
+non-sublicensable, purpose-specific, territory-specific, time-limited, and
+subject to fees, security requirements, audit rights, and other lawful terms.
+
+15.4 No permission may exceed the rights held by the person granting it.
+
+15.5 A request for a license does not itself grant permission, create an
+agency, establish a partnership, or require the Licensor to accept the
+request.
+
+==========================================================================
+16. RECORDS, ATTRIBUTION, AND PROVENANCE
+==========================================================================
+
+16.1 You must not knowingly falsify commit history, authorship records,
+copyright notices, provenance statements, or license metadata relating to
+Covered Materials.
+
+16.2 You must not submit a false copyright complaint, false ownership claim,
+or knowingly misleading takedown request concerning material that You do not
+own or have authority to represent.
+
+16.3 Nothing in this section prohibits lawful criticism, good-faith dispute,
+independent authorship, or a legally protected attribution practice.
+
+==========================================================================
+17. NOTICE OF SUSPECTED INFRINGEMENT
+==========================================================================
+
+17.1 The rights holder may send a written notice identifying the relevant
+materials and the conduct believed to be unauthorized.
+
+17.2 Where legally appropriate, the rights holder may request removal,
+restriction, preservation of relevant evidence, or cessation of conduct
+through the applicable platform, authority, or legal process.
+
+17.3 A private notice is not a court judgment and does not by itself establish
+liability. Any counter-notice, defense, dispute, or legal process remains
+subject to Applicable Law and platform procedures.
+
+17.4 Notices must be truthful, made in good faith, and submitted by a person
+with the necessary authority. No one may use this document to harass, threaten,
+extort, or make knowingly false legal claims.
+
+==========================================================================
+18. TERMINATION OF A SEPARATE PERMISSION
+==========================================================================
+
+18.1 If a separate Written Permission expires or is validly terminated, You
+must stop the activities it authorized and comply with its lawful return,
+removal, deletion, or transition requirements.
+
+18.2 To the extent permitted by law and the separate permission, You must
+stop further distribution of unauthorized copies and remove Covered
+Materials from locations under Your control.
+
+18.3 You may retain material where retention is required by law, a court
+order, a bona fide legal preservation duty, or a non-waivable legal right.
+
+18.4 Termination does not remove rights that cannot lawfully be terminated,
+nor does it affect independent third-party rights.
+
+==========================================================================
+19. INTERNATIONAL COPYRIGHT FRAMEWORK
+==========================================================================
+
+19.1 The Licensor intends to rely on copyright and related rights available
+under the national laws that apply in each relevant territory, including
+national laws implementing international intellectual-property agreements.
+
+19.2 Relevant international frameworks may include, where applicable:
+
+    (a) the Berne Convention for the Protection of Literary and Artistic
+        Works, including its principles of national treatment and protection
+        without formalities, subject to the Convention's terms;
+    (b) the Agreement on Trade-Related Aspects of Intellectual Property
+        Rights (TRIPS), including Article 10.1 on computer programs in source
+        or object code and Article 9.2 on the scope of copyright expression;
+    (c) the WIPO Copyright Treaty (WCT), including Article 4 concerning
+        computer programs and Article 5 concerning qualifying databases; and
+    (d) relevant national copyright, software, trademark, trade-secret,
+        unfair-competition, privacy, and contract laws.
+
+19.3 These international instruments operate according to their own terms
+and through the obligations and implementing laws applicable to their
+contracting parties. This license does not make every treaty directly
+actionable by every private person in every country.
+
+19.4 Protection, available remedies, exceptions, limitation periods,
+registration requirements for particular remedies, and enforcement procedure
+may differ from territory to territory.
+
+==========================================================================
+20. TERRITORY-SPECIFIC LAWS AND LIMITATIONS
+==========================================================================
+
+20.1 United States. Where United States law applies, the rights holder may
+rely on applicable provisions of Title 17 of the United States Code,
+including 17 U.S.C. § 106, subject to statutory limitations and exceptions.
+The anti-circumvention rules in 17 U.S.C. § 1201 apply only within their
+legal scope and remain subject to statutory exemptions and other law.
+
+20.2 European Union. Where applicable, Directive 2009/24/EC on the legal
+protection of computer programs and the national laws implementing it govern
+relevant software rights and exceptions. This document does not remove
+legally protected acts such as permitted backup, observation, study, testing,
+or qualifying interoperability/decompilation activities.
+
+20.3 Bangladesh. Where applicable, the Copyright Act, 2023 and other
+applicable Bangladesh laws may protect qualifying works and provide remedies.
+The existence and outcome of any claim depend on the statutory elements,
+evidence, exceptions, procedure, and determination of the competent authority
+or court.
+
+20.4 Other territories. The relevant national laws and international
+obligations implemented in the relevant territory apply. No provision here
+creates an offense, penalty, court power, or remedy that the relevant law does
+not provide.
+
+20.5 This section is informational and does not attempt to provide an
+exhaustive statement of the laws of every country or to displace mandatory
+local law.
+
+==========================================================================
+21. ENFORCEMENT AND AVAILABLE REMEDIES
+==========================================================================
+
+21.1 Unauthorized use may, depending on the facts, infringe copyright,
+trademark, confidentiality, contract, privacy, or other rights.
+
+21.2 The relevant rights holder may seek remedies available under Applicable
+Law, which may include an injunction, damages, an account of profits,
+reasonable legal costs where recoverable, delivery up or removal of
+infringing copies, platform remedies, or other relief lawfully available.
+
+21.3 Any remedy must be sought through lawful procedures and determined by
+the competent court, tribunal, authority, or platform process.
+
+21.4 No automatic fine, predetermined criminal sentence, fixed penalty,
+punitive amount, or guaranteed award is created by this document. A criminal
+offense or sanction exists only where the relevant law defines it and its
+required elements are established through the proper process.
+
+21.5 No one may engage in threats, harassment, doxxing, unlawful retaliation,
+unauthorized access, destruction of another person's property, or other
+self-help enforcement.
+
+==========================================================================
+22. GOVERNING LAW AND JURISDICTION
+==========================================================================
+
+22.1 For purposes of interpreting this notice and any valid permission
+specifically granted by the Licensor, Bangladesh law is the intended primary
+reference, including applicable Bangladesh intellectual-property law, subject
+to mandatory rules of another jurisdiction that cannot lawfully be excluded.
+
+22.2 Any dispute must be brought before a court or authority that has
+jurisdiction under the applicable procedural and conflicts-of-law rules.
+Nothing here creates jurisdiction where a court does not otherwise have it.
+
+22.3 Mandatory consumer, privacy, employment, accessibility, and other
+non-waivable protections remain available where the law grants them.
+
+22.4 A separate signed commercial agreement may identify a different
+lawful governing law, forum, arbitration process, language, notice address,
+and service-of-process method. Such terms should be prepared or reviewed by
+qualified lawyers for the relevant parties and territories.
+
+22.5 Publication of this file alone does not guarantee that a contract has
+been formed with every repository viewer. Contract formation, acceptance,
+consideration where required, authority, legal capacity, and enforceability
+must be assessed under the applicable law.
+
+==========================================================================
+23. LEGAL CAPACITY AND AUTHORITY OF THE RIGHTS HOLDER
+==========================================================================
+
+23.1 The person named in the copyright notice must actually own the relevant
+rights or have authority to assert them. A name in a copyright notice does
+not cure an ownership defect or replace a required assignment.
+
+23.2 Under section 11 of the Bangladesh Contract Act, 1872, contractual
+competence is linked to the age of majority, sound mind, and absence of legal
+disqualification. The legal capacity of each party must be checked before
+relying on a separate agreement.
+
+23.3 If the named rights holder is below the age of majority, a qualified
+Bangladesh lawyer should advise whether a parent, guardian, adult rights
+holder, or other lawful representative must sign or administer any commercial
+license. This clause does not presume that a parent or guardian automatically
+owns the child's copyright.
+
+23.4 No person may claim to represent the Licensor or grant a sublicense
+without valid authority.
+
+==========================================================================
+24. WARRANTY DISCLAIMER
+==========================================================================
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COVERED MATERIALS ARE
+PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, ACCURACY, AVAILABILITY, SECURITY,
+NON-INFRINGEMENT, OR ERROR-FREE OPERATION. THE LICENSOR DOES NOT WARRANT THAT
+THE PROJECT WILL BE AVAILABLE, UNINTERRUPTED, SECURE, COMPATIBLE, OR SUITABLE
+FOR ANY PARTICULAR PURPOSE. NON-WAIVABLE WARRANTIES AND RIGHTS ARE NOT
+EXCLUDED.
+
+==========================================================================
+25. LIMITATION OF LIABILITY
+==========================================================================
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR WILL NOT BE
+LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL LOSS,
+OR FOR LOSS OF PROFITS, REVENUE, BUSINESS, GOODWILL, DATA, OR SERVICE
+AVAILABILITY, ARISING FROM ACCESS TO OR USE OF THE COVERED MATERIALS. NOTHING
+IN THIS DOCUMENT EXCLUDES OR LIMITS LIABILITY THAT CANNOT LAWFULLY BE
+EXCLUDED OR LIMITED.
+
+==========================================================================
+26. INDEMNITY
+==========================================================================
+
+To the extent permitted by Applicable Law and agreed in a separate valid
+Written Permission, You may be responsible for third-party claims and
+reasonable losses directly caused by Your unauthorized use or distribution
+of Covered Materials or Your breach of that permission. This document alone
+does not create an unlimited indemnity obligation for every viewer. No
+indemnity applies to the Licensor's own wrongful conduct or to liability that
+cannot lawfully be shifted.
+
+==========================================================================
+27. NO WAIVER; CUMULATIVE RIGHTS
+==========================================================================
+
+27.1 A delay or failure to enforce a right is not a waiver unless Applicable
+Law or a valid written agreement provides otherwise.
+
+27.2 Rights and remedies are cumulative only to the extent permitted by law.
+No double recovery for the same loss is authorized.
+
+==========================================================================
+28. SEVERABILITY AND LAWFUL CONSTRUCTION
+==========================================================================
+
+28.1 If a provision is held invalid, unlawful, or unenforceable, it must be
+severed or limited only to the minimum extent required by Applicable Law.
+The remaining provisions continue to apply to the extent lawful.
+
+28.2 No provision requires a court or authority to rewrite a term contrary
+to law or to enforce a restriction that the relevant law prohibits.
+
+==========================================================================
+29. ENTIRE NOTICE; ORDER OF PRECEDENCE
+==========================================================================
+
+29.1 This document is the general rights notice for Covered Materials. A
+separate valid written agreement may grant different or additional rights
+for the specific materials and activities it identifies.
+
+29.2 In a conflict, the following order applies to the relevant material:
+mandatory Applicable Law; applicable third-party license for Third-Party
+Materials; applicable platform terms for platform-enabled functions; a valid
+separate signed agreement for its defined scope; and then this notice.
+
+29.3 Nothing here reduces a right granted by a third-party license or a
+mandatory statutory rule.
+
+==========================================================================
+30. CHANGES AND FUTURE VERSIONS
+==========================================================================
+
+30.1 The Licensor may publish a revised notice for future releases or future
+permissions.
+
+30.2 A later version does not retroactively amend a separate binding
+agreement or withdraw rights already validly granted, unless that agreement
+or Applicable Law permits the change.
+
+==========================================================================
+31. TECHNICAL SECURITY AND REPOSITORY CONTROLS
+==========================================================================
+
+31.1 This document states legal terms; it does not technically prevent
+screenshots, downloads, copying, cloning, forking, or unauthorized activity.
+
+31.2 Repository visibility, branch protection, access permissions, secret
+scanning, multi-factor authentication, backups, and deployment security must
+be configured separately.
+
+31.3 A rights holder should not publish API keys, passwords, private keys,
+customer information, production exports, or other secrets in any repository,
+regardless of its visibility or license notice.
+
+==========================================================================
+32. CONTACT AND RIGHTS-RELATED REQUESTS
+==========================================================================
+
+For permission, commercial licensing, partnership, authorized security
+testing, or rights-related notices, use a contact channel published by the
+Licensor through the official NexHaat repository or project website. Do not
+include passwords, API keys, payment card information, or other secrets in a
+request.
+
+==========================================================================
+33. MANDATORY RIGHTS AND FINAL CONSTRUCTION
+==========================================================================
+
+33.1 Nothing in this document excludes or restricts fair use, fair dealing,
+statutory exceptions, legally protected interoperability, permitted backup,
+accessibility rights, lawful research, privacy rights, consumer rights,
+competition-law protections, or any other right that cannot lawfully be
+excluded or restricted.
+
+33.2 If a provision conflicts with mandatory Applicable Law, that law
+controls to the extent of the conflict.
+
+33.3 "Including" and "for example" are illustrative and do not expand the
+Licensor's ownership beyond rights actually held by the Licensor.
+
+33.4 This document does not create an automatic criminal offense, fixed
+penalty, universal court jurisdiction, or guarantee of a particular result
+in any dispute.
+
+33.5 This document is not legal advice. It should be reviewed by a qualified
+lawyer before commercial use, international distribution, or execution as a
+contract.
+
+END OF LICENSE

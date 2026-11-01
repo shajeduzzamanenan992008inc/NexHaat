@@ -1,42 +1,110 @@
-# Environment files — `.env` holds local secrets and is never committed.
+# NexHaat repository ignore policy.
+# Keep generated state, local configuration, credentials and build output out of Git.
+# Source files, lockfiles, migrations, documentation and approved screenshots stay trackable.
+
+# Secrets and local configuration
 .env
 .env.*
 !.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+*.publishsettings
+*-firebase-adminsdk-*.json
+firebase-service-account*.json
+service-account*.json
+azure-credentials*.json
+.secrets/
+.azure/
+.firebase/
+.aws/
+**/local.properties
 
-# Python cache & compiled files
+# Python and virtual environments
 __pycache__/
 *.py[cod]
 *$py.class
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# Virtual Environments
 .venv/
-.venv3*/  # version-pinned local interpreters used for compatibility checks
+.venv*/
 venv/
-antenv/
 ENV/
 env/
+antenv/
+.pytest_cache/
+.tox/
+.nox/
+.hypothesis/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+pytest-report.xml
+pip-wheel-metadata/
+.python-version
+build/
+dist/
+*.egg-info/
+*.whl
+wheels/
 
-# Database files (SQLite & backups)
-backups/
-instance/*.sqlite3
-instance/*.db
-instance/datasets/
-instance/*.log
-*.sqlite3
-*.db
-*.db-journal
-
-# Logs
-*.log
+# Node, React, Vite, TypeScript and Express
+node_modules/
+**/node_modules/
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.vite/
+**/.vite/
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+playwright-report/
+test-results/
+.nyc_output/
+.next/
+.nuxt/
 
-# User uploads & temporary media files
+# Android / Gradle / Kotlin
+.gradle/
+**/.gradle/
+.kotlin/
+**/.kotlin/
+.cxx/
+.externalNativeBuild/
+**/build/
+*.apk
+*.aab
+*.dex
+*.hprof
+*.jfr
+captures/
+
+# Runtime databases, backups, imports, quarantine and generated uploads
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.db-journal
+backups/
+instance/*.sqlite3
+instance/*.sqlite
+instance/*.db
+instance/*.db-*
+instance/*.log
+instance/datasets/
+instance/quarantine/
 uploads/*
 !uploads/.gitkeep
 app/static/profile-image-test-*/
@@ -46,47 +114,45 @@ app/static/uploads/branding/*
 !app/static/uploads/branding/.gitkeep
 app/static/uploads/products/*
 !app/static/uploads/products/.gitkeep
+app/static/uploads/delivery/*
+!app/static/uploads/delivery/.gitkeep
 
-# Temporary test & scratch debug files
+# Logs, diagnostics, temporary files and deployment archives
+*.log
+logs/
+azure-logs/
+startup.log
+oryx-manifest.toml
 tmp_*
 tests/tmp_*
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+nexhaat-deploy.zip
+staging/
 
-# IDE / Editor settings
+# IDE and operating system files
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
-
-# OS specific files
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
 Desktop.ini
+$RECYCLE.BIN/
 
-# Packaging & Build outputs
-build/
-dist/
-*.egg-info/
-*.whl
-*.tar.gz
-nexhaat-deploy.zip
-staging/
-coverage.xml
-pytest-report.xml
-*.bak
-*.swp
-
-# Azure / deployment diagnostics
-*.zip
-*.publishsettings
-azure-logs/
-startup.log
-oryx-manifest.toml
-
-# Local tooling state
-.python-version
-.ruff_cache/
-.mypy_cache/
-.pyright/
-.hypothesis/
+# Local automation and browser-test state
 .playwright-mcp/
-android/.gradle/
+.playwright/
+/artifacts/
+
+# Do not blanket-ignore image formats: approved screenshots, diagrams and brand
+# assets may be committed under docs/assets/ or another intentional source path.

@@ -2,7 +2,8 @@
 #
 # Evidence-based baseline from the supplied CI workflow:
 # - npm uses `npm ci` at repository root.
-# - pip installs `requirements.txt` at repository root.
+# - pip runtime dependencies are in `requirements.txt`; the development
+#   manifest includes it for CI/test tooling.
 # - GitHub Actions are used under .github/workflows.
 #
 # REA MUST verify actual manifests/lockfiles and add entries for every real
@@ -47,7 +48,7 @@ updates:
     commit-message:
       prefix: "deps(npm)"
 
-  # Python dependencies installed by the supplied root requirements.txt.
+  # Python requirements manifests at repository root.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:

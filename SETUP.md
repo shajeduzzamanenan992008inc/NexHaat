@@ -5,7 +5,7 @@ The application supports Python 3.11 and newer (`pyproject.toml` requires `>=3.1
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 Copy-Item .env.example .env
 flask --app run.py db upgrade
 flask --app run.py ensure-admin

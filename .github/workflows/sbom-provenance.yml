@@ -79,6 +79,7 @@ jobs:
           test -s "$archive_path"
           cp -- "$archive_path" "$archive"
           sha256sum "$archive" sbom.spdx.json > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
           test -s "$archive"
           test -s SHA256SUMS.txt
 
