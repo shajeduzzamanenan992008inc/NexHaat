@@ -21,12 +21,12 @@ from sqlalchemy.orm import selectinload
 
 from ..extensions import db
 from ..models import (
-    ReviewReport,
     AccountInvitation,
     AuditEvent,
     Order,
     Product,
     Review,
+    ReviewReport,
     SellerProfile,
     User,
     delivery_transition_valid,

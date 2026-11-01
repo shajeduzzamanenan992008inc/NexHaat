@@ -1,24 +1,152 @@
 import express, { Request, Response } from 'express';
-import cors from 'cors';
 import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI, Modality, Type } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
+import {
+  createConcurrencyLimit,
+  createCorsMiddleware,
+  createRateLimit,
+  getAllowedOrigins,
+  logSafeError,
+  requireJsonObject,
+  safeJsonErrorHandler,
+  sendSafeError,
+  validateJsonBody,
+} from './serverSecurity.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const isProduction = process.env.NODE_ENV === 'production';
 
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+const allowedOrigins = getAllowedOrigins(process.env.EXPRESS_CORS_ORIGINS, isProduction);
+app.use(createCorsMiddleware(allowedOrigins));
+app.use('/api/gemini/chat', createRateLimit(30, 60_000));
+app.use('/api/gemini/search-grounding', createRateLimit(12, 60_000));
+app.use('/api/gemini/maps-grounding', createRateLimit(12, 60_000));
+app.use('/api/gemini/transcribe', createRateLimit(6, 60_000));
+app.use('/api/gemini/generate-image', createRateLimit(5, 60_000));
+app.use('/api/gemini/edit-image', createRateLimit(5, 60_000));
+app.use('/api/gemini/generate-video', createRateLimit(2, 60_000));
+app.use('/api/gemini/animate-image', createRateLimit(2, 60_000));
+app.use('/api/gemini/generate-music', createRateLimit(3, 60_000));
+app.use('/api/science/pubchem', createRateLimit(30, 60_000));
+app.use('/api/science/analyze-product', createRateLimit(5, 60_000));
+app.use('/api/gemini/transcribe', express.json({ limit: '16mb', strict: true }));
+app.use('/api/gemini/edit-image', express.json({ limit: '32mb', strict: true }));
+app.use('/api/gemini/animate-image', express.json({ limit: '32mb', strict: true }));
+app.use(express.json({ limit: '1mb', strict: true }));
+
+const providerConcurrencyLimit = createConcurrencyLimit(8);
+const mediaConcurrencyLimit = createConcurrencyLimit(2);
+const allowedAspectRatios = ['1:1', '16:9', '9:16', '4:3'];
+const allowedImageMimeTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const allowedModels = ['gemini-3.8-flash', 'gemini-4-argon', 'gemini-3.1-flash-lite'];
+
+function boundedStringError(
+  body: Record<string, unknown>,
+  field: string,
+  options: { required?: boolean; maximumLength: number },
+): string | undefined {
+  const value = body[field];
+  if (value === undefined && !options.required) return undefined;
+  if (typeof value !== 'string' || (options.required && value.trim().length === 0)) {
+    return `${field} must be a non-empty string.`;
+  }
+  if (value.length > options.maximumLength) {
+    return `${field} exceeds the allowed length.`;
+  }
+  return undefined;
+}
+
+function enumFieldError(
+  body: Record<string, unknown>,
+  field: string,
+  values: readonly string[],
+): string | undefined {
+  const value = body[field];
+  return value === undefined || values.includes(String(value))
+    ? undefined
+    : `${field} has an unsupported value.`;
+}
+
+function imageDataError(value: unknown, fallbackMimeType: unknown): string | undefined {
+  if (typeof value !== 'string') return 'sourceImage must be a supported base64-encoded image.';
+  try {
+    parseImageData(
+      value,
+      typeof fallbackMimeType === 'string' ? fallbackMimeType : 'image/png',
+    );
+    return undefined;
+  } catch {
+    return 'sourceImage must be a supported base64-encoded image.';
+  }
+}
+
+function parseImageData(sourceImage: string, fallbackMimeType: string): { data: string; mimeType: string } {
+  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/]+={0,2})$/.exec(sourceImage);
+  const data = match?.[2] ?? sourceImage;
+  const mimeType = match?.[1] ?? fallbackMimeType;
+  if (!match && !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
+    throw new Error('Invalid image data');
+  }
+
+  const signature = Buffer.from(data.slice(0, 20), 'base64');
+  const detectedMimeType = signature.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    ? 'image/png'
+    : signature[0] === 0xff && signature[1] === 0xd8 && signature[2] === 0xff
+      ? 'image/jpeg'
+      : signature.subarray(0, 6).toString('ascii').match(/^GIF8[79]a$/)
+        ? 'image/gif'
+        : signature.subarray(0, 4).toString('ascii') === 'RIFF' &&
+            signature.subarray(8, 12).toString('ascii') === 'WEBP'
+          ? 'image/webp'
+          : undefined;
+
+  if (!detectedMimeType || detectedMimeType !== mimeType) {
+    throw new Error('Image content does not match the declared format');
+  }
+
+  return { data, mimeType };
+}
+
+function parseAudioData(audioData: string, fallbackMimeType: string): { data: string; mimeType: string } {
+  const match = /^data:(audio\/(?:webm|wav|mpeg|mp4|ogg));base64,([A-Za-z0-9+/]+={0,2})$/.exec(audioData);
+  if (match) {
+    if (fallbackMimeType && fallbackMimeType !== match[1]) {
+      throw new Error('Audio content type does not match the declared format');
+    }
+    return { data: match[2], mimeType: match[1] };
+  }
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(audioData)) throw new Error('Invalid audio data');
+  return { data: audioData, mimeType: fallbackMimeType };
+}
+
+function audioDataError(audioData: unknown, mimeType: unknown): string | undefined {
+  if (
+    typeof audioData !== 'string' ||
+    typeof mimeType !== 'string' ||
+    !['audio/webm', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg'].includes(mimeType)
+  ) {
+    return 'audioData must be supported base64-encoded audio.';
+  }
+  try {
+    parseAudioData(audioData, mimeType);
+    return undefined;
+  } catch {
+    return 'audioData must be supported base64-encoded audio.';
+  }
+}
 
 // Shared server-side Gemini client with telemetry header
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
   httpOptions: {
+    timeout: 60_000,
     headers: {
       'User-Agent': 'aistudio-build',
     },
@@ -26,7 +154,39 @@ const ai = new GoogleGenAI({
 });
 
 // 1. Multi-turn Gemini Chat with selectable models and system instructions
-app.post('/api/gemini/chat', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/chat',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const promptError = boundedStringError(body, 'prompt', { maximumLength: 8_000 });
+    if (promptError) return promptError;
+    const instructionError = boundedStringError(body, 'systemInstruction', { maximumLength: 4_000 });
+    if (instructionError) return instructionError;
+    const modelError = enumFieldError(body, 'model', allowedModels);
+    if (modelError) return modelError;
+    if (body.messages !== undefined) {
+      if (!Array.isArray(body.messages) || body.messages.length > 40) {
+        return 'messages must contain no more than 40 entries.';
+      }
+      for (const message of body.messages) {
+        if (
+          message === null ||
+          typeof message !== 'object' ||
+          !['user', 'assistant', 'model'].includes(String(message.sender)) ||
+          typeof message.text !== 'string' ||
+          message.text.length > 8_000
+        ) {
+          return 'Each message must contain a supported sender and text of at most 8000 characters.';
+        }
+      }
+    }
+    if (!body.prompt && (!Array.isArray(body.messages) || body.messages.length === 0)) {
+      return 'A prompt or message history is required.';
+    }
+    return undefined;
+  }),
+  providerConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { 
       messages, 
@@ -71,7 +231,7 @@ app.post('/api/gemini/chat', async (req: Request, res: Response) => {
     } catch (modelError: any) {
       // If paid model (e.g. gemini-4-argon) fails due to quota or permissions, fallback to gemini-3.8-flash
       if (selectedModel !== 'gemini-3.8-flash') {
-        console.warn(`Model ${selectedModel} failed, falling back to gemini-3.8-flash:`, modelError.message);
+        logSafeError(`Model ${selectedModel} failed; using fallback model`, modelError);
         const fallbackResponse = await ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents,
@@ -80,19 +240,24 @@ app.post('/api/gemini/chat', async (req: Request, res: Response) => {
         return res.json({
           text: fallbackResponse.text ?? '',
           model: 'gemini-3.8-flash',
-          note: `Auto-switched from ${selectedModel} to gemini-3.8-flash (${modelError.message})`,
+          note: 'The selected model was unavailable; generated with the fallback model.',
         });
       }
       throw modelError;
     }
   } catch (error: any) {
-    console.error('Chat error:', error);
-    return res.status(500).json({ error: error.message || 'Chat generation failed' });
+    return sendSafeError(res, 'Chat generation failed', error, 'Chat generation failed.');
   }
-});
+  },
+);
 
 // 2. Google Search Grounding with gemini-3.8-flash
-app.post('/api/gemini/search-grounding', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/search-grounding',
+  requireJsonObject,
+  validateJsonBody((body) => boundedStringError(body, 'prompt', { required: true, maximumLength: 8_000 })),
+  providerConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
@@ -123,13 +288,34 @@ app.post('/api/gemini/search-grounding', async (req: Request, res: Response) => 
       sources: webSources,
     });
   } catch (error: any) {
-    console.error('Search grounding error:', error);
-    return res.status(500).json({ error: error.message || 'Search grounding failed' });
+    return sendSafeError(res, 'Search grounding failed', error, 'Search grounding failed.');
   }
-});
+  },
+);
 
 // 3. Google Maps Grounding with gemini-3.8-flash
-app.post('/api/gemini/maps-grounding', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/maps-grounding',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const promptError = boundedStringError(body, 'prompt', { required: true, maximumLength: 8_000 });
+    if (promptError) return promptError;
+    for (const field of ['latitude', 'longitude']) {
+      const value = body[field];
+      if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) {
+        return `${field} must be a finite number.`;
+      }
+    }
+    if (typeof body.latitude === 'number' && Math.abs(body.latitude) > 90) {
+      return 'latitude is out of range.';
+    }
+    if (typeof body.longitude === 'number' && Math.abs(body.longitude) > 180) {
+      return 'longitude is out of range.';
+    }
+    return undefined;
+  }),
+  providerConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { prompt, latitude, longitude } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
@@ -174,24 +360,34 @@ app.post('/api/gemini/maps-grounding', async (req: Request, res: Response) => {
       places: mapPlaces,
     });
   } catch (error: any) {
-    console.error('Maps grounding error:', error);
-    return res.status(500).json({ error: error.message || 'Maps grounding failed' });
+    return sendSafeError(res, 'Maps grounding failed', error, 'Maps grounding failed.');
   }
-});
+  },
+);
 
 // 4. Audio Transcription with gemini-3.5-transcribe
-app.post('/api/gemini/transcribe', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/transcribe',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const audioError = boundedStringError(body, 'audioData', { required: true, maximumLength: 15_000_000 });
+    if (audioError) return audioError;
+    const mimeError = enumFieldError(body, 'mimeType', ['audio/webm', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg']);
+    if (mimeError) return mimeError;
+    return audioDataError(body.audioData, body.mimeType ?? 'audio/webm');
+  }),
+  providerConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { audioData, mimeType = 'audio/webm' } = req.body;
     if (!audioData) return res.status(400).json({ error: 'Audio data is required' });
 
-    // Clean data if base64 URI prefix is present
-    const base64Data = audioData.includes('base64,') ? audioData.split('base64,')[1] : audioData;
+    const inlineAudio = parseAudioData(audioData, mimeType);
 
     const audioPart = {
       inlineData: {
-        mimeType,
-        data: base64Data,
+        mimeType: inlineAudio.mimeType,
+        data: inlineAudio.data,
       },
     };
 
@@ -204,13 +400,25 @@ app.post('/api/gemini/transcribe', async (req: Request, res: Response) => {
       text: response.text ?? '',
     });
   } catch (error: any) {
-    console.error('Transcription error:', error);
-    return res.status(500).json({ error: error.message || 'Transcription failed' });
+    return sendSafeError(res, 'Audio transcription failed', error, 'Transcription failed.');
   }
-});
+  },
+);
 
 // 5. Image Generation with gemini-nano-banana-2.1 (supports aspect ratio, resolution)
-app.post('/api/gemini/generate-image', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/generate-image',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const promptError = boundedStringError(body, 'prompt', { required: true, maximumLength: 8_000 });
+    if (promptError) return promptError;
+    const ratioError = enumFieldError(body, 'aspectRatio', allowedAspectRatios);
+    if (ratioError) return ratioError;
+    return enumFieldError(body, 'imageSize', ['1K', '2K', '4K']);
+  }),
+  providerConcurrencyLimit,
+  mediaConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { prompt, aspectRatio = '1:1', imageSize = '1K' } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
@@ -241,7 +449,7 @@ app.post('/api/gemini/generate-image', async (req: Request, res: Response) => {
       return res.json({ text: response.text ?? 'Image generation finished without binary data.' });
     } catch (nanoErr: any) {
       // Fallback to gemini-3.1-flash-lite-image if paid key not present
-      console.warn('gemini-nano-banana-2.1 failed, falling back to gemini-3.1-flash-lite-image:', nanoErr.message);
+      logSafeError('Primary image model failed; using fallback model', nanoErr);
       const fallbackResponse = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite-image',
         contents: { parts: [{ text: prompt }] },
@@ -259,25 +467,42 @@ app.post('/api/gemini/generate-image', async (req: Request, res: Response) => {
       throw nanoErr;
     }
   } catch (error: any) {
-    console.error('Image generation error:', error);
-    return res.status(500).json({ error: error.message || 'Image generation failed' });
+    return sendSafeError(res, 'Image generation failed', error, 'Image generation failed.');
   }
-});
+  },
+);
 
 // 6. Image Editing with gemini-nano-banana-2.1
-app.post('/api/gemini/edit-image', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/edit-image',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const promptError = boundedStringError(body, 'prompt', { required: true, maximumLength: 8_000 });
+    if (promptError) return promptError;
+    const imageError = boundedStringError(body, 'sourceImage', { required: true, maximumLength: 31_000_000 });
+    if (imageError) return imageError;
+    const dataError = imageDataError(body.sourceImage, body.mimeType);
+    if (dataError) return dataError;
+    const ratioError = enumFieldError(body, 'aspectRatio', allowedAspectRatios);
+    if (ratioError) return ratioError;
+    return enumFieldError(body, 'mimeType', allowedImageMimeTypes);
+  }),
+  providerConcurrencyLimit,
+  mediaConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { prompt, sourceImage, mimeType = 'image/png', aspectRatio = '1:1' } = req.body;
     if (!prompt || !sourceImage) return res.status(400).json({ error: 'Prompt and source image are required' });
 
-    const base64Data = sourceImage.includes('base64,') ? sourceImage.split('base64,')[1] : sourceImage;
+    const inlineImage = parseImageData(sourceImage, mimeType);
+    const base64Data = inlineImage.data;
 
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-nano-banana-2.1',
         contents: {
           parts: [
-            { inlineData: { mimeType, data: base64Data } },
+            { inlineData: { mimeType: inlineImage.mimeType, data: base64Data } },
             { text: prompt },
           ],
         },
@@ -297,12 +522,12 @@ app.post('/api/gemini/edit-image', async (req: Request, res: Response) => {
       }
       return res.json({ text: response.text ?? 'Edit completed.' });
     } catch (editErr: any) {
-      console.warn('nano banana edit failed, trying flash lite:', editErr.message);
+      logSafeError('Primary image-edit model failed; using fallback model', editErr);
       const fallbackResponse = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite-image',
         contents: {
           parts: [
-            { inlineData: { mimeType, data: base64Data } },
+            { inlineData: { mimeType: inlineImage.mimeType, data: base64Data } },
             { text: prompt },
           ],
         },
@@ -319,13 +544,23 @@ app.post('/api/gemini/edit-image', async (req: Request, res: Response) => {
       throw editErr;
     }
   } catch (error: any) {
-    console.error('Image edit error:', error);
-    return res.status(500).json({ error: error.message || 'Image edit failed' });
+    return sendSafeError(res, 'Image editing failed', error, 'Image editing failed.');
   }
-});
+  },
+);
 
 // 7. Video Generation from text with gemini-omni-1.1-flash via Interactions API
-app.post('/api/gemini/generate-video', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/generate-video',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const promptError = boundedStringError(body, 'prompt', { required: true, maximumLength: 8_000 });
+    if (promptError) return promptError;
+    return enumFieldError(body, 'aspectRatio', allowedAspectRatios);
+  }),
+  providerConcurrencyLimit,
+  mediaConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { prompt, aspectRatio = '16:9' } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
@@ -358,25 +593,42 @@ app.post('/api/gemini/generate-video', async (req: Request, res: Response) => {
       message: 'Video processing status received',
     });
   } catch (error: any) {
-    console.error('Video generation error:', error);
-    return res.status(500).json({ error: error.message || 'Video generation requires a paid API key for gemini-omni-1.1-flash.' });
+    return sendSafeError(res, 'Video generation failed', error, 'Video generation requires an enabled AI provider.');
   }
-});
+  },
+);
 
 // 8. Animate Image into Video with gemini-omni-1.1-flash via Interactions API
-app.post('/api/gemini/animate-image', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/animate-image',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const imageError = boundedStringError(body, 'sourceImage', { required: true, maximumLength: 31_000_000 });
+    if (imageError) return imageError;
+    const dataError = imageDataError(body.sourceImage, body.mimeType);
+    if (dataError) return dataError;
+    const promptError = boundedStringError(body, 'prompt', { maximumLength: 8_000 });
+    if (promptError) return promptError;
+    const ratioError = enumFieldError(body, 'aspectRatio', allowedAspectRatios);
+    if (ratioError) return ratioError;
+    return enumFieldError(body, 'mimeType', allowedImageMimeTypes);
+  }),
+  providerConcurrencyLimit,
+  mediaConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { prompt, sourceImage, mimeType = 'image/png', aspectRatio = '16:9' } = req.body;
     if (!sourceImage) return res.status(400).json({ error: 'Source image is required' });
 
-    const base64Data = sourceImage.includes('base64,') ? sourceImage.split('base64,')[1] : sourceImage;
+    const inlineImage = parseImageData(sourceImage, mimeType);
+    const base64Data = inlineImage.data;
 
     const interaction = await ai.interactions.create({
       model: 'gemini-omni-1.1-flash',
       input: [
         {
           type: 'image',
-          mime_type: mimeType,
+          mime_type: inlineImage.mimeType,
           data: base64Data,
         },
         {
@@ -406,13 +658,23 @@ app.post('/api/gemini/animate-image', async (req: Request, res: Response) => {
       message: 'Animation processing finished',
     });
   } catch (error: any) {
-    console.error('Animate image error:', error);
-    return res.status(500).json({ error: error.message || 'Image animation requires a paid API key for gemini-omni-1.1-flash.' });
+    return sendSafeError(res, 'Image animation failed', error, 'Image animation requires an enabled AI provider.');
   }
-});
+  },
+);
 
 // 9. Music Generation with lyria-3-clip-preview / lyria-3-pro-preview
-app.post('/api/gemini/generate-music', async (req: Request, res: Response) => {
+app.post(
+  '/api/gemini/generate-music',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const promptError = boundedStringError(body, 'prompt', { required: true, maximumLength: 8_000 });
+    if (promptError) return promptError;
+    return enumFieldError(body, 'model', ['lyria-3-clip-preview', 'lyria-3-pro-preview']);
+  }),
+  providerConcurrencyLimit,
+  mediaConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { prompt, model = 'lyria-3-clip-preview' } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Music prompt is required' });
@@ -457,25 +719,44 @@ app.post('/api/gemini/generate-music', async (req: Request, res: Response) => {
       model: selectedModel,
     });
   } catch (error: any) {
-    console.error('Music generation error:', error);
-    return res.status(500).json({ error: error.message || 'Music generation requires a paid API key for Lyria.' });
+    return sendSafeError(res, 'Music generation failed', error, 'Music generation requires an enabled AI provider.');
   }
-});
+  },
+);
 
 // 10. Bioscience & Agro-Food Quality Skills (PubChem & Gemini Scientific Analysis)
-app.get('/api/science/pubchem/:compound', async (req: Request, res: Response) => {
+app.get(
+  '/api/science/pubchem/:compound',
+  providerConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
-    const compound = req.params.compound;
-    const cidRes = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(compound)}/cids/JSON`);
+    const compoundParam = req.params.compound;
+    if (
+      typeof compoundParam !== 'string' ||
+      compoundParam.length === 0 ||
+      compoundParam.length > 120 ||
+      /[\u0000-\u001f]/.test(compoundParam)
+    ) {
+      return res.status(400).json({ error: 'Compound name is invalid.' });
+    }
+    const compound = compoundParam;
+    const fetchOptions = { signal: AbortSignal.timeout(10_000) };
+    const cidRes = await fetch(
+      `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(compound)}/cids/JSON`,
+      fetchOptions,
+    );
     if (!cidRes.ok) {
       return res.status(404).json({ error: `Compound ${compound} not found in PubChem` });
     }
     const cidData = await cidRes.json();
     const cid = cidData?.IdentifierList?.CID?.[0];
+    if (!cid) return res.status(404).json({ error: 'Compound was not found in PubChem.' });
 
     const propRes = await fetch(
-      `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,InChIKey,XLogP,TPSA,Complexity/JSON`
+      `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${encodeURIComponent(String(cid))}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,InChIKey,XLogP,TPSA,Complexity/JSON`,
+      fetchOptions,
     );
+    if (!propRes.ok) return res.status(502).json({ error: 'Compound data is temporarily unavailable.' });
     const propData = await propRes.json();
     const props = propData?.PropertyTable?.Properties?.[0] || {};
 
@@ -485,11 +766,23 @@ app.get('/api/science/pubchem/:compound', async (req: Request, res: Response) =>
       ...props,
     });
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return sendSafeError(res, 'PubChem lookup failed', error, 'Compound lookup failed.');
   }
-});
+  },
+);
 
-app.post('/api/science/analyze-product', async (req: Request, res: Response) => {
+app.post(
+  '/api/science/analyze-product',
+  requireJsonObject,
+  validateJsonBody((body) => {
+    const productError = boundedStringError(body, 'productName', { required: true, maximumLength: 200 });
+    if (productError) return productError;
+    const categoryError = boundedStringError(body, 'category', { required: true, maximumLength: 100 });
+    if (categoryError) return categoryError;
+    return boundedStringError(body, 'details', { maximumLength: 2_000 });
+  }),
+  providerConcurrencyLimit,
+  async (req: Request, res: Response) => {
   try {
     const { productName, category, details } = req.body;
     const prompt = `Perform a rigorous food science and agricultural biochemistry analysis for "${productName}" (Category: ${category}). Details: ${details || 'Standard local market produce'}.
@@ -511,24 +804,60 @@ Provide:
       analysis: response.text ?? '',
     });
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return sendSafeError(res, 'Product analysis failed', error, 'Product analysis failed.');
   }
-});
+  },
+);
 
 // 11. WebSocket Server for Real-Time Gemini Live API (gemini-3.8-live)
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+
+function isAllowedLiveOrigin(origin: string | undefined, host: string | undefined): boolean {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  if (!host) return false;
+  try {
+    const parsedOrigin = new URL(origin);
+    return ['http:', 'https:'].includes(parsedOrigin.protocol) && parsedOrigin.host === host;
+  } catch {
+    return false;
+  }
+}
 
 server.on('upgrade', (request, socket, head) => {
-  const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
-  if (pathname === '/live') {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
+  let pathname: string;
+  try {
+    pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
+  } catch {
+    socket.write('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
   }
+
+  if (pathname !== '/live') {
+    socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  if (!isAllowedLiveOrigin(request.headers.origin, request.headers.host)) {
+    socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  if (wss.clients.size >= 8) {
+    socket.write('HTTP/1.1 503 Service Unavailable\r\nRetry-After: 5\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit('connection', ws, request);
+  });
 });
 
 wss.on('connection', async (clientWs: WebSocket) => {
-  console.log('Client connected to Live Voice API');
   try {
     const session = await ai.live.connect({
       model: 'gemini-3.8-live',
@@ -543,10 +872,14 @@ wss.on('connection', async (clientWs: WebSocket) => {
         onmessage: (message: any) => {
           for (const part of message.serverContent?.modelTurn?.parts ?? []) {
             if (part.inlineData?.data) {
-              clientWs.send(JSON.stringify({ audio: part.inlineData.data }));
+              if (clientWs.readyState === WebSocket.OPEN && clientWs.bufferedAmount < 1_000_000) {
+                clientWs.send(JSON.stringify({ audio: part.inlineData.data }));
+              } else if (clientWs.readyState === WebSocket.OPEN) {
+                clientWs.close(1013, 'Client is not keeping up');
+              }
             }
           }
-          if (message.serverContent?.interrupted) {
+          if (message.serverContent?.interrupted && clientWs.readyState === WebSocket.OPEN) {
             clientWs.send(JSON.stringify({ interrupted: true }));
           }
         },
@@ -556,27 +889,39 @@ wss.on('connection', async (clientWs: WebSocket) => {
     clientWs.on('message', (data: Buffer) => {
       try {
         const parsed = JSON.parse(data.toString());
-        if (parsed.audio) {
-          session.sendRealtimeInput({
-            audio: { data: parsed.audio, mimeType: 'audio/pcm;rate=16000' },
-          });
+        if (
+          parsed === null ||
+          typeof parsed !== 'object' ||
+          typeof parsed.audio !== 'string' ||
+          parsed.audio.length > 48_000 ||
+          !/^[A-Za-z0-9+/]+={0,2}$/.test(parsed.audio)
+        ) {
+          clientWs.close(1003, 'Expected a bounded base64 audio message');
+          return;
         }
-      } catch (err) {
-        console.error('Error forwarding audio to Live session:', err);
+
+        session.sendRealtimeInput({
+          audio: { data: parsed.audio, mimeType: 'audio/pcm;rate=16000' },
+        });
+      } catch (error) {
+        logSafeError('Live audio message rejected', error);
+        if (clientWs.readyState === WebSocket.OPEN) clientWs.close(1003, 'Invalid audio message');
       }
     });
 
-    clientWs.on('close', () => {
-      console.log('Client disconnected from Live Voice API');
-    });
+    clientWs.on('error', (error) => logSafeError('Live WebSocket failed', error));
   } catch (liveError: any) {
-    console.error('Failed to initialize Live API session:', liveError);
-    clientWs.send(JSON.stringify({ error: liveError.message || 'Live API connection error' }));
+    logSafeError('Live API initialization failed', liveError);
+    if (clientWs.readyState === WebSocket.OPEN) {
+      clientWs.send(JSON.stringify({ error: 'Live API connection error.' }));
+      clientWs.close(1011, 'Live API unavailable');
+    }
   }
 });
 
+app.use(safeJsonErrorHandler);
+
 // Mount Vite middleware in development or serve static in production
-const isProduction = process.env.NODE_ENV === 'production';
 if (!isProduction) {
   const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({

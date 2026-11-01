@@ -88,3 +88,5 @@ oryx-manifest.toml
 .mypy_cache/
 .pyright/
 .hypothesis/
+.playwright-mcp/
+android/.gradle/
