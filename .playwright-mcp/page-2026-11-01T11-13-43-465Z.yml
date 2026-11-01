@@ -1,0 +1,679 @@
+- generic [ref=f4e3]:
+  - banner [ref=f4e4]:
+    - generic [ref=f4e6]:
+      - generic [ref=f4e7]:
+        - button "NexHaat Prime Member (Active)" [ref=f4e8] [cursor=pointer]
+        - generic [ref=f4e15]:
+          - text: "Support:"
+          - strong [ref=f4e16]: +880 9612 000 000
+      - generic [ref=f4e17]:
+        - button "Switch to Dark Mode" [ref=f4e18] [cursor=pointer]
+        - generic [ref=f4e21]:
+          - button "ENG" [ref=f4e22] [cursor=pointer]
+          - button "বাংলা" [ref=f4e23] [cursor=pointer]
+        - button "customer" [ref=f4e25] [cursor=pointer]
+        - button "NexHaat Login" [ref=f4e30] [cursor=pointer]
+        - button "Google Sign-In" [disabled] [ref=f4e32]
+    - generic [ref=f4e40]:
+      - generic [ref=f4e41] [cursor=pointer]:
+        - img "NexHaat" [ref=f4e43]
+        - generic [ref=f4e44]:
+          - generic [ref=f4e45]:
+            - generic [ref=f4e46]: NexHaat
+            - generic [ref=f4e47]: BD
+            - generic [ref=f4e48]: PRIME
+          - paragraph [ref=f4e49]: Amazon-Grade Multi-Vendor Marketplace
+      - generic [ref=f4e51]:
+        - button "All" [ref=f4e53] [cursor=pointer]
+        - textbox "Search fresh fish, organic rice, cold-pressed oil, farm produce..." [ref=f4e58]
+        - generic [ref=f4e59]:
+          - button "Voice Search" [ref=f4e60] [cursor=pointer]
+          - button "Search by Image" [ref=f4e64] [cursor=pointer]
+        - button "Search" [ref=f4e68] [cursor=pointer]
+      - generic [ref=f4e73]:
+        - button "HaatAI ✨" [ref=f4e74] [cursor=pointer]
+        - button "Wishlist" [ref=f4e78] [cursor=pointer]:
+          - generic [ref=f4e81]: "2"
+        - button "Notifications" [ref=f4e82] [cursor=pointer]:
+          - generic [ref=f4e86]: "3"
+        - button "Open cart" [ref=f4e87] [cursor=pointer]:
+          - generic [ref=f4e93]: ৳0.00
+    - generic [ref=f4e95]:
+      - generic [ref=f4e96]:
+        - button "All Haat Categories" [ref=f4e98] [cursor=pointer]
+        - button "Browse Catalog" [ref=f4e103] [cursor=pointer]
+        - button "Mega Deals & Offers" [ref=f4e104] [cursor=pointer]
+        - button "Prime Hub" [ref=f4e109] [cursor=pointer]
+        - button "Fresh Produce" [ref=f4e113] [cursor=pointer]
+        - button "Padma Fish & Meat" [ref=f4e114] [cursor=pointer]
+        - button "Bogra Curd & Dairy" [ref=f4e115] [cursor=pointer]
+      - generic [ref=f4e116]:
+        - button "Track My Orders" [ref=f4e117] [cursor=pointer]
+        - button "Customer Support" [ref=f4e118] [cursor=pointer]
+  - main [ref=f4e119]:
+    - generic [ref=f4e120]:
+      - generic [ref=f4e122]:
+        - generic [ref=f4e123]: BANGLADESH HYPER-LOCAL MEGA HAAT
+        - heading "Farm-Fresh Food, River Ilish & Daily Haat at Your Doorstep" [level=1] [ref=f4e127]
+        - paragraph [ref=f4e128]: Order fresh Rajshahi mangoes, wild Padma fish, Dinajpur Chinigura rice, and authentic sweets directly from verified local merchants. Guaranteed 3-hour hyper-local delivery.
+        - generic [ref=f4e129]:
+          - button "Explore Full Haat Catalog" [ref=f4e130] [cursor=pointer]
+          - button "Flash Deals (Up to 30% Off)" [ref=f4e134] [cursor=pointer]
+        - generic [ref=f4e135]:
+          - generic [ref=f4e136]: 100% Halal Verified
+          - generic [ref=f4e141]: 3-Hr Dhaka Express
+          - generic [ref=f4e148]: Cash On Delivery
+      - generic [ref=f4e153]:
+        - generic [ref=f4e154]:
+          - generic [ref=f4e155]: prime
+          - generic [ref=f4e156]:
+            - heading "You are enjoying NexHaat Prime Free 3-Hour Delivery!" [level=3] [ref=f4e157]
+            - paragraph [ref=f4e158]: Fastest delivery across all metropolitan areas of Dhaka & Chittagong
+        - button "Manage Prime" [ref=f4e159] [cursor=pointer]
+      - generic [ref=f4e160]:
+        - generic [ref=f4e161]:
+          - generic [ref=f4e162]:
+            - generic [ref=f4e163]: CATEGORY DIRECTORY
+            - heading "Browse Marketplace by Category" [level=2] [ref=f4e167]
+            - paragraph [ref=f4e168]: Explore authentic Bangladeshi fresh food, electronics, fashion, and daily staples
+          - button "Explore Full Catalog" [ref=f4e170] [cursor=pointer]
+        - generic [ref=f4e174]:
+          - button "All Items" [ref=f4e175] [cursor=pointer]
+          - button "Fresh Food Hot" [ref=f4e179] [cursor=pointer]:
+            - generic [ref=f4e183]: Fresh Food
+            - generic [ref=f4e184]: Hot
+          - button "Electronics New" [ref=f4e185] [cursor=pointer]:
+            - generic [ref=f4e188]: Electronics
+            - generic [ref=f4e189]: New
+          - button "Fashion Deshi" [ref=f4e190] [cursor=pointer]:
+            - generic [ref=f4e193]: Fashion
+            - generic [ref=f4e194]: Deshi
+          - button "Grains & Rice" [ref=f4e195] [cursor=pointer]
+          - button "Dairy & Sweets" [ref=f4e206] [cursor=pointer]
+          - button "Spices & Oils" [ref=f4e210] [cursor=pointer]
+        - generic [ref=f4e214]:
+          - generic [ref=f4e215] [cursor=pointer]:
+            - generic [ref=f4e216]:
+              - generic [ref=f4e217]:
+                - img "Fruits & Vegetables" [ref=f4e218]
+                - generic [ref=f4e224]: 2+ Products
+              - heading "Fruits & Vegetables" [level=3] [ref=f4e229]
+              - paragraph [ref=f4e233]: Farm-fresh organic fruits, seasonal greens, and daily vegetables straight from local farmers.
+            - generic [ref=f4e234]:
+              - generic [ref=f4e235]: Direct from verified sellers
+              - generic [ref=f4e236]: Browse →
+          - generic [ref=f4e237] [cursor=pointer]:
+            - generic [ref=f4e238]:
+              - generic [ref=f4e239]:
+                - img "Meat & Seafood" [ref=f4e240]
+                - generic [ref=f4e249]: 1+ Products
+              - heading "Meat & Seafood" [level=3] [ref=f4e254]
+              - paragraph [ref=f4e258]: 100% Halal butchered mutton, beef, country chicken, and fresh catch river fish.
+            - generic [ref=f4e259]:
+              - generic [ref=f4e260]: Direct from verified sellers
+              - generic [ref=f4e261]: Browse →
+          - generic [ref=f4e262] [cursor=pointer]:
+            - generic [ref=f4e263]:
+              - generic [ref=f4e264]:
+                - img "Rice, Grains & Pasta" [ref=f4e265]
+                - generic [ref=f4e277]: 1+ Products
+              - heading "Rice, Grains & Pasta" [level=3] [ref=f4e282]
+              - paragraph [ref=f4e286]: Premium aromatic Miniket, Nazirshail, Chinigura rice, organic lentils and pulses.
+            - generic [ref=f4e287]:
+              - generic [ref=f4e288]: Direct from verified sellers
+              - generic [ref=f4e289]: Browse →
+          - generic [ref=f4e290] [cursor=pointer]:
+            - generic [ref=f4e291]:
+              - generic [ref=f4e292]:
+                - img "Dairy & Eggs" [ref=f4e293]
+                - generic [ref=f4e298]: 1+ Products
+              - heading "Dairy & Eggs" [level=3] [ref=f4e303]
+              - paragraph [ref=f4e307]: Pure cow milk, Bogra curd (Doi), artisanal ghee, and farm brown eggs.
+            - generic [ref=f4e308]:
+              - generic [ref=f4e309]: Direct from verified sellers
+              - generic [ref=f4e310]: Browse →
+          - generic [ref=f4e311] [cursor=pointer]:
+            - generic [ref=f4e312]:
+              - generic [ref=f4e313]:
+                - img "Spices & Seasonings" [ref=f4e314]
+                - generic [ref=f4e319]: 1+ Products
+              - heading "Spices & Seasonings" [level=3] [ref=f4e324]
+              - paragraph [ref=f4e328]: Freshly grounded turmeric, whole cumin, pure mustard oil, and authentic culinary mixes.
+            - generic [ref=f4e329]:
+              - generic [ref=f4e330]: Direct from verified sellers
+              - generic [ref=f4e331]: Browse →
+          - generic [ref=f4e332] [cursor=pointer]:
+            - generic [ref=f4e333]:
+              - generic [ref=f4e334]:
+                - img "Snacks & Sweets" [ref=f4e335]
+                - generic [ref=f4e340]: Available
+              - heading "Snacks & Sweets" [level=3] [ref=f4e345]
+              - paragraph [ref=f4e349]: Traditional Bangladeshi sweets, baked snacks, premium bakery toasts and chanachur.
+            - generic [ref=f4e350]:
+              - generic [ref=f4e351]: Direct from verified sellers
+              - generic [ref=f4e352]: Browse →
+          - generic [ref=f4e353] [cursor=pointer]:
+            - generic [ref=f4e354]:
+              - generic [ref=f4e355]:
+                - img "Electronics & Gadgets" [ref=f4e356]
+                - generic [ref=f4e361]: 1+ Products
+              - heading "Electronics & Gadgets" [level=3] [ref=f4e366]
+              - paragraph [ref=f4e370]: Authentic mobile accessories, smart wearables, fast chargers and audio devices.
+            - generic [ref=f4e371]:
+              - generic [ref=f4e372]: Direct from verified sellers
+              - generic [ref=f4e373]: Browse →
+          - generic [ref=f4e374] [cursor=pointer]:
+            - generic [ref=f4e375]:
+              - generic [ref=f4e376]:
+                - img "Fashion & Handloom" [ref=f4e377]
+                - generic [ref=f4e382]: 1+ Products
+              - heading "Fashion & Handloom" [level=3] [ref=f4e387]
+              - paragraph [ref=f4e391]: Tangail handloom cotton sarees, deshi panjabis, crafted jute items and everyday wear.
+            - generic [ref=f4e392]:
+              - generic [ref=f4e393]: Direct from verified sellers
+              - generic [ref=f4e394]: Browse →
+      - generic [ref=f4e395]:
+        - generic [ref=f4e396]:
+          - generic [ref=f4e397]:
+            - generic [ref=f4e398]:
+              - generic [ref=f4e399]: NexHaat's Choice
+              - generic [ref=f4e400]: • Highly rated & priced right
+            - heading "Top Rated & Certified Bestsellers" [level=2] [ref=f4e401]
+          - button "View All" [ref=f4e402] [cursor=pointer]
+        - generic [ref=f4e406]:
+          - generic [ref=f4e407] [cursor=pointer]:
+            - generic:
+              - generic:
+                - generic [ref=f4e408]:
+                  - generic [ref=f4e409]: NexHaat's
+                  - generic [ref=f4e410]: Choice
+                - generic [ref=f4e411]: "-15% OFF"
+              - generic [ref=f4e412]:
+                - button "Remove from wishlist" [ref=f4e413]
+                - button "Compare product" [ref=f4e416]
+            - img "Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)" [ref=f4e422]
+            - generic [ref=f4e423]:
+              - generic [ref=f4e424]:
+                - generic [ref=f4e425]: FarmDirect Rajshahi
+                - generic [ref=f4e426]:
+                  - generic [ref=f4e429]: "4.9"
+                  - generic [ref=f4e430]: (58)
+              - heading "Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)" [level=3] [ref=f4e431]
+              - generic [ref=f4e433]:
+                - generic [ref=f4e434]: prime
+                - generic [ref=f4e435]: FREE 3-hr delivery
+              - paragraph [ref=f4e436]: "Bulk Save: Buy 3+ get 6% off"
+              - generic [ref=f4e437]:
+                - generic [ref=f4e438]:
+                  - generic [ref=f4e439]:
+                    - generic [ref=f4e440]: ৳720.00
+                    - generic [ref=f4e441]: ৳850.00
+                  - generic [ref=f4e442]: 5kg Basket
+                - button "Add to cart" [ref=f4e443]
+          - generic [ref=f4e447] [cursor=pointer]:
+            - generic:
+              - generic:
+                - generic [ref=f4e448]:
+                  - generic [ref=f4e449]: NexHaat's
+                  - generic [ref=f4e450]: Choice
+                - generic [ref=f4e451]: "-12% OFF"
+              - generic [ref=f4e452]:
+                - button "Add to wishlist" [ref=f4e453]
+                - button "Compare product" [ref=f4e456]
+            - img "Fresh Wild-Caught Padma Ilish (Hilsa Fish 1.2kg)" [ref=f4e462]
+            - generic [ref=f4e463]:
+              - generic [ref=f4e464]:
+                - generic [ref=f4e465]: Padma Haat
+                - generic [ref=f4e466]:
+                  - generic [ref=f4e469]: "4.95"
+                  - generic [ref=f4e470]: (84)
+              - heading "Fresh Wild-Caught Padma Ilish (Hilsa Fish 1.2kg)" [level=3] [ref=f4e471]
+              - generic [ref=f4e473]:
+                - generic [ref=f4e474]: prime
+                - generic [ref=f4e475]: FREE 3-hr delivery
+              - paragraph [ref=f4e476]: "Bulk Save: Buy 2+ get 5% off"
+              - generic [ref=f4e477]:
+                - generic [ref=f4e478]:
+                  - generic [ref=f4e479]:
+                    - generic [ref=f4e480]: ৳1,890.00
+                    - generic [ref=f4e481]: ৳2,150.00
+                  - generic [ref=f4e482]: 1 Whole Fish (1.2kg)
+                - button "Add to cart" [ref=f4e483]
+          - generic [ref=f4e487] [cursor=pointer]:
+            - generic:
+              - generic:
+                - generic [ref=f4e488]:
+                  - generic [ref=f4e489]: NexHaat's
+                  - generic [ref=f4e490]: Choice
+                - generic [ref=f4e491]: "-11% OFF"
+              - generic [ref=f4e492]:
+                - button "Remove from wishlist" [ref=f4e493]
+                - button "Compare product" [ref=f4e496]
+            - img "Authentic Traditional Bogra Shahi Misti Doi (Earthen Clay Pot 1kg)" [ref=f4e502]
+            - generic [ref=f4e503]:
+              - generic [ref=f4e504]:
+                - generic [ref=f4e505]: Bogra Traditional
+                - generic [ref=f4e506]:
+                  - generic [ref=f4e509]: "4.98"
+                  - generic [ref=f4e510]: (112)
+              - heading "Authentic Traditional Bogra Shahi Misti Doi (Earthen Clay Pot 1kg)" [level=3] [ref=f4e511]
+              - generic [ref=f4e513]:
+                - generic [ref=f4e514]: prime
+                - generic [ref=f4e515]: FREE 3-hr delivery
+              - generic [ref=f4e516]:
+                - generic [ref=f4e517]:
+                  - generic [ref=f4e518]:
+                    - generic [ref=f4e519]: ৳310.00
+                    - generic [ref=f4e520]: ৳350.00
+                  - generic [ref=f4e521]: 1 kg Clay Pot
+                - button "Add to cart" [ref=f4e522]
+          - generic [ref=f4e526] [cursor=pointer]:
+            - generic:
+              - generic:
+                - generic [ref=f4e527]:
+                  - generic [ref=f4e528]: NexHaat's
+                  - generic [ref=f4e529]: Choice
+                - generic [ref=f4e530]: "-16% OFF"
+              - generic [ref=f4e531]:
+                - button "Add to wishlist" [ref=f4e532]
+                - button "Compare product" [ref=f4e535]
+            - img "Handcrafted Pure Cotton Tangail Taant Saree with Zari Border" [ref=f4e541]
+            - generic [ref=f4e542]:
+              - generic [ref=f4e543]:
+                - generic [ref=f4e544]: Tangail Heritage
+                - generic [ref=f4e545]:
+                  - generic [ref=f4e548]: "4.88"
+                  - generic [ref=f4e549]: (29)
+              - heading "Handcrafted Pure Cotton Tangail Taant Saree with Zari Border" [level=3] [ref=f4e550]
+              - generic [ref=f4e552]:
+                - generic [ref=f4e553]: prime
+                - generic [ref=f4e554]: FREE 3-hr delivery
+              - generic [ref=f4e555]:
+                - generic [ref=f4e556]:
+                  - generic [ref=f4e557]:
+                    - generic [ref=f4e558]: ৳1,550.00
+                    - generic [ref=f4e559]: ৳1,850.00
+                  - generic [ref=f4e560]: 1 Piece (With Blouse Piece)
+                - button "Add to cart" [ref=f4e561]
+      - generic [ref=f4e565]:
+        - generic [ref=f4e566]:
+          - generic [ref=f4e567]:
+            - generic [ref=f4e568]: Time-Sensitive Offers
+            - generic [ref=f4e572]:
+              - heading "Featured Deals" [level=2] [ref=f4e573]
+              - generic [ref=f4e574]: Live
+            - paragraph [ref=f4e575]: Deep discounts on verified local produce and top sellers. Grab yours before time runs out!
+          - generic [ref=f4e576]:
+            - generic [ref=f4e581]:
+              - generic [ref=f4e582]: Deal Expires In
+              - generic [ref=f4e583]:
+                - generic [ref=f4e584]: 07h
+                - generic [ref=f4e585]: ":"
+                - generic [ref=f4e586]: 24m
+                - generic [ref=f4e587]: ":"
+                - generic [ref=f4e588]: 18s
+            - generic [ref=f4e589]:
+              - button "Scroll Deals Left" [ref=f4e590] [cursor=pointer]
+              - button "Scroll Deals Right" [ref=f4e593] [cursor=pointer]
+              - button "All Deals" [ref=f4e596] [cursor=pointer]
+        - generic [ref=f4e600]:
+          - generic [ref=f4e601]:
+            - generic [ref=f4e602]:
+              - generic [ref=f4e603] [cursor=pointer]:
+                - img "Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)" [ref=f4e604]
+                - generic [ref=f4e605]: 15% OFF
+                - generic [ref=f4e609]: 3-Hr Express
+              - paragraph [ref=f4e616]: Dhaka Fresh & Agro Haat
+              - heading "Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)" [level=3] [ref=f4e617] [cursor=pointer]
+              - generic [ref=f4e618]:
+                - generic [ref=f4e619]:
+                  - generic [ref=f4e620]: ★
+                  - generic [ref=f4e621]: "4.9"
+                - generic [ref=f4e622]: •
+                - generic [ref=f4e623]: 58 ratings
+              - generic [ref=f4e624]:
+                - generic [ref=f4e625]: ৳720.00
+                - generic [ref=f4e626]: ৳850.00
+              - generic [ref=f4e628]:
+                - generic [ref=f4e629]: 95% Claimed
+                - generic [ref=f4e630]: Only few left
+            - button "Claim Deal & Add" [ref=f4e633] [cursor=pointer]
+          - generic [ref=f4e638]:
+            - generic [ref=f4e639]:
+              - generic [ref=f4e640] [cursor=pointer]:
+                - img "Fresh Wild-Caught Padma Ilish (Hilsa Fish 1.2kg)" [ref=f4e641]
+                - generic [ref=f4e642]: 12% OFF
+                - generic [ref=f4e646]: 3-Hr Express
+              - paragraph [ref=f4e653]: Padma River Fish Emporium
+              - heading "Fresh Wild-Caught Padma Ilish (Hilsa Fish 1.2kg)" [level=3] [ref=f4e654] [cursor=pointer]
+              - generic [ref=f4e655]:
+                - generic [ref=f4e656]:
+                  - generic [ref=f4e657]: ★
+                  - generic [ref=f4e658]: "4.95"
+                - generic [ref=f4e659]: •
+                - generic [ref=f4e660]: 84 ratings
+              - generic [ref=f4e661]:
+                - generic [ref=f4e662]: ৳1,890.00
+                - generic [ref=f4e663]: ৳2,150.00
+              - generic [ref=f4e665]:
+                - generic [ref=f4e666]: 64% Claimed
+                - generic [ref=f4e667]: Only few left
+            - button "Claim Deal & Add" [ref=f4e670] [cursor=pointer]
+          - generic [ref=f4e675]:
+            - generic [ref=f4e676]:
+              - generic [ref=f4e677] [cursor=pointer]:
+                - img "Aromatic Chinigura Polao Rice - Aged Reserve (2kg)" [ref=f4e678]
+                - generic [ref=f4e679]: 13% OFF
+                - generic [ref=f4e683]: 3-Hr Express
+              - paragraph [ref=f4e690]: Dhaka Fresh & Agro Haat
+              - heading "Aromatic Chinigura Polao Rice - Aged Reserve (2kg)" [level=3] [ref=f4e691] [cursor=pointer]
+              - generic [ref=f4e692]:
+                - generic [ref=f4e693]:
+                  - generic [ref=f4e694]: ★
+                  - generic [ref=f4e695]: "4.8"
+                - generic [ref=f4e696]: •
+                - generic [ref=f4e697]: 36 ratings
+              - generic [ref=f4e698]:
+                - generic [ref=f4e699]: ৳280.00
+                - generic [ref=f4e700]: ৳320.00
+              - generic [ref=f4e702]:
+                - generic [ref=f4e703]: 50% Claimed
+                - generic [ref=f4e704]: Only few left
+            - button "Claim Deal & Add" [ref=f4e707] [cursor=pointer]
+          - generic [ref=f4e712]:
+            - generic [ref=f4e713]:
+              - generic [ref=f4e714] [cursor=pointer]:
+                - img "Authentic Traditional Bogra Shahi Misti Doi (Earthen Clay Pot 1kg)" [ref=f4e715]
+                - generic [ref=f4e716]: 11% OFF
+                - generic [ref=f4e720]: 3-Hr Express
+              - paragraph [ref=f4e727]: Gouripur Dairy & Sweets
+              - heading "Authentic Traditional Bogra Shahi Misti Doi (Earthen Clay Pot 1kg)" [level=3] [ref=f4e728] [cursor=pointer]
+              - generic [ref=f4e729]:
+                - generic [ref=f4e730]:
+                  - generic [ref=f4e731]: ★
+                  - generic [ref=f4e732]: "4.98"
+                - generic [ref=f4e733]: •
+                - generic [ref=f4e734]: 112 ratings
+              - generic [ref=f4e735]:
+                - generic [ref=f4e736]: ৳310.00
+                - generic [ref=f4e737]: ৳350.00
+              - generic [ref=f4e739]:
+                - generic [ref=f4e740]: 50% Claimed
+                - generic [ref=f4e741]: Only few left
+            - button "Claim Deal & Add" [ref=f4e744] [cursor=pointer]
+          - generic [ref=f4e749]:
+            - generic [ref=f4e750]:
+              - generic [ref=f4e751] [cursor=pointer]:
+                - img "Cold-Pressed Pure Mustard Oil (Kachi Ghani Shorishar Tel 1L)" [ref=f4e752]
+                - generic [ref=f4e753]: 13% OFF
+                - generic [ref=f4e757]: 3-Hr Express
+              - paragraph [ref=f4e764]: Chittagong Spices & Herbs
+              - heading "Cold-Pressed Pure Mustard Oil (Kachi Ghani Shorishar Tel 1L)" [level=3] [ref=f4e765] [cursor=pointer]
+              - generic [ref=f4e766]:
+                - generic [ref=f4e767]:
+                  - generic [ref=f4e768]: ★
+                  - generic [ref=f4e769]: "4.85"
+                - generic [ref=f4e770]: •
+                - generic [ref=f4e771]: 42 ratings
+              - generic [ref=f4e772]:
+                - generic [ref=f4e773]: ৳295.00
+                - generic [ref=f4e774]: ৳340.00
+              - generic [ref=f4e776]:
+                - generic [ref=f4e777]: 80% Claimed
+                - generic [ref=f4e778]: Only few left
+            - button "Claim Deal & Add" [ref=f4e781] [cursor=pointer]
+          - generic [ref=f4e786]:
+            - generic [ref=f4e787]:
+              - generic [ref=f4e788] [cursor=pointer]:
+                - img "Handcrafted Pure Cotton Tangail Taant Saree with Zari Border" [ref=f4e789]
+                - generic [ref=f4e790]: 16% OFF
+                - generic [ref=f4e794]: 3-Hr Express
+              - paragraph [ref=f4e801]: Tangail Weavers Collective
+              - heading "Handcrafted Pure Cotton Tangail Taant Saree with Zari Border" [level=3] [ref=f4e802] [cursor=pointer]
+              - generic [ref=f4e803]:
+                - generic [ref=f4e804]:
+                  - generic [ref=f4e805]: ★
+                  - generic [ref=f4e806]: "4.88"
+                - generic [ref=f4e807]: •
+                - generic [ref=f4e808]: 29 ratings
+              - generic [ref=f4e809]:
+                - generic [ref=f4e810]: ৳1,550.00
+                - generic [ref=f4e811]: ৳1,850.00
+              - generic [ref=f4e813]:
+                - generic [ref=f4e814]: 72% Claimed
+                - generic [ref=f4e815]: Only few left
+            - button "Claim Deal & Add" [ref=f4e818] [cursor=pointer]
+          - generic [ref=f4e823]:
+            - generic [ref=f4e824]:
+              - generic [ref=f4e825] [cursor=pointer]:
+                - img "NexPulse ANC True Wireless Stereo Earbuds (40h Battery)" [ref=f4e826]
+                - generic [ref=f4e827]: 19% OFF
+                - generic [ref=f4e831]: 3-Hr Express
+              - paragraph [ref=f4e838]: NexTech Bangladesh
+              - heading "NexPulse ANC True Wireless Stereo Earbuds (40h Battery)" [level=3] [ref=f4e839] [cursor=pointer]
+              - generic [ref=f4e840]:
+                - generic [ref=f4e841]:
+                  - generic [ref=f4e842]: ★
+                  - generic [ref=f4e843]: "4.75"
+                - generic [ref=f4e844]: •
+                - generic [ref=f4e845]: 67 ratings
+              - generic [ref=f4e846]:
+                - generic [ref=f4e847]: ৳1,990.00
+                - generic [ref=f4e848]: ৳2,450.00
+              - generic [ref=f4e850]:
+                - generic [ref=f4e851]: 45% Claimed
+                - generic [ref=f4e852]: Only few left
+            - button "Claim Deal & Add" [ref=f4e855] [cursor=pointer]
+          - generic [ref=f4e860]:
+            - generic [ref=f4e861]:
+              - generic [ref=f4e862] [cursor=pointer]:
+                - img "Fresh Deshi Red Onions (Deshi Peyaj 5kg Net Sack)" [ref=f4e863]
+                - generic [ref=f4e864]: 13% OFF
+                - generic [ref=f4e868]: 3-Hr Express
+              - paragraph [ref=f4e875]: Dhaka Fresh & Agro Haat
+              - heading "Fresh Deshi Red Onions (Deshi Peyaj 5kg Net Sack)" [level=3] [ref=f4e876] [cursor=pointer]
+              - generic [ref=f4e877]:
+                - generic [ref=f4e878]:
+                  - generic [ref=f4e879]: ★
+                  - generic [ref=f4e880]: "4.7"
+                - generic [ref=f4e881]: •
+                - generic [ref=f4e882]: 45 ratings
+              - generic [ref=f4e883]:
+                - generic [ref=f4e884]: ৳390.00
+                - generic [ref=f4e885]: ৳450.00
+              - generic [ref=f4e887]:
+                - generic [ref=f4e888]: 95% Claimed
+                - generic [ref=f4e889]: Only few left
+            - button "Claim Deal & Add" [ref=f4e892] [cursor=pointer]
+      - generic [ref=f4e897]:
+        - generic [ref=f4e898]:
+          - heading "Your Recently Viewed Items" [level=3] [ref=f4e904]
+          - button "View Recommendations" [ref=f4e905] [cursor=pointer]
+        - generic [ref=f4e906]:
+          - generic [ref=f4e907] [cursor=pointer]:
+            - generic:
+              - generic:
+                - generic [ref=f4e908]:
+                  - generic [ref=f4e909]: NexHaat's
+                  - generic [ref=f4e910]: Choice
+                - generic [ref=f4e911]: "-15% OFF"
+              - generic [ref=f4e912]:
+                - button "Remove from wishlist" [ref=f4e913]
+                - button "Compare product" [ref=f4e916]
+            - img "Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)" [ref=f4e922]
+            - generic [ref=f4e923]:
+              - generic [ref=f4e924]:
+                - generic [ref=f4e925]: FarmDirect Rajshahi
+                - generic [ref=f4e926]:
+                  - generic [ref=f4e929]: "4.9"
+                  - generic [ref=f4e930]: (58)
+              - heading "Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)" [level=3] [ref=f4e931]
+              - generic [ref=f4e933]:
+                - generic [ref=f4e934]: prime
+                - generic [ref=f4e935]: FREE 3-hr delivery
+              - paragraph [ref=f4e936]: "Bulk Save: Buy 3+ get 6% off"
+              - generic [ref=f4e937]:
+                - generic [ref=f4e938]:
+                  - generic [ref=f4e939]:
+                    - generic [ref=f4e940]: ৳720.00
+                    - generic [ref=f4e941]: ৳850.00
+                  - generic [ref=f4e942]: 5kg Basket
+                - button "Add to cart" [ref=f4e943]
+          - generic [ref=f4e947] [cursor=pointer]:
+            - generic:
+              - generic:
+                - generic [ref=f4e948]:
+                  - generic [ref=f4e949]: NexHaat's
+                  - generic [ref=f4e950]: Choice
+                - generic [ref=f4e951]: "-12% OFF"
+              - generic [ref=f4e952]:
+                - button "Add to wishlist" [ref=f4e953]
+                - button "Compare product" [ref=f4e956]
+            - img "Fresh Wild-Caught Padma Ilish (Hilsa Fish 1.2kg)" [ref=f4e962]
+            - generic [ref=f4e963]:
+              - generic [ref=f4e964]:
+                - generic [ref=f4e965]: Padma Haat
+                - generic [ref=f4e966]:
+                  - generic [ref=f4e969]: "4.95"
+                  - generic [ref=f4e970]: (84)
+              - heading "Fresh Wild-Caught Padma Ilish (Hilsa Fish 1.2kg)" [level=3] [ref=f4e971]
+              - generic [ref=f4e973]:
+                - generic [ref=f4e974]: prime
+                - generic [ref=f4e975]: FREE 3-hr delivery
+              - paragraph [ref=f4e976]: "Bulk Save: Buy 2+ get 5% off"
+              - generic [ref=f4e977]:
+                - generic [ref=f4e978]:
+                  - generic [ref=f4e979]:
+                    - generic [ref=f4e980]: ৳1,890.00
+                    - generic [ref=f4e981]: ৳2,150.00
+                  - generic [ref=f4e982]: 1 Whole Fish (1.2kg)
+                - button "Add to cart" [ref=f4e983]
+          - generic [ref=f4e987] [cursor=pointer]:
+            - generic:
+              - generic:
+                - generic [ref=f4e988]:
+                  - generic [ref=f4e989]: NexHaat's
+                  - generic [ref=f4e990]: Choice
+                - generic [ref=f4e991]: "-11% OFF"
+              - generic [ref=f4e992]:
+                - button "Remove from wishlist" [ref=f4e993]
+                - button "Compare product" [ref=f4e996]
+            - img "Authentic Traditional Bogra Shahi Misti Doi (Earthen Clay Pot 1kg)" [ref=f4e1002]
+            - generic [ref=f4e1003]:
+              - generic [ref=f4e1004]:
+                - generic [ref=f4e1005]: Bogra Traditional
+                - generic [ref=f4e1006]:
+                  - generic [ref=f4e1009]: "4.98"
+                  - generic [ref=f4e1010]: (112)
+              - heading "Authentic Traditional Bogra Shahi Misti Doi (Earthen Clay Pot 1kg)" [level=3] [ref=f4e1011]
+              - generic [ref=f4e1013]:
+                - generic [ref=f4e1014]: prime
+                - generic [ref=f4e1015]: FREE 3-hr delivery
+              - generic [ref=f4e1016]:
+                - generic [ref=f4e1017]:
+                  - generic [ref=f4e1018]:
+                    - generic [ref=f4e1019]: ৳310.00
+                    - generic [ref=f4e1020]: ৳350.00
+                  - generic [ref=f4e1021]: 1 kg Clay Pot
+                - button "Add to cart" [ref=f4e1022]
+      - generic [ref=f4e1026]:
+        - generic [ref=f4e1028]:
+          - generic [ref=f4e1029]: VERIFIED VENDORS
+          - heading "Direct from Bangladesh’s Heritage Merchants" [level=2] [ref=f4e1034]
+          - paragraph [ref=f4e1035]: Shop directly from verified regional markets and farmers cooperatives
+        - generic [ref=f4e1036]:
+          - generic [ref=f4e1037]:
+            - generic [ref=f4e1038]:
+              - img "Dhaka Fresh & Agro Haat" [ref=f4e1039]
+              - generic [ref=f4e1040]:
+                - heading "Dhaka Fresh & Agro Haat" [level=4] [ref=f4e1041]
+                - paragraph [ref=f4e1042]: Karwan Bazar, Dhaka
+            - paragraph [ref=f4e1043]: Farm Fresh Fruits, Greens & Deshi Vegetables
+            - generic [ref=f4e1044]:
+              - generic [ref=f4e1045]: ★ 4.9 rating
+              - generic [ref=f4e1046]: 12,400+ orders
+          - generic [ref=f4e1047]:
+            - generic [ref=f4e1048]:
+              - img "Padma River Fish Emporium" [ref=f4e1049]
+              - generic [ref=f4e1050]:
+                - heading "Padma River Fish Emporium" [level=4] [ref=f4e1051]
+                - paragraph [ref=f4e1052]: Mawa Ghat / Jatrabari, Dhaka
+            - paragraph [ref=f4e1053]: Authentic Wild-caught Hilsa & Sweetwater Fish
+            - generic [ref=f4e1054]:
+              - generic [ref=f4e1055]: ★ 4.95 rating
+              - generic [ref=f4e1056]: 8,900+ orders
+          - generic [ref=f4e1057]:
+            - generic [ref=f4e1058]:
+              - img "Bogra Heritage Dairy" [ref=f4e1059]
+              - generic [ref=f4e1060]:
+                - heading "Bogra Heritage Dairy" [level=4] [ref=f4e1061]
+                - paragraph [ref=f4e1062]: Bogra / Gulshan-2, Dhaka
+            - paragraph [ref=f4e1063]: Original Shahi Misti Doi & Pure Artisanal Ghee
+            - generic [ref=f4e1064]:
+              - generic [ref=f4e1065]: ★ 4.98 rating
+              - generic [ref=f4e1066]: 6,200+ orders
+          - generic [ref=f4e1067]:
+            - generic [ref=f4e1068]:
+              - img "Tangail Weavers Collective" [ref=f4e1069]
+              - generic [ref=f4e1070]:
+                - heading "Tangail Weavers Collective" [level=4] [ref=f4e1071]
+                - paragraph [ref=f4e1072]: Tangail / Dhanmondi, Dhaka
+            - paragraph [ref=f4e1073]: 100-count Fine Handloom Cotton Sarees & Panjabis
+            - generic [ref=f4e1074]:
+              - generic [ref=f4e1075]: ★ 4.88 rating
+              - generic [ref=f4e1076]: 3,100+ orders
+  - contentinfo [ref=f4e1077]:
+    - generic [ref=f4e1079]:
+      - generic [ref=f4e1087]:
+        - heading "Hyper-Local Express Delivery" [level=4] [ref=f4e1088]
+        - paragraph [ref=f4e1089]: Same-day and 3-hour doorstep delivery across Dhaka and Chittagong.
+      - generic [ref=f4e1095]:
+        - heading "100% Halal & Farm Fresh" [level=4] [ref=f4e1096]
+        - paragraph [ref=f4e1097]: Direct sourcing from verified regional farms and river fisheries.
+      - generic [ref=f4e1105]:
+        - heading "7-Day Easy Returns" [level=4] [ref=f4e1106]
+        - paragraph [ref=f4e1107]: Hassle-free replacement or refund guarantee on all marketplace items.
+      - generic [ref=f4e1113]:
+        - heading "24/7 Dedicated Support" [level=4] [ref=f4e1114]
+        - paragraph [ref=f4e1115]: Call our direct helpline +880 9612 000 000 for any order queries.
+    - generic [ref=f4e1116]:
+      - generic [ref=f4e1117]:
+        - generic [ref=f4e1118]:
+          - img "NexHaat" [ref=f4e1120]
+          - generic [ref=f4e1121]: NexHaat
+        - paragraph [ref=f4e1122]: NexHaat connects millions of Bangladeshi shoppers directly with local farmers, river fishermen, cottage artisans, and verified merchants. We guarantee authentic quality, fair pricing, and rapid doorstep delivery.
+        - generic [ref=f4e1123]:
+          - generic [ref=f4e1124]: Level 6, Navana Tower, Gulshan-1, Dhaka 1212, Bangladesh
+          - generic [ref=f4e1129]: "Hotline: +880 9612 000 000 (8:00 AM - 11:00 PM)"
+          - generic [ref=f4e1133]: support@nexhaat.com.bd
+      - generic [ref=f4e1138]:
+        - heading "Marketplace" [level=5] [ref=f4e1139]
+        - list [ref=f4e1140]:
+          - listitem [ref=f4e1141]:
+            - button "All Products & Catalog" [ref=f4e1142] [cursor=pointer]
+          - listitem [ref=f4e1143]:
+            - button "Flash Deals & Discounts" [ref=f4e1144] [cursor=pointer]
+          - listitem [ref=f4e1145]:
+            - button "My Wishlist" [ref=f4e1146] [cursor=pointer]
+          - listitem [ref=f4e1147]:
+            - button "Order Tracking" [ref=f4e1148] [cursor=pointer]
+      - generic [ref=f4e1149]:
+        - heading "Partner With Us" [level=5] [ref=f4e1150]
+        - list [ref=f4e1151]:
+          - listitem [ref=f4e1152]:
+            - button "Seller Merchant Portal" [ref=f4e1153] [cursor=pointer]
+          - listitem [ref=f4e1155]:
+            - button "Rider Delivery Hub" [ref=f4e1156] [cursor=pointer]
+          - listitem [ref=f4e1158]:
+            - button "Admin Operations Center" [ref=f4e1159] [cursor=pointer]
+          - listitem [ref=f4e1161]:
+            - button "Help & FAQs" [ref=f4e1162] [cursor=pointer]
+      - generic [ref=f4e1163]:
+        - heading "Payment Security" [level=5] [ref=f4e1164]
+        - paragraph [ref=f4e1165]: Encrypted checkout supporting all major Bangladeshi channels.
+        - generic [ref=f4e1166]:
+          - generic [ref=f4e1167]: bKash
+          - generic [ref=f4e1168]: Nagad
+          - generic [ref=f4e1169]: Visa / Master
+          - generic [ref=f4e1170]: Cash on Delivery
+    - paragraph [ref=f4e1172]: © 2026 NexHaat Ltd. All rights reserved. Built with precision for Bangladesh.

@@ -1,0 +1,885 @@
+{
+  "schema_version": 1,
+  "last_verified": "2026-11-01",
+  "verification_policy": "A feature is registered only when its implementation path was inspected. Live-provider, staging, and production status are separate from source presence.",
+  "audit_notes": [
+    "Phase 24 expands the registry additively; prior records are preserved for compatibility.",
+    "IMPLEMENTED_AND_CONNECTED means source-side contracts are connected and covered by local evidence; it does not certify live providers, staging, or production.",
+    "React local/mock state, Flask HTML/API routes, Firebase identity, Flask AI, and Express AI are intentionally preserved overlaps until an approved consolidation is completed."
+  ],
+  "features": [
+    {
+      "id": "NEX-AUTH-OTP",
+      "name": "Flask authentication and OTP",
+      "source": "Existing Flask implementation; preserved Copilot-preferred OTP flow",
+      "frontend_locations": [
+        "src/lib/flaskAuth.ts",
+        "src/components/FlaskAuthPanel.tsx",
+        "app/templates/auth/verify_registration.html",
+        "app/static/js/otp-verification.js"
+      ],
+      "backend_locations": [
+        "app/routes/auth.py",
+        "app/api/routes/auth.py",
+        "app/models/security.py",
+        "app/services/sms.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/auth/csrf",
+        "/api/v1/auth/login",
+        "/api/v1/auth/register",
+        "/api/v1/auth/register/verify",
+        "/api/v1/auth/me"
+      ],
+      "test_locations": [
+        "tests/test_auth.py",
+        "tests/test_sms_service.py"
+      ],
+      "integration_status": "implemented-local-contract; staging-provider-blocked",
+      "ownership": "Flask server-side identity and OTP authority",
+      "preservation_requirements": [
+        "Do not duplicate or replace OTP verification.",
+        "Keep session cookies, CSRF, hashing, expiry, cooldown, and attempt limits."
+      ]
+    },
+    {
+      "id": "NEX-CATALOG-CART",
+      "name": "React catalog, cart, and wishlist bridge",
+      "source": "Google AI Studio-style React UI with additive Flask adapter",
+      "frontend_locations": [
+        "src/context/AppContext.tsx",
+        "src/lib/marketplaceApi.ts",
+        "src/pages/CatalogPage.tsx",
+        "src/components/ProductCard.tsx",
+        "src/pages/WishlistPage.tsx",
+        "src/components/CartDrawer.tsx"
+      ],
+      "backend_locations": [
+        "app/api/routes/catalog.py",
+        "app/api/routes/commerce.py",
+        "app/api/routes/wishlist.py",
+        "app/services/catalog.py",
+        "app/services/cart.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/categories",
+        "/api/v1/products",
+        "/api/v1/cart",
+        "/api/v1/cart/items",
+        "/api/v1/wishlist"
+      ],
+      "test_locations": [
+        "tests/test_catalog.py",
+        "tests/test_wishlist.py",
+        "tests/test_orders.py"
+      ],
+      "integration_status": "implemented-by-source-and-tests; browser-staging-blocked",
+      "ownership": "Flask catalog, stock, session cart, and customer ownership",
+      "preservation_requirements": [
+        "Keep guest preview fallback.",
+        "Never trust client price, stock, seller, or role values."
+      ]
+    },
+    {
+      "id": "NEX-CHECKOUT-ORDERS",
+      "name": "Customer COD checkout, orders, returns, and notifications",
+      "source": "Existing NexHaat Flask commerce plus additive React integration",
+      "frontend_locations": [
+        "src/pages/CheckoutPage.tsx",
+        "src/context/AppContext.tsx",
+        "src/lib/marketplaceApi.ts",
+        "src/pages/MyOrdersPage.tsx",
+        "src/pages/NotificationsPage.tsx"
+      ],
+      "backend_locations": [
+        "app/api/routes/commerce.py",
+        "app/api/routes/notifications.py",
+        "app/services/checkout.py",
+        "app/services/orders.py",
+        "app/services/payments.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/checkout",
+        "/api/v1/orders",
+        "/api/v1/notifications",
+        "/api/v1/notifications/read-all"
+      ],
+      "test_locations": [
+        "tests/test_orders.py",
+        "tests/test_notifications.py"
+      ],
+      "integration_status": "implemented-contract; authenticated-browser-and-provider-not-tested",
+      "ownership": "Flask transaction, pricing, inventory, payment, and order authority",
+      "preservation_requirements": [
+        "Keep guest preview behavior.",
+        "Online payment and refund callbacks remain server-authoritative."
+      ]
+    },
+    {
+      "id": "NEX-AI-ASSISTANTS",
+      "name": "Scoped AI marketplace assistants",
+      "source": "Existing Stage 12 Flask AI Core plus Express Gemini UI service",
+      "frontend_locations": [
+        "src/components/AIAssistantDrawer.tsx",
+        "src/lib/amazonFeatures.ts",
+        "app/templates/ai/customer.html"
+      ],
+      "backend_locations": [
+        "app/ai/core",
+        "app/ai/marketplace_tools.py",
+        "app/ai/seller.py",
+        "app/ai/admin_tools.py",
+        "app/ai/security_tools.py",
+        "server.ts"
+      ],
+      "api_dependencies": [
+        "/ai/chat",
+        "/ai/voice-search",
+        "/ai/image-search",
+        "/api/gemini/chat",
+        "/api/science/analyze-product"
+      ],
+      "test_locations": [
+        "tests/test_ai_features.py",
+        "tests/test_telegram_bots.py"
+      ],
+      "integration_status": "source-and-local-tests-present; live-provider-blocked",
+      "ownership": "Flask AI scopes/tools for marketplace authority; Express for auxiliary Gemini/science capabilities",
+      "preservation_requirements": [
+        "Keep provider keys server-side.",
+        "AI output cannot authorize payment, role, inventory, order, or admin actions.",
+        "Keep human confirmation for consequential mutations."
+      ]
+    },
+    {
+      "id": "NEX-ANDROID-API",
+      "name": "Android marketplace client",
+      "source": "Existing Android Retrofit/Compose client",
+      "frontend_locations": [
+        "android/app/src/main/java/com/nexhaat/app/ui",
+        "android/app/src/main/java/com/nexhaat/app/data/repository"
+      ],
+      "backend_locations": [
+        "android/app/src/main/java/com/nexhaat/app/data/remote/ApiService.kt",
+        "android/app/src/main/java/com/nexhaat/app/data/remote/dto",
+        "android/app/src/main/java/com/nexhaat/app/data/remote/interceptor"
+      ],
+      "api_dependencies": [
+        "/api/v1"
+      ],
+      "test_locations": [
+        "android/app/src/test"
+      ],
+      "integration_status": "source-compatible-and-unit-tested; live-device-not-tested",
+      "ownership": "Android client consumes Flask versioned API",
+      "preservation_requirements": [
+        "Preserve response envelope, cookie jar, CSRF interceptor, and BuildConfig base URL.",
+        "Use additive API changes only."
+      ]
+    },
+    {
+      "id": "NEX-BACKUP-DR",
+      "name": "Database backup and restore tooling",
+      "source": "Existing Flask CLI and service implementation",
+      "frontend_locations": [],
+      "backend_locations": [
+        "app/services/backup.py",
+        "app/__init__.py",
+        ".github/runbooks/backup-restore.md"
+      ],
+      "api_dependencies": [
+        "flask backup-db",
+        "flask restore-db"
+      ],
+      "test_locations": [
+        "tests/test_security_ops.py",
+        "tests/test_stage10_operations.py"
+      ],
+      "integration_status": "local-backup-integrity-passed; disposable-restore-blocked",
+      "ownership": "Flask/SQLAlchemy database and operator runbooks",
+      "preservation_requirements": [
+        "Never restore over an active or production target without approved isolation.",
+        "Keep explicit target confirmation and integrity validation."
+      ]
+    },
+    {
+      "id": "NEX-CUSTOMER-MARKETPLACE",
+      "name": "Customer marketplace shell and discovery journey",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/App.tsx",
+        "src/pages/HomePage.tsx",
+        "src/pages/CatalogPage.tsx",
+        "src/components/Navbar.tsx",
+        "src/components/Footer.tsx"
+      ],
+      "backend_locations": [
+        "app/routes/main.py",
+        "app/api/routes/catalog.py",
+        "app/services/catalog.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/categories",
+        "/api/v1/products",
+        "/api/v1/banners"
+      ],
+      "database_models": [
+        "app/models/catalog.py",
+        "app/models/banner.py"
+      ],
+      "auth_requirements": "Public browsing; customer session for protected mutations.",
+      "test_locations": [
+        "tests/test_catalog.py",
+        "tests/test_discovery.py"
+      ],
+      "integration_status": "Flask server-rendered path is connected; React retains guest/local fallback and browser staging is unverified.",
+      "overlaps": [
+        "React presentation and Flask/Jinja marketplace routes"
+      ],
+      "missing_or_incomplete": [
+        "Live React-to-Flask session, CSRF, and CORS behavior requires staging verification."
+      ],
+      "evidence": [
+        "src/App.tsx",
+        "src/lib/marketplaceApi.ts",
+        "app/routes/marketplace.py",
+        "app/api/routes/catalog.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-CATALOG-SEARCH",
+      "name": "Catalog, categories, filtering, and search",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/pages/CatalogPage.tsx",
+        "src/components/Navbar.tsx",
+        "src/lib/marketplaceApi.ts"
+      ],
+      "backend_locations": [
+        "app/api/routes/catalog.py",
+        "app/services/catalog.py",
+        "app/routes/main.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/products",
+        "/api/v1/categories",
+        "/api/v1/search"
+      ],
+      "database_models": [
+        "app/models/catalog.py",
+        "app/models/product.py"
+      ],
+      "auth_requirements": "Public read; seller/admin authorization for catalog mutations.",
+      "test_locations": [
+        "tests/test_catalog.py",
+        "tests/test_catalog_phase3.py",
+        "tests/test_discovery.py"
+      ],
+      "integration_status": "Backend/API and local tests present; some React filtering remains client-side and live search latency/provider behavior is unverified.",
+      "overlaps": [
+        "Server-side catalog search and React local filtering"
+      ],
+      "missing_or_incomplete": [
+        "No verified production-scale search/index integration."
+      ],
+      "evidence": [
+        "app/api/routes/catalog.py",
+        "app/services/catalog.py",
+        "src/pages/CatalogPage.tsx"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-PRODUCT-DETAILS-REVIEWS",
+      "name": "Product details, media, reviews, and trust signals",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/pages/ProductDetailPage.tsx",
+        "src/components/ProductCard.tsx",
+        "src/components/ProductCard.tsx"
+      ],
+      "backend_locations": [
+        "app/api/routes/catalog.py",
+        "app/services/reviews.py",
+        "app/services/reviews.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/products/<product_id>",
+        "/api/v1/products/<product_id>/reviews"
+      ],
+      "database_models": [
+        "app/models/catalog.py",
+        "app/models/reviews.py"
+      ],
+      "auth_requirements": "Public product read; authenticated customer for review creation; seller/admin moderation authorization.",
+      "test_locations": [
+        "tests/test_catalog_media.py",
+        "tests/test_reviews.py",
+        "tests/test_review_trust.py"
+      ],
+      "integration_status": "Flask/API and review tests are present; complete React detail-to-review live flow is not verified.",
+      "overlaps": [
+        "Product detail data in React context and server catalog response"
+      ],
+      "missing_or_incomplete": [
+        "Live media storage and browser delivery are not verified."
+      ],
+      "evidence": [
+        "src/pages/ProductDetailPage.tsx",
+        "app/api/routes/catalog.py",
+        "app/models/reviews.py"
+      ],
+      "confidence": "MEDIUM"
+    },
+    {
+      "id": "NEX-CART-WISHLIST",
+      "name": "Cart and wishlist",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/context/AppContext.tsx",
+        "src/components/CartDrawer.tsx",
+        "src/pages/WishlistPage.tsx",
+        "src/lib/marketplaceApi.ts"
+      ],
+      "backend_locations": [
+        "app/api/routes/commerce.py",
+        "app/api/routes/wishlist.py",
+        "app/services/cart.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/cart",
+        "/api/v1/cart/items",
+        "/api/v1/wishlist"
+      ],
+      "database_models": [
+        "app/models/cart.py",
+        "app/models/wishlist.py"
+      ],
+      "auth_requirements": "Customer session and ownership checks; guest preview is non-authoritative.",
+      "test_locations": [
+        "tests/test_wishlist.py",
+        "tests/test_orders.py"
+      ],
+      "integration_status": "Server contract and React mutation bridge exist; authenticated browser hydration and concurrency are unverified.",
+      "overlaps": [
+        "React local cart state and server cart authority"
+      ],
+      "missing_or_incomplete": [
+        "No live multi-device reconciliation evidence."
+      ],
+      "evidence": [
+        "src/context/AppContext.tsx",
+        "src/lib/marketplaceApi.ts",
+        "app/services/cart.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-CHECKOUT-PAYMENTS",
+      "name": "Checkout, pricing, payment, refunds, and ledger",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/pages/CheckoutPage.tsx",
+        "src/lib/marketplaceApi.ts"
+      ],
+      "backend_locations": [
+        "app/api/routes/commerce.py",
+        "app/services/checkout.py",
+        "app/services/payments.py",
+        "app/models/payment.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/checkout",
+        "/api/v1/payments",
+        "/api/v1/refunds"
+      ],
+      "database_models": [
+        "app/models/orders.py",
+        "app/models/payment.py",
+        "app/models/ledger.py"
+      ],
+      "auth_requirements": "Authenticated customer ownership; server-authoritative totals, stock, payment state, and admin refund permissions.",
+      "test_locations": [
+        "tests/test_orders.py",
+        "tests/test_payments.py"
+      ],
+      "integration_status": "Server-side checkout/payment invariants and tests exist; provider credentials, webhook replay, and live payment are unverified.",
+      "overlaps": [
+        "React checkout preview and Flask transaction authority"
+      ],
+      "missing_or_incomplete": [
+        "Live provider callback and reconciliation evidence."
+      ],
+      "evidence": [
+        "app/services/checkout.py",
+        "app/services/payments.py",
+        "tests/test_payments.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-ORDERS-RETURNS",
+      "name": "Orders, fulfillment state, returns, and delivery",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/pages/MyOrdersPage.tsx",
+        "src/pages/OrderConfirmationPage.tsx",
+        "src/lib/marketplaceApi.ts"
+      ],
+      "backend_locations": [
+        "app/api/routes/commerce.py",
+        "app/routes/orders.py",
+        "app/services/orders.py",
+        "app/services/orders.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/orders",
+        "/api/v1/returns"
+      ],
+      "database_models": [
+        "app/models/orders.py",
+        "app/models/returns.py",
+        "app/models/delivery.py"
+      ],
+      "auth_requirements": "Customer ownership; seller fulfillment scope; admin/rider transition permissions.",
+      "test_locations": [
+        "tests/test_orders.py",
+        "tests/test_returns.py",
+        "tests/test_delivery.py"
+      ],
+      "integration_status": "Server state machine and tests are present; live customer/seller/rider workflow is unverified.",
+      "overlaps": [
+        "Jinja order routes and React order views"
+      ],
+      "missing_or_incomplete": [
+        "No staging evidence for end-to-end status transitions."
+      ],
+      "evidence": [
+        "app/services/orders.py",
+        "app/routes/orders.py",
+        "tests/test_returns.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-CUSTOMER-PROFILE",
+      "name": "Customer profile, addresses, and account settings",
+      "classification": "IMPLEMENTED_BACKEND_ONLY",
+      "frontend_locations": [
+        "app/templates/auth/account.html",
+        "app/templates/auth"
+      ],
+      "backend_locations": [
+        "app/routes/auth.py",
+        "app/api/routes/auth.py",
+        "app/services/profiles.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/account",
+        "/api/v1/account/addresses"
+      ],
+      "database_models": [
+        "app/models/user.py",
+        "app/models/address.py",
+        "app/models/profile.py"
+      ],
+      "auth_requirements": "Authenticated customer ownership and CSRF/session protection.",
+      "test_locations": [
+        "tests/test_accounts.py",
+        "tests/test_auth.py"
+      ],
+      "integration_status": "Flask/Jinja and API implementation are present; no verified React profile page integration was found.",
+      "overlaps": [
+        "Flask account pages and API account contract"
+      ],
+      "missing_or_incomplete": [
+        "React customer profile surface is not verified."
+      ],
+      "evidence": [
+        "app/routes/accounts.py",
+        "app/api/routes/accounts.py",
+        "tests/test_accounts.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-SELLER-PORTAL",
+      "name": "Seller portal, catalog operations, and fulfillment",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/pages/SellerPortalPage.tsx",
+        "app/templates/seller"
+      ],
+      "backend_locations": [
+        "app/routes/seller.py",
+        "app/api/routes/admin.py",
+        "app/services/catalog.py",
+        "app/services/orders.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/seller",
+        "/api/v1/products",
+        "/api/v1/orders"
+      ],
+      "database_models": [
+        "app/models/user.py",
+        "app/models/catalog.py",
+        "app/models/orders.py",
+        "app/models/payout.py"
+      ],
+      "auth_requirements": "Seller role, store ownership, scoped authorization, and audited privileged actions.",
+      "test_locations": [
+        "tests/test_catalog.py",
+        "tests/test_orders.py",
+        "tests/test_security_ops.py"
+      ],
+      "integration_status": "Server seller routes/services exist; React seller pages retain local/mock behavior and live seller integration is unverified.",
+      "overlaps": [
+        "React seller dashboard and Flask seller portal"
+      ],
+      "missing_or_incomplete": [
+        "No verified seller browser session and tenant-isolation journey."
+      ],
+      "evidence": [
+        "app/routes/seller.py",
+        "src/pages/SellerDashboardPage.tsx",
+        "app/services/catalog.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-ADMIN-PORTAL",
+      "name": "Admin, operations, moderation, and audit portal",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/pages/AdminPortalPage.tsx",
+        "app/templates/admin"
+      ],
+      "backend_locations": [
+        "app/routes/portals.py",
+        "app/api/routes/admin.py",
+        "app/services/audit.py",
+        "app/security.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/admin",
+        "/api/v1/audit"
+      ],
+      "database_models": [
+        "app/models/audit.py",
+        "app/models/security.py",
+        "app/models/catalog.py",
+        "app/models/orders.py"
+      ],
+      "auth_requirements": "Explicit admin permissions, CSRF, audit records, and deny-by-default resource scope.",
+      "test_locations": [
+        "tests/test_security_ops.py",
+        "tests/test_stage10_operations.py",
+        "tests/test_review_trust.py"
+      ],
+      "integration_status": "Flask admin surface and security tests exist; React admin UI is not proven connected to all privileged endpoints.",
+      "overlaps": [
+        "React admin dashboard and Flask/Jinja admin portal"
+      ],
+      "missing_or_incomplete": [
+        "No live privileged-action approval and audit verification."
+      ],
+      "evidence": [
+        "app/routes/admin.py",
+        "app/api/routes/admin.py",
+        "app/services/audit.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-NOTIFICATIONS-SUPPORT",
+      "name": "Notifications, support, and customer communication",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src/pages/NotificationsPage.tsx",
+        "src/lib/marketplaceApi.ts",
+        "app/templates/support"
+      ],
+      "backend_locations": [
+        "app/api/routes/notifications.py",
+        "app/routes/support.py",
+        "app/services/notifications.py",
+        "app/services/notifications.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/notifications",
+        "/api/v1/support"
+      ],
+      "database_models": [
+        "app/models/notification.py",
+        "app/models/support.py",
+        "app/models/outbox.py"
+      ],
+      "auth_requirements": "Customer ownership; support-agent/admin scope for internal records.",
+      "test_locations": [
+        "tests/test_notifications.py",
+        "tests/test_stage10_operations.py"
+      ],
+      "integration_status": "API, outbox, and local tests exist; external delivery providers and retry operations are not live-verified.",
+      "overlaps": [
+        "React notification view and Flask notification API"
+      ],
+      "missing_or_incomplete": [
+        "Delivery observability and provider outage behavior require staging evidence."
+      ],
+      "evidence": [
+        "app/services/notifications.py",
+        "app/services/outbox.py",
+        "tests/test_notifications.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-FLASK-AI",
+      "name": "Flask scoped marketplace AI",
+      "classification": "IMPLEMENTED_AND_CONNECTED",
+      "frontend_locations": [
+        "app/templates/ai",
+        "src/components/AIAssistantDrawer.tsx"
+      ],
+      "backend_locations": [
+        "app/ai/core",
+        "app/ai/marketplace_tools.py",
+        "app/ai/seller.py",
+        "app/ai/admin_tools.py",
+        "app/ai/security_tools.py"
+      ],
+      "api_dependencies": [
+        "/ai/chat",
+        "/ai/voice-search",
+        "/ai/image-search"
+      ],
+      "database_models": [
+        "app/models/ai.py",
+        "app/models/audit.py",
+        "app/models/security.py"
+      ],
+      "auth_requirements": "Role-scoped permissions, rate limits, guardrails, and human confirmation for consequential actions.",
+      "test_locations": [
+        "tests/test_ai_core.py",
+        "tests/test_ai_features.py"
+      ],
+      "integration_status": "Flask AI contracts, tools, guardrails, and local tests are connected; external model availability is unverified.",
+      "overlaps": [
+        "Express Gemini assistant is a separate auxiliary capability"
+      ],
+      "missing_or_incomplete": [
+        "Provider latency/cost and adversarial prompt evaluation require authorized environment evidence."
+      ],
+      "evidence": [
+        "app/ai/core",
+        "app/ai/marketplace_tools.py",
+        "tests/test_ai_features.py"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-EXPRESS-AI",
+      "name": "Express/Gemini and science AI services",
+      "classification": "IMPLEMENTED_AND_CONNECTED",
+      "frontend_locations": [
+        "src/components/AIAssistantDrawer.tsx",
+        "src/lib/amazonFeatures.ts"
+      ],
+      "backend_locations": [
+        "server.ts"
+      ],
+      "api_dependencies": [
+        "/api/gemini/chat",
+        "/api/science/analyze-product",
+        "/api/transcribe",
+        "WebSocket /ws"
+      ],
+      "database_models": [],
+      "auth_requirements": "Server-side provider keys and endpoint controls; no claim of Flask identity equivalence.",
+      "test_locations": [
+        "tests/test_ai_features.py"
+      ],
+      "integration_status": "Express routes and client callers exist; live Gemini/provider credentials and deployment behavior are unverified.",
+      "overlaps": [
+        "Flask AI assistant",
+        "Shared React assistant presentation"
+      ],
+      "missing_or_incomplete": [
+        "Broad CORS and large JSON limit require separate security hardening review.",
+        "No verified provider health, cost budget, or rate-limit evidence."
+      ],
+      "evidence": [
+        "server.ts",
+        "src/components/AIAssistantDrawer.tsx"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-FLASK-API-SERVICES",
+      "name": "Versioned Flask APIs and domain services",
+      "classification": "IMPLEMENTED_AND_CONNECTED",
+      "frontend_locations": [
+        "src/lib/flaskAuth.ts",
+        "src/lib/marketplaceApi.ts",
+        "android/app/src/main/java/com/nexhaat/app/data/remote/ApiService.kt"
+      ],
+      "backend_locations": [
+        "app/api/__init__.py",
+        "app/api/routes",
+        "app/services"
+      ],
+      "api_dependencies": [
+        "/api/v1/auth",
+        "/api/v1/catalog",
+        "/api/v1/commerce",
+        "/api/v1/admin",
+        "/api/v1/notifications",
+        "/api/v1/wishlist"
+      ],
+      "database_models": [
+        "app/models"
+      ],
+      "auth_requirements": "Flask sessions, CSRF, role/ownership policies, and server-side business invariants.",
+      "test_locations": [
+        "tests"
+      ],
+      "integration_status": "Blueprint registration, service boundaries, clients, and broad local test coverage are present; live cross-client deployment is unverified.",
+      "overlaps": [
+        "Server-rendered Flask routes expose overlapping business journeys"
+      ],
+      "missing_or_incomplete": [
+        "External staging, CORS/session, and production telemetry are not verified."
+      ],
+      "evidence": [
+        "app/api/__init__.py",
+        "app/api/routes",
+        "app/services"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-ANDROID-CLIENT",
+      "name": "Android marketplace application",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "android/app/src/main/java/com/nexhaat/app/ui",
+        "android/app/src/main/java/com/nexhaat/app/data/repository"
+      ],
+      "backend_locations": [
+        "android/app/src/main/java/com/nexhaat/app/data/remote/ApiService.kt",
+        "android/app/src/main/java/com/nexhaat/app/data/remote/dto"
+      ],
+      "api_dependencies": [
+        "/api/v1/auth",
+        "/api/v1/catalog",
+        "/api/v1/cart",
+        "/api/v1/banners"
+      ],
+      "database_models": [],
+      "auth_requirements": "Retrofit session/cookie and CSRF interceptor; server remains authoritative.",
+      "test_locations": [
+        "android/app/src/test"
+      ],
+      "integration_status": "Retrofit/Compose source and unit tests exist; device, emulator, live API, and release signing are unverified.",
+      "overlaps": [
+        "Android client and React client consume the same Flask API"
+      ],
+      "missing_or_incomplete": [
+        "Only a subset of marketplace API surface is represented in ApiService.kt."
+      ],
+      "evidence": [
+        "android/app/src/main/java/com/nexhaat/app/data/remote/ApiService.kt",
+        "android/app/src/test"
+      ],
+      "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-SECURITY-UPLOADS",
+      "name": "Security, privacy, uploads, and static assets",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "src",
+        "app/static",
+        "app/templates"
+      ],
+      "backend_locations": [
+        "app/security.py",
+        "app/services/catalog_media.py",
+        "app/routes/main.py",
+        "app/models/security.py"
+      ],
+      "api_dependencies": [
+        "/api/v1/auth/csrf",
+        "/api/v1/uploads"
+      ],
+      "database_models": [
+        "app/models/security.py",
+        "app/models/audit.py"
+      ],
+      "auth_requirements": "CSRF/session controls, role authorization, file size/type validation, isolation, and audit logging.",
+      "test_locations": [
+        "tests/test_security_ops.py",
+        "tests/test_catalog_media.py"
+      ],
+      "integration_status": "Local security and media code/tests are present; malware scanning, object storage, privacy retention, and live upload abuse tests are unverified.",
+      "overlaps": [
+        "Local/static assets and provider/object-storage adapters"
+      ],
+      "missing_or_incomplete": [
+        "No staging evidence for private file delivery or malicious archive handling."
+      ],
+      "evidence": [
+        "app/services/security.py",
+        "app/services/uploads.py",
+        "tests/test_catalog_media.py"
+      ],
+      "confidence": "MEDIUM"
+    },
+    {
+      "id": "NEX-INTEGRATIONS-BACKGROUND",
+      "name": "Telegram, outbox, scheduled operations, and external integrations",
+      "classification": "PARTIALLY_INTEGRATED",
+      "frontend_locations": [
+        "app/templates/support",
+        "src"
+      ],
+      "backend_locations": [
+        "app/telegram",
+        "app/models/outbox.py",
+        "app/services/backup.py",
+        "app/__init__.py"
+      ],
+      "api_dependencies": [
+        "/telegram/webhook",
+        "flask backup-db",
+        "flask restore-db"
+      ],
+      "database_models": [
+        "app/models/telegram.py",
+        "app/models/outbox.py",
+        "app/models/audit.py"
+      ],
+      "auth_requirements": "Webhook verification, operator authorization, explicit restore confirmation, and secret isolation.",
+      "test_locations": [
+        "tests/test_telegram_bots.py",
+        "tests/test_stage10_operations.py",
+        "tests/test_security_ops.py"
+      ],
+      "integration_status": "Source adapters, CLI operations, and local tests exist; live Telegram, mail, scheduler/worker, and restore environments are unverified.",
+      "overlaps": [
+        "Outbox delivery and direct notification integrations"
+      ],
+      "missing_or_incomplete": [
+        "No evidence of a production scheduler/worker deployment in this audit."
+      ],
+      "evidence": [
+        "app/telegram",
+        "app/services/outbox.py",
+        "tests/test_telegram_bots.py"
+      ],
+      "confidence": "HIGH"
+    }
+  ]
+}

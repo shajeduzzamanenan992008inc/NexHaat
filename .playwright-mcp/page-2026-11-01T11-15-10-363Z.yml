@@ -1,0 +1,186 @@
+- generic [ref=f4e3]:
+  - banner [ref=f4e4]:
+    - generic [ref=f4e6]:
+      - generic [ref=f4e7]:
+        - button "NexHaat Prime Member (Active)" [ref=f4e8] [cursor=pointer]
+        - generic [ref=f4e15]:
+          - text: "Support:"
+          - strong [ref=f4e16]: +880 9612 000 000
+      - generic [ref=f4e17]:
+        - button "Switch to Dark Mode" [ref=f4e18] [cursor=pointer]
+        - generic [ref=f4e21]:
+          - button "ENG" [ref=f4e22] [cursor=pointer]
+          - button "বাংলা" [ref=f4e23] [cursor=pointer]
+        - button "customer" [ref=f4e25] [cursor=pointer]
+        - button "NexHaat Login" [ref=f4e30] [cursor=pointer]
+        - button "Google Sign-In" [ref=f4e32] [cursor=pointer]
+    - generic [ref=f4e40]:
+      - generic [ref=f4e41] [cursor=pointer]:
+        - img "NexHaat" [ref=f4e43]
+        - generic [ref=f4e44]:
+          - generic [ref=f4e45]:
+            - generic [ref=f4e46]: NexHaat
+            - generic [ref=f4e47]: BD
+            - generic [ref=f4e48]: PRIME
+          - paragraph [ref=f4e49]: Amazon-Grade Multi-Vendor Marketplace
+      - generic [ref=f4e51]:
+        - button "All" [ref=f4e53] [cursor=pointer]
+        - textbox "Search fresh fish, organic rice, cold-pressed oil, farm produce..." [ref=f4e58]
+        - generic [ref=f4e59]:
+          - button "Voice Search" [ref=f4e60] [cursor=pointer]
+          - button "Search by Image" [ref=f4e64] [cursor=pointer]
+        - button "Search" [ref=f4e68] [cursor=pointer]
+      - generic [ref=f4e73]:
+        - button "HaatAI ✨" [ref=f4e74] [cursor=pointer]
+        - button "Wishlist" [ref=f4e78] [cursor=pointer]:
+          - generic [ref=f4e81]: "2"
+        - button "Notifications" [ref=f4e82] [cursor=pointer]:
+          - generic [ref=f4e86]: "3"
+        - button "Open cart" [active] [ref=f4e87] [cursor=pointer]:
+          - generic [ref=f4e93]: ৳0.00
+    - generic [ref=f4e95]:
+      - generic [ref=f4e96]:
+        - button "All Haat Categories" [ref=f4e98] [cursor=pointer]
+        - button "Browse Catalog" [ref=f4e103] [cursor=pointer]
+        - button "Mega Deals & Offers" [ref=f4e104] [cursor=pointer]
+        - button "Prime Hub" [ref=f4e109] [cursor=pointer]
+        - button "Fresh Produce" [ref=f4e113] [cursor=pointer]
+        - button "Padma Fish & Meat" [ref=f4e114] [cursor=pointer]
+        - button "Bogra Curd & Dairy" [ref=f4e115] [cursor=pointer]
+      - generic [ref=f4e116]:
+        - button "Track My Orders" [ref=f4e117] [cursor=pointer]
+        - button "Customer Support" [ref=f4e118] [cursor=pointer]
+  - generic [ref=f4e1270]:
+    - generic [ref=f4e1271]:
+      - generic [ref=f4e1277]:
+        - heading "Shopping Cart" [level=2] [ref=f4e1278]
+        - paragraph [ref=f4e1279]: 0 items
+      - button "Close cart" [ref=f4e1280] [cursor=pointer]
+    - generic [ref=f4e1285]:
+      - generic [ref=f4e1286]: "NexHaat Prime: FREE 3-Hour Delivery Applied!"
+      - generic [ref=f4e1290]: PRIME
+    - generic [ref=f4e1292]:
+      - heading "Your cart is empty" [level=3] [ref=f4e1297]
+      - paragraph [ref=f4e1298]: Explore fresh foods, organic produce, and daily essentials.
+      - button "Explore Marketplace" [ref=f4e1299] [cursor=pointer]
+  - main [ref=f4e119]:
+    - generic [ref=f4e1173]:
+      - generic [ref=f4e1174]:
+        - generic [ref=f4e1175]:
+          - generic [ref=f4e1176]: Saved for Later
+          - heading "Your Wishlist" [level=1] [ref=f4e1180]
+          - paragraph [ref=f4e1181]: Keep track of seasonal delicacies and move them to cart anytime
+        - button "Move All to Cart" [ref=f4e1182] [cursor=pointer]
+      - generic [ref=f4e1187]:
+        - generic [ref=f4e1188] [cursor=pointer]:
+          - generic:
+            - generic:
+              - generic [ref=f4e1189]:
+                - generic [ref=f4e1190]: NexHaat's
+                - generic [ref=f4e1191]: Choice
+              - generic [ref=f4e1192]: "-15% OFF"
+            - generic [ref=f4e1193]:
+              - button "Remove from wishlist" [ref=f4e1194]
+              - button "Compare product" [ref=f4e1197]
+          - img "Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)" [ref=f4e1203]
+          - generic [ref=f4e1204]:
+            - generic [ref=f4e1205]:
+              - generic [ref=f4e1206]: FarmDirect Rajshahi
+              - generic [ref=f4e1207]:
+                - generic [ref=f4e1210]: "4.9"
+                - generic [ref=f4e1211]: (58)
+            - heading "Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)" [level=3] [ref=f4e1212]
+            - generic [ref=f4e1214]:
+              - generic [ref=f4e1215]: prime
+              - generic [ref=f4e1216]: FREE 3-hr delivery
+            - paragraph [ref=f4e1217]: "Bulk Save: Buy 3+ get 6% off"
+            - generic [ref=f4e1218]:
+              - generic [ref=f4e1219]:
+                - generic [ref=f4e1220]:
+                  - generic [ref=f4e1221]: ৳720.00
+                  - generic [ref=f4e1222]: ৳850.00
+                - generic [ref=f4e1223]: 5kg Basket
+              - button "Add to cart" [ref=f4e1224]
+        - generic [ref=f4e1228] [cursor=pointer]:
+          - generic:
+            - generic:
+              - generic [ref=f4e1229]:
+                - generic [ref=f4e1230]: NexHaat's
+                - generic [ref=f4e1231]: Choice
+              - generic [ref=f4e1232]: "-11% OFF"
+            - generic [ref=f4e1233]:
+              - button "Remove from wishlist" [ref=f4e1234]
+              - button "Compare product" [ref=f4e1237]
+          - img "Authentic Traditional Bogra Shahi Misti Doi (Earthen Clay Pot 1kg)" [ref=f4e1243]
+          - generic [ref=f4e1244]:
+            - generic [ref=f4e1245]:
+              - generic [ref=f4e1246]: Bogra Traditional
+              - generic [ref=f4e1247]:
+                - generic [ref=f4e1250]: "4.98"
+                - generic [ref=f4e1251]: (112)
+            - heading "Authentic Traditional Bogra Shahi Misti Doi (Earthen Clay Pot 1kg)" [level=3] [ref=f4e1252]
+            - generic [ref=f4e1254]:
+              - generic [ref=f4e1255]: prime
+              - generic [ref=f4e1256]: FREE 3-hr delivery
+            - generic [ref=f4e1257]:
+              - generic [ref=f4e1258]:
+                - generic [ref=f4e1259]:
+                  - generic [ref=f4e1260]: ৳310.00
+                  - generic [ref=f4e1261]: ৳350.00
+                - generic [ref=f4e1262]: 1 kg Clay Pot
+              - button "Add to cart" [ref=f4e1263]
+  - contentinfo [ref=f4e1077]:
+    - generic [ref=f4e1079]:
+      - generic [ref=f4e1087]:
+        - heading "Hyper-Local Express Delivery" [level=4] [ref=f4e1088]
+        - paragraph [ref=f4e1089]: Same-day and 3-hour doorstep delivery across Dhaka and Chittagong.
+      - generic [ref=f4e1095]:
+        - heading "100% Halal & Farm Fresh" [level=4] [ref=f4e1096]
+        - paragraph [ref=f4e1097]: Direct sourcing from verified regional farms and river fisheries.
+      - generic [ref=f4e1105]:
+        - heading "7-Day Easy Returns" [level=4] [ref=f4e1106]
+        - paragraph [ref=f4e1107]: Hassle-free replacement or refund guarantee on all marketplace items.
+      - generic [ref=f4e1113]:
+        - heading "24/7 Dedicated Support" [level=4] [ref=f4e1114]
+        - paragraph [ref=f4e1115]: Call our direct helpline +880 9612 000 000 for any order queries.
+    - generic [ref=f4e1116]:
+      - generic [ref=f4e1117]:
+        - generic [ref=f4e1118]:
+          - img "NexHaat" [ref=f4e1120]
+          - generic [ref=f4e1121]: NexHaat
+        - paragraph [ref=f4e1122]: NexHaat connects millions of Bangladeshi shoppers directly with local farmers, river fishermen, cottage artisans, and verified merchants. We guarantee authentic quality, fair pricing, and rapid doorstep delivery.
+        - generic [ref=f4e1123]:
+          - generic [ref=f4e1124]: Level 6, Navana Tower, Gulshan-1, Dhaka 1212, Bangladesh
+          - generic [ref=f4e1129]: "Hotline: +880 9612 000 000 (8:00 AM - 11:00 PM)"
+          - generic [ref=f4e1133]: support@nexhaat.com.bd
+      - generic [ref=f4e1138]:
+        - heading "Marketplace" [level=5] [ref=f4e1139]
+        - list [ref=f4e1140]:
+          - listitem [ref=f4e1141]:
+            - button "All Products & Catalog" [ref=f4e1142] [cursor=pointer]
+          - listitem [ref=f4e1143]:
+            - button "Flash Deals & Discounts" [ref=f4e1144] [cursor=pointer]
+          - listitem [ref=f4e1145]:
+            - button "My Wishlist" [ref=f4e1146] [cursor=pointer]
+          - listitem [ref=f4e1147]:
+            - button "Order Tracking" [ref=f4e1148] [cursor=pointer]
+      - generic [ref=f4e1149]:
+        - heading "Partner With Us" [level=5] [ref=f4e1150]
+        - list [ref=f4e1151]:
+          - listitem [ref=f4e1152]:
+            - button "Seller Merchant Portal" [ref=f4e1153] [cursor=pointer]
+          - listitem [ref=f4e1155]:
+            - button "Rider Delivery Hub" [ref=f4e1156] [cursor=pointer]
+          - listitem [ref=f4e1158]:
+            - button "Admin Operations Center" [ref=f4e1159] [cursor=pointer]
+          - listitem [ref=f4e1161]:
+            - button "Help & FAQs" [ref=f4e1162] [cursor=pointer]
+      - generic [ref=f4e1163]:
+        - heading "Payment Security" [level=5] [ref=f4e1164]
+        - paragraph [ref=f4e1165]: Encrypted checkout supporting all major Bangladeshi channels.
+        - generic [ref=f4e1166]:
+          - generic [ref=f4e1167]: bKash
+          - generic [ref=f4e1168]: Nagad
+          - generic [ref=f4e1169]: Visa / Master
+          - generic [ref=f4e1170]: Cash on Delivery
+    - paragraph [ref=f4e1172]: © 2026 NexHaat Ltd. All rights reserved. Built with precision for Bangladesh.

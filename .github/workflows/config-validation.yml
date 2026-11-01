@@ -1,0 +1,35 @@
+name: GitHub Configuration Validation
+
+on:
+  push:
+    paths:
+      - ".github/**"
+      - "SECURITY.md"
+  pull_request:
+    paths:
+      - ".github/**"
+      - "SECURITY.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-config-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate YAML, Copilot frontmatter, and workflow safety rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate GitHub configuration
+        run: ruby .github/scripts/validate_github_config.rb

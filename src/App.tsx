@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { CartDrawer } from './components/CartDrawer';
@@ -9,20 +9,41 @@ import { CompareModal } from './components/CompareModal';
 import { ComparisonBar } from './components/ComparisonBar';
 import { PrimeModal } from './components/PrimeModal';
 
-// Pages
-import { HomePage } from './pages/HomePage';
-import { CatalogPage } from './pages/CatalogPage';
-import { DealsPage } from './pages/DealsPage';
-import { ProductDetailPage } from './pages/ProductDetailPage';
-import { CheckoutPage } from './pages/CheckoutPage';
-import { OrderConfirmationPage } from './pages/OrderConfirmationPage';
-import { MyOrdersPage } from './pages/MyOrdersPage';
-import { WishlistPage } from './pages/WishlistPage';
-import { NotificationsPage } from './pages/NotificationsPage';
-import { SellerPortalPage } from './pages/SellerPortalPage';
-import { RiderPortalPage } from './pages/RiderPortalPage';
-import { AdminPortalPage } from './pages/AdminPortalPage';
-import { SupportPage } from './pages/SupportPage';
+const HomePage = React.lazy(() => import('./pages/HomePage').then(({ HomePage }) => ({ default: HomePage })));
+const CatalogPage = React.lazy(() =>
+  import('./pages/CatalogPage').then(({ CatalogPage }) => ({ default: CatalogPage })),
+);
+const DealsPage = React.lazy(() => import('./pages/DealsPage').then(({ DealsPage }) => ({ default: DealsPage })));
+const ProductDetailPage = React.lazy(() =>
+  import('./pages/ProductDetailPage').then(({ ProductDetailPage }) => ({ default: ProductDetailPage })),
+);
+const CheckoutPage = React.lazy(() =>
+  import('./pages/CheckoutPage').then(({ CheckoutPage }) => ({ default: CheckoutPage })),
+);
+const OrderConfirmationPage = React.lazy(() =>
+  import('./pages/OrderConfirmationPage').then(({ OrderConfirmationPage }) => ({ default: OrderConfirmationPage })),
+);
+const MyOrdersPage = React.lazy(() =>
+  import('./pages/MyOrdersPage').then(({ MyOrdersPage }) => ({ default: MyOrdersPage })),
+);
+const WishlistPage = React.lazy(() =>
+  import('./pages/WishlistPage').then(({ WishlistPage }) => ({ default: WishlistPage })),
+);
+const NotificationsPage = React.lazy(() =>
+  import('./pages/NotificationsPage').then(({ NotificationsPage }) => ({ default: NotificationsPage })),
+);
+const SellerPortalPage = React.lazy(() =>
+  import('./pages/SellerPortalPage').then(({ SellerPortalPage }) => ({ default: SellerPortalPage })),
+);
+const RiderPortalPage = React.lazy(() =>
+  import('./pages/RiderPortalPage').then(({ RiderPortalPage }) => ({ default: RiderPortalPage })),
+);
+const AdminPortalPage = React.lazy(() =>
+  import('./pages/AdminPortalPage').then(({ AdminPortalPage }) => ({ default: AdminPortalPage })),
+);
+const SupportPage = React.lazy(() =>
+  import('./pages/SupportPage').then(({ SupportPage }) => ({ default: SupportPage })),
+);
 
 const AppContent: React.FC = () => {
   const { currentView } = useApp();
@@ -71,7 +92,15 @@ const AppContent: React.FC = () => {
       <ToastContainer />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
-        {renderCurrentView()}
+        <Suspense
+          fallback={
+            <div className="neu-flat rounded-2xl p-8 text-center" role="status" aria-live="polite">
+              Loading NexHaat...
+            </div>
+          }
+        >
+          {renderCurrentView()}
+        </Suspense>
       </main>
 
       <Footer />

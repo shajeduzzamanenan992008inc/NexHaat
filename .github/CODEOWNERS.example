@@ -1,0 +1,11 @@
+# TEMPLATE ONLY — do not rename to CODEOWNERS until every placeholder is replaced.
+# Replace @YOUR_GITHUB_USERNAME and team names with real GitHub users/teams.
+# Invalid or nonexistent owners can cause review requests to fail.
+
+# All repository changes
+* @YOUR_GITHUB_USERNAME
+
+# Security and deployment-sensitive configuration
+/.github/workflows/ @YOUR_GITHUB_USERNAME
+/.github/agents/ @YOUR_GITHUB_USERNAME
+/SECURITY.md @YOUR_GITHUB_USERNAME

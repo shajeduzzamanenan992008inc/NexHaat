@@ -15,7 +15,9 @@ export const CatalogPage: React.FC = () => {
     searchQuery, 
     setSearchQuery,
     t, 
-    language 
+    language,
+    isMarketplaceCatalogLoading,
+    marketplaceCatalogError,
   } = useApp();
 
   // Filter States
@@ -100,6 +102,16 @@ export const CatalogPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12">
+    {isMarketplaceCatalogLoading && (
+      <div className="rounded-xl border border-primary/20 bg-primary-light px-4 py-2 text-xs font-semibold text-primary" role="status">
+        {t('Loading the live marketplace catalog…', 'লাইভ মার্কেটপ্লেস ক্যাটালগ লোড হচ্ছে…')}
+      </div>
+    )}
+    {marketplaceCatalogError && !isMarketplaceCatalogLoading && (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800" role="status">
+        {t('Live catalog is unavailable; showing the saved preview catalog.', 'লাইভ ক্যাটালগ পাওয়া যায়নি; সংরক্ষিত প্রিভিউ ক্যাটালগ দেখানো হচ্ছে।')}
+      </div>
+    )}
       {/* Header Banner */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white border border-border shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

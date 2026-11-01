@@ -23,6 +23,22 @@ import {
   RegistrationRequest,
   startFlaskRegistration,
 } from '../lib/flaskAuth';
+import {
+  addMarketplaceCartItem,
+  addMarketplaceWishlistItem,
+  fetchMarketplaceCatalog,
+  fetchMarketplaceWishlist,
+  removeMarketplaceCartItem,
+  removeMarketplaceWishlistItem,
+  cancelMarketplaceOrder,
+  fetchMarketplaceNotifications,
+  fetchMarketplaceOrders,
+  markAllMarketplaceNotificationsRead,
+  markMarketplaceNotificationRead,
+  requestMarketplaceReturn,
+  submitMarketplaceCheckout,
+  updateMarketplaceCartItem,
+} from '../lib/marketplaceApi';
 
 export type AppView = 
   | 'home' 
@@ -79,6 +95,15 @@ interface AppContextType {
   loginWithFlask: (email: string, password: string) => Promise<void>;
   logoutFlask: () => Promise<void>;
   startFlaskRegistration: (request: RegistrationRequest) => Promise<void>;
+  submitMarketplaceCheckout: (input: {
+    customerName: string;
+    phone: string;
+    address: string;
+    city: string;
+    promotionCode?: string;
+  }) => Promise<Order>;
+  isMarketplaceCatalogLoading: boolean;
+  marketplaceCatalogError: string | null;
 
   // NexHaat Prime
   isPrimeMember: boolean;
@@ -162,8 +187,8 @@ interface AppContextType {
   // Notifications & Toast
   notifications: Notification[];
   unreadNotificationCount: number;
-  markNotificationAsRead: (id: string) => void;
-  markAllNotificationsAsRead: () => void;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
   toasts: ToastMessage[];
   showToast: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
@@ -304,6 +329,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       await logoutFromFlask();
       setFlaskUser(null);
+      setOrders([]);
+      setNotifications(INITIAL_NOTIFICATIONS);
       showToast(t('Marketplace session ended.', 'মার্কেটপ্লেস session শেষ হয়েছে।'), 'info');
     } finally {
       setIsFlaskAuthLoading(false);
@@ -335,7 +362,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
 
-  const [categories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [isMarketplaceCatalogLoading, setIsMarketplaceCatalogLoading] = useState(false);
+  const [marketplaceCatalogError, setMarketplaceCatalogError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setIsMarketplaceCatalogLoading(true);
+    fetchMarketplaceCatalog()
+      .then(({ products: apiProducts, categories: apiCategories }) => {
+        if (!active || apiProducts.length === 0) return;
+        setProducts(apiProducts);
+        if (apiCategories.length > 0) setCategories(apiCategories);
+        setMarketplaceCatalogError(null);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMarketplaceCatalogError(
+            error instanceof Error ? error.message : 'Marketplace catalog is unavailable.',
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setIsMarketplaceCatalogLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem('nexhaat_cart');
@@ -423,6 +477,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  useEffect(() => {
+    if (flaskUser?.role !== 'customer') return;
+    let active = true;
+    setOrders([]);
+    Promise.all([fetchMarketplaceOrders(), fetchMarketplaceNotifications()])
+      .then(([serverOrders, serverNotifications]) => {
+        if (!active) return;
+        setOrders(serverOrders);
+        setNotifications(serverNotifications);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setOrders([]);
+          setNotifications([]);
+          console.warn('Marketplace account data was unavailable:', error);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [flaskUser]);
+
   // AI Assistant Chat Messages
   const [aiMessages, setAiMessages] = useState<AIChatMessage[]>([
     {
@@ -452,8 +528,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [wishlist]);
 
   useEffect(() => {
+    if (flaskUser?.role !== 'customer') return;
+    let active = true;
+    fetchMarketplaceWishlist()
+      .then((ids) => {
+        if (active) setWishlist(ids);
+      })
+      .catch(() => {
+        // Local wishlist remains available when the server session is unavailable.
+      });
+    return () => {
+      active = false;
+    };
+  }, [flaskUser]);
+
+  useEffect(() => {
+    if (flaskUser?.role === 'customer') return;
     localStorage.setItem('nexhaat_orders', JSON.stringify(orders));
-  }, [orders]);
+  }, [flaskUser, orders]);
 
   useEffect(() => {
     localStorage.setItem('nexhaat_lang', language);
@@ -541,7 +633,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Cart Management
-  const addToCart = (product: Product, variant?: ProductVariant, quantity = 1) => {
+  const addToCart = async (product: Product, variant?: ProductVariant, quantity = 1) => {
+    if (flaskUser?.role === 'customer') {
+      try {
+        await addMarketplaceCartItem(product, variant, quantity);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : t('Unable to update server cart.', 'সার্ভার কার্ট আপডেট করা যায়নি।'), 'error');
+        return;
+      }
+    }
     recordRecentlyViewed(product);
     setCart(prev => {
       const existingIndex = prev.findIndex(
@@ -567,10 +667,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
   };
 
-  const updateCartQuantity = (productId: number, variantId: string | undefined, quantity: number) => {
+  const updateCartQuantity = async (productId: number, variantId: string | undefined, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(productId, variantId);
+      await removeFromCart(productId, variantId);
       return;
+    }
+    if (flaskUser?.role === 'customer') {
+      try {
+        await updateMarketplaceCartItem(productId, variantId, quantity);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : t('Unable to update server cart.', 'সার্ভার কার্ট আপডেট করা যায়নি।'), 'error');
+        return;
+      }
     }
     setCart(prev =>
       prev.map(item => {
@@ -583,7 +691,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
   };
 
-  const removeFromCart = (productId: number, variantId?: string) => {
+  const removeFromCart = async (productId: number, variantId?: string) => {
+    if (flaskUser?.role === 'customer') {
+      try {
+        await removeMarketplaceCartItem(productId, variantId);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : t('Unable to update server cart.', 'সার্ভার কার্ট আপডেট করা যায়নি।'), 'error');
+        return;
+      }
+    }
     setCart(prev =>
       prev.filter(
         item => !(item.product.id === productId && item.selectedVariant?.id === variantId)
@@ -676,9 +792,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Wishlist
-  const toggleWishlist = (productId: number) => {
+  const toggleWishlist = async (productId: number) => {
     const exists = wishlist.includes(productId);
     const product = products.find(p => p.id === productId);
+    if (flaskUser?.role === 'customer') {
+      try {
+        if (exists) await removeMarketplaceWishlistItem(productId);
+        else await addMarketplaceWishlistItem(productId);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : t('Unable to update wishlist.', 'উইশলিস্ট আপডেট করা যায়নি।'), 'error');
+        return;
+      }
+    }
     if (exists) {
       setWishlist(prev => prev.filter(id => id !== productId));
       showToast(t('Removed from wishlist', 'উইশলিস্ট থেকে সরানো হয়েছে'), 'info');
@@ -789,7 +914,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return newOrder;
   };
 
-  const cancelOrder = (orderNumber: string) => {
+  const createMarketplaceOrder = async (input: {
+    customerName: string;
+    phone: string;
+    address: string;
+    city: string;
+    promotionCode?: string;
+  }): Promise<Order> => {
+    const order = await submitMarketplaceCheckout(input);
+    setOrders(prev => [order, ...prev.filter(item => item.order_number !== order.order_number)]);
+    setLastConfirmedOrder(order);
+    setCart([]);
+    setActiveCoupon(null);
+    return order;
+  };
+
+  const cancelOrder = async (orderNumber: string) => {
+    if (flaskUser?.role === 'customer') {
+      try {
+        const order = await cancelMarketplaceOrder(orderNumber);
+        setOrders(prev => prev.map(item => item.order_number === orderNumber ? order : item));
+        showToast(t(`Order ${orderNumber} has been cancelled`, `অর্ডার ${orderNumber} বাতিল করা হয়েছে`), 'info');
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : t('Unable to cancel the order.', 'অর্ডার বাতিল করা যায়নি।'), 'error');
+      }
+      return;
+    }
     setOrders(prev =>
       prev.map(ord =>
         ord.order_number === orderNumber ? { ...ord, status: 'cancelled' } : ord
@@ -801,7 +951,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
   };
 
-  const requestOrderReturn = (orderNumber: string, reason: string) => {
+  const requestOrderReturn = async (orderNumber: string, reason: string) => {
+    if (flaskUser?.role === 'customer') {
+      try {
+        const order = await requestMarketplaceReturn(orderNumber, reason);
+        setOrders(prev => prev.map(item => item.order_number === orderNumber ? order : item));
+        showToast(t('Return request submitted for review', 'রিটার্ন আবেদন পর্যালোচনার জন্য পাঠানো হয়েছে'), 'success');
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : t('Unable to submit the return request.', 'রিটার্ন আবেদন পাঠানো যায়নি।'), 'error');
+      }
+      return;
+    }
     const refundRef = `REF-${Math.floor(100000 + Math.random() * 900000)}`;
     setOrders(prev =>
       prev.map(ord =>
@@ -1020,13 +1180,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Notifications
   const unreadNotificationCount = notifications.filter(n => !n.is_read).length;
 
-  const markNotificationAsRead = (id: string) => {
+  const markNotificationAsRead = async (id: string) => {
+    if (flaskUser?.role === 'customer') {
+      try {
+        await markMarketplaceNotificationRead(id);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : t('Unable to update notification.', 'বিজ্ঞপ্তি আপডেট করা যায়নি।'), 'error');
+        return;
+      }
+    }
     setNotifications(prev =>
       prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
     );
   };
 
-  const markAllNotificationsAsRead = () => {
+  const markAllNotificationsAsRead = async () => {
+    if (flaskUser?.role === 'customer') {
+      try {
+        await markAllMarketplaceNotificationsRead();
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : t('Unable to update notifications.', 'বিজ্ঞপ্তিগুলো আপডেট করা যায়নি।'), 'error');
+        return;
+      }
+    }
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     showToast(t('All notifications marked as read', 'সকল নোটিফিকেশন পড়া হয়েছে'));
   };
@@ -1124,6 +1300,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loginWithFlask,
         logoutFlask,
         startFlaskRegistration: beginFlaskRegistration,
+        submitMarketplaceCheckout: createMarketplaceOrder,
+        isMarketplaceCatalogLoading,
+        marketplaceCatalogError,
       }}
     >
       {children}

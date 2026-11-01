@@ -1,0 +1,120 @@
+name: NexHaat SBOM and Provenance
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: "15 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexhaat-sbom-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-sbom:
+    name: Generate SBOM and source snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main') ||
+      (github.event_name == 'schedule' &&
+       github.ref == 'refs/heads/main')
+    permissions:
+      contents: read
+      actions: write
+    env:
+      SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Checkout the exact CI-tested source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Generate SPDX JSON SBOM with Syft
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Verify SBOM and create source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s sbom.spdx.json
+          archive="nexhaat-source-${SOURCE_SHA}.tar.gz"
+          tar -czf "$archive" \
+            --exclude='./.git' \
+            --exclude='./node_modules' \
+            --exclude='*/node_modules' \
+            --exclude='./.venv' \
+            --exclude='./venv' \
+            --exclude='./.pytest_cache' \
+            --exclude='*/__pycache__' \
+            --exclude='./.env' \
+            --exclude='./.env.*' \
+            --exclude='*.pem' \
+            --exclude='*.key' \
+            .
+          sha256sum "$archive" sbom.spdx.json > SHA256SUMS.txt
+          test -s "$archive"
+          test -s SHA256SUMS.txt
+
+      - name: Upload SBOM and source snapshot
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: nexhaat-supply-chain-${{ env.SOURCE_SHA }}
+          path: |
+            sbom.spdx.json
+            nexhaat-source-${{ env.SOURCE_SHA }}.tar.gz
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  attest-public-or-enterprise-build:
+    name: Sign SBOM and source provenance
+    needs:
+      - generate-sbom
+    if: >-
+      needs.generate-sbom.result == 'success' &&
+      vars.NEXHAAT_ENABLE_ARTIFACT_ATTESTATIONS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Download the generated supply-chain artifact
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: nexhaat-supply-chain-${{ env.SOURCE_SHA }}
+          path: supply-chain
+
+      - name: Create signed SBOM attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ github.workspace }}/supply-chain/nexhaat-source-${{ env.SOURCE_SHA }}.tar.gz
+          sbom-path: ${{ github.workspace }}/supply-chain/sbom.spdx.json

@@ -9,68 +9,127 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   tests:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        # 3.11 is the oldest supported interpreter; 3.14 is the deployment runtime.
-        # Add a future 3.16 only after a stable release and compatible wheels exist.
         python-version: ["3.11", "3.12", "3.13", "3.14"]
     env:
       FLASK_TESTING: "1"
       PYTHONUNBUFFERED: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - name: Install dependencies
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
+
       - name: Verify installed dependency set
         run: python -m pip check
+
       - name: Byte-compile application sources
         run: python -m compileall -q app migrations tests run.py wsgi.py
-      - name: Check Alembic migration heads
+
+      - name: Check database migration heads
         run: python -m flask --app run.py db heads
-      - name: Run test suite
+
+      - name: Run Python test suite
         run: python -m pytest -q
+
       - name: Reject whitespace errors
         run: git diff --check
 
   lint:
-    name: Lint
+    name: Python lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.13"
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
       - name: Install Ruff
-        run: python -m pip install --upgrade pip "ruff==0.17.0"
+        run: python -m pip install "ruff==0.17.0"
+
       - name: Ruff check
         run: python -m ruff check .
 
   web-build:
-    name: React and Express build
+    name: React and Express checks
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Install locked Node dependencies
         run: npm ci
+
+      - name: Run frontend lint when defined
+        run: npm run lint --if-present
+
+      - name: Run frontend type checks when defined
+        run: npm run typecheck --if-present
+
+      - name: Run frontend tests when defined
+        run: npm run test --if-present
+
       - name: Type-check and build web application
         run: npm run build
+
+  structure-validation:
+    name: Repository structure and deletion review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9cae0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Validate repository structure
+        run: python scripts/validate_repository_structure.py --fail-on-review

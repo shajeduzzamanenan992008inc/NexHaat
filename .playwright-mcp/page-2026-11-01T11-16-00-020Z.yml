@@ -1,0 +1,133 @@
+- generic [ref=f4e3]:
+  - banner [ref=f4e4]:
+    - generic [ref=f4e6]:
+      - generic [ref=f4e7]:
+        - button "NexHaat Prime Member (Active)" [ref=f4e8] [cursor=pointer]
+        - generic [ref=f4e15]:
+          - text: "Support:"
+          - strong [ref=f4e16]: +880 9612 000 000
+      - generic [ref=f4e17]:
+        - button "Switch to Dark Mode" [ref=f4e18] [cursor=pointer]
+        - generic [ref=f4e21]:
+          - button "ENG" [ref=f4e22] [cursor=pointer]
+          - button "বাংলা" [ref=f4e23] [cursor=pointer]
+        - button "customer" [ref=f4e25] [cursor=pointer]
+        - button "NexHaat Login" [ref=f4e30] [cursor=pointer]
+        - button "Google Sign-In" [ref=f4e32] [cursor=pointer]
+    - generic [ref=f4e40]:
+      - generic [ref=f4e41] [cursor=pointer]:
+        - img "NexHaat" [ref=f4e43]
+        - generic [ref=f4e44]:
+          - generic [ref=f4e45]:
+            - generic [ref=f4e46]: NexHaat
+            - generic [ref=f4e47]: BD
+            - generic [ref=f4e48]: PRIME
+          - paragraph [ref=f4e49]: Amazon-Grade Multi-Vendor Marketplace
+      - generic [ref=f4e51]:
+        - button "All" [ref=f4e53] [cursor=pointer]
+        - textbox "Search fresh fish, organic rice, cold-pressed oil, farm produce..." [ref=f4e58]
+        - generic [ref=f4e59]:
+          - button "Voice Search" [ref=f4e60] [cursor=pointer]
+          - button "Search by Image" [ref=f4e64] [cursor=pointer]
+        - button "Search" [ref=f4e68] [cursor=pointer]
+      - generic [ref=f4e73]:
+        - button "HaatAI ✨" [ref=f4e74] [cursor=pointer]
+        - button "Wishlist" [ref=f4e78] [cursor=pointer]:
+          - generic [ref=f4e81]: "2"
+        - button "Notifications" [active] [ref=f4e82] [cursor=pointer]:
+          - generic [ref=f4e86]: "3"
+        - button "Open cart" [ref=f4e87] [cursor=pointer]:
+          - generic [ref=f4e93]: ৳0.00
+    - generic [ref=f4e95]:
+      - generic [ref=f4e96]:
+        - button "All Haat Categories" [ref=f4e98] [cursor=pointer]
+        - button "Browse Catalog" [ref=f4e103] [cursor=pointer]
+        - button "Mega Deals & Offers" [ref=f4e104] [cursor=pointer]
+        - button "Prime Hub" [ref=f4e109] [cursor=pointer]
+        - button "Fresh Produce" [ref=f4e113] [cursor=pointer]
+        - button "Padma Fish & Meat" [ref=f4e114] [cursor=pointer]
+        - button "Bogra Curd & Dairy" [ref=f4e115] [cursor=pointer]
+      - generic [ref=f4e116]:
+        - button "Track My Orders" [ref=f4e117] [cursor=pointer]
+        - button "Customer Support" [ref=f4e118] [cursor=pointer]
+  - main [ref=f4e119]:
+    - generic [ref=f4e1300]:
+      - generic [ref=f4e1301]:
+        - generic [ref=f4e1302]:
+          - generic [ref=f4e1303]: NexHaat Updates
+          - heading "Notifications & Alerts" [level=1] [ref=f4e1308]
+          - paragraph [ref=f4e1309]: Real-time order statuses, exclusive flash vouchers, and delivery updates
+        - button "Mark All Read" [ref=f4e1310] [cursor=pointer]
+      - generic [ref=f4e1315]:
+        - button "All Notifications" [ref=f4e1316] [cursor=pointer]
+        - button "Orders" [ref=f4e1317] [cursor=pointer]
+        - button "Deals & Offers" [ref=f4e1318] [cursor=pointer]
+        - button "Delivery" [ref=f4e1319] [cursor=pointer]
+      - generic [ref=f4e1320]:
+        - generic [ref=f4e1328] [cursor=pointer]:
+          - 'heading "Order Dispatched #NH-8821" [level=4] [ref=f4e1329]'
+          - paragraph [ref=f4e1330]: Your fresh farm groceries have been picked up by rider Kamal Hossain. Expected arrival in 45 minutes.
+          - generic [ref=f4e1331]: 10/31/2026, 1:30:00 AM
+        - generic [ref=f4e1339] [cursor=pointer]:
+          - heading "Special Weekend Haat Discount!" [level=4] [ref=f4e1340]
+          - paragraph [ref=f4e1341]: Use voucher code NEXHAAT10 to save 10% on fresh fruits, river fish, and bakery products.
+          - generic [ref=f4e1342]: 10/29/2026, 4:00:00 PM
+        - generic [ref=f4e1349] [cursor=pointer]:
+          - heading "NexHaat Prime Benefits Active" [level=4] [ref=f4e1350]
+          - paragraph [ref=f4e1351]: Enjoy unlimited FREE 3-hour express delivery and 5% cashback on all orders.
+          - generic [ref=f4e1352]: 10/28/2026, 6:00:00 PM
+  - contentinfo [ref=f4e1077]:
+    - generic [ref=f4e1079]:
+      - generic [ref=f4e1087]:
+        - heading "Hyper-Local Express Delivery" [level=4] [ref=f4e1088]
+        - paragraph [ref=f4e1089]: Same-day and 3-hour doorstep delivery across Dhaka and Chittagong.
+      - generic [ref=f4e1095]:
+        - heading "100% Halal & Farm Fresh" [level=4] [ref=f4e1096]
+        - paragraph [ref=f4e1097]: Direct sourcing from verified regional farms and river fisheries.
+      - generic [ref=f4e1105]:
+        - heading "7-Day Easy Returns" [level=4] [ref=f4e1106]
+        - paragraph [ref=f4e1107]: Hassle-free replacement or refund guarantee on all marketplace items.
+      - generic [ref=f4e1113]:
+        - heading "24/7 Dedicated Support" [level=4] [ref=f4e1114]
+        - paragraph [ref=f4e1115]: Call our direct helpline +880 9612 000 000 for any order queries.
+    - generic [ref=f4e1116]:
+      - generic [ref=f4e1117]:
+        - generic [ref=f4e1118]:
+          - img "NexHaat" [ref=f4e1120]
+          - generic [ref=f4e1121]: NexHaat
+        - paragraph [ref=f4e1122]: NexHaat connects millions of Bangladeshi shoppers directly with local farmers, river fishermen, cottage artisans, and verified merchants. We guarantee authentic quality, fair pricing, and rapid doorstep delivery.
+        - generic [ref=f4e1123]:
+          - generic [ref=f4e1124]: Level 6, Navana Tower, Gulshan-1, Dhaka 1212, Bangladesh
+          - generic [ref=f4e1129]: "Hotline: +880 9612 000 000 (8:00 AM - 11:00 PM)"
+          - generic [ref=f4e1133]: support@nexhaat.com.bd
+      - generic [ref=f4e1138]:
+        - heading "Marketplace" [level=5] [ref=f4e1139]
+        - list [ref=f4e1140]:
+          - listitem [ref=f4e1141]:
+            - button "All Products & Catalog" [ref=f4e1142] [cursor=pointer]
+          - listitem [ref=f4e1143]:
+            - button "Flash Deals & Discounts" [ref=f4e1144] [cursor=pointer]
+          - listitem [ref=f4e1145]:
+            - button "My Wishlist" [ref=f4e1146] [cursor=pointer]
+          - listitem [ref=f4e1147]:
+            - button "Order Tracking" [ref=f4e1148] [cursor=pointer]
+      - generic [ref=f4e1149]:
+        - heading "Partner With Us" [level=5] [ref=f4e1150]
+        - list [ref=f4e1151]:
+          - listitem [ref=f4e1152]:
+            - button "Seller Merchant Portal" [ref=f4e1153] [cursor=pointer]
+          - listitem [ref=f4e1155]:
+            - button "Rider Delivery Hub" [ref=f4e1156] [cursor=pointer]
+          - listitem [ref=f4e1158]:
+            - button "Admin Operations Center" [ref=f4e1159] [cursor=pointer]
+          - listitem [ref=f4e1161]:
+            - button "Help & FAQs" [ref=f4e1162] [cursor=pointer]
+      - generic [ref=f4e1163]:
+        - heading "Payment Security" [level=5] [ref=f4e1164]
+        - paragraph [ref=f4e1165]: Encrypted checkout supporting all major Bangladeshi channels.
+        - generic [ref=f4e1166]:
+          - generic [ref=f4e1167]: bKash
+          - generic [ref=f4e1168]: Nagad
+          - generic [ref=f4e1169]: Visa / Master
+          - generic [ref=f4e1170]: Cash on Delivery
+    - paragraph [ref=f4e1172]: © 2026 NexHaat Ltd. All rights reserved. Built with precision for Bangladesh.

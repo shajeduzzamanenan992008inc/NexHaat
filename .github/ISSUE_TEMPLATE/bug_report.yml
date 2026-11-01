@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible NexHaat defect.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include passwords, API keys, payment data, or private customer information."
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open ... 2. Select ... 3. Observe ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Customer experience
+        - Seller dashboard
+        - Admin
+        - Catalog/search
+        - Cart/checkout/payment
+        - Orders/inventory/shipping
+        - Authentication/authorization
+        - AI/MCP
+        - CI/CD/deployment
+        - Other / unknown
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and evidence
+      description: Browser, OS, branch/commit, relevant non-sensitive logs or screenshots.
+    validations:
+      required: false

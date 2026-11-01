@@ -19,6 +19,9 @@ export const CheckoutPage: React.FC = () => {
     applyCoupon,
     removeCoupon,
     t,
+    flaskUser,
+    submitMarketplaceCheckout,
+    showToast,
   } = useApp();
 
   // Form States
@@ -68,9 +71,21 @@ export const CheckoutPage: React.FC = () => {
 
   const grandTotal = Math.max(0, cartSubtotal - appliedPromoDiscount + deliveryFee);
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    if (flaskUser?.role === 'customer' && paymentMethod !== 'cod') {
+      showToast(
+        t(
+          'Only cash-on-delivery is enabled for the safe marketplace bridge. Online payment requires approved staging configuration.',
+          'এই নিরাপদ marketplace bridge-এ শুধু cash-on-delivery চালু আছে। Online payment-এর জন্য অনুমোদিত staging configuration প্রয়োজন।',
+        ),
+        'warning',
+      );
+      setIsSubmitting(false);
+      return;
+    }
 
     const orderItems: OrderItem[] = cart.map(item => {
       const price = item.product.discount_price ?? item.product.price;
@@ -89,6 +104,27 @@ export const CheckoutPage: React.FC = () => {
         total_price: unit * item.quantity,
       };
     });
+
+    if (flaskUser?.role === 'customer') {
+      try {
+        await submitMarketplaceCheckout({
+          customerName: fullName,
+          phone,
+          address: [streetAddress, thana, district, division, deliveryNotes].filter(Boolean).join(', '),
+          city: district,
+          promotionCode: activeCoupon?.code,
+        });
+        setIsSubmitting(false);
+        setCurrentView('order-confirmation');
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : t('The server rejected this checkout.', 'সার্ভার চেকআউটটি গ্রহণ করেনি।'),
+          'error',
+        );
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     setTimeout(() => {
       const confirmedOrder = placeOrder({

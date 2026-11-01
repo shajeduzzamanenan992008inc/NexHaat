@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a NexHaat product or engineering improvement.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: Who has this problem and why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Explain the behavior and measurable acceptance criteria.
+    validations:
+      required: true
+  - type: dropdown
+    id: persona
+    attributes:
+      label: Primary user
+      options:
+        - Customer
+        - Seller
+        - Administrator
+        - Operations/support
+        - Developer/platform
+        - Multiple / unknown
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Security, data, performance, and design considerations
+      description: Include seller isolation, payment/data integrity, accessibility, and existing NexHaat design where relevant.
+    validations:
+      required: false
