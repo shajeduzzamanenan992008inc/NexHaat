@@ -8,9 +8,9 @@ All blueprint setup happens at import time. ``create_app`` may run many times
 (for tests and workers), so a registered blueprint must not be modified later.
 """
 
-from flask import Blueprint
+from flask import Blueprint, request
 
-from .errors import register_error_handlers
+from .errors import ApiError, register_error_handlers
 from .routes.admin import admin_api
 from .routes.auth import auth_api
 from .routes.banners import banners_api
@@ -24,6 +24,21 @@ api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
 # Error handlers and sub-blueprints are set up once, before first registration.
 register_error_handlers(api_bp)
+
+
+@api_bp.before_request
+def validate_json_object():
+    """Reject JSON arrays and scalar values before route handlers access fields."""
+    if request.is_json:
+        payload = request.get_json(silent=True)
+        if payload is not None and not isinstance(payload, dict):
+            raise ApiError(
+                "The request body must be a JSON object.",
+                "VALIDATION_ERROR",
+                422,
+            )
+
+
 api_bp.register_blueprint(health_api)
 api_bp.register_blueprint(auth_api)
 api_bp.register_blueprint(admin_api)

@@ -69,6 +69,14 @@ def test_api_method_not_allowed_is_json(client):
     assert body["error"]["code"] == "METHOD_NOT_ALLOWED"
 
 
+def test_api_rejects_non_object_json_payloads(client):
+    for payload in ([], ["unexpected"], "unexpected", 1, True):
+        response = client.post("/api/v1/auth/login", json=payload)
+
+        assert response.status_code == 422
+        assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_api_error_does_not_leak_internals(client):
     response = client.get("/api/v1/does-not-exist")
     payload = json.dumps(response.get_json())
