@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { 
   User, UserRole, Product, Category, CartItem, Order, 
   Review, Notification, Promotion, ProductVariant, OrderStatus, 
-  ProductQuestion, AIChatMessage, SponsoredCampaign 
+  ProductQuestion, AIChatMessage, SponsoredCampaign, PriceAlert 
 } from '../types';
 import { 
   INITIAL_USERS, INITIAL_CATEGORIES, INITIAL_PRODUCTS, 
@@ -191,6 +191,13 @@ interface AppContextType {
   markAllNotificationsAsRead: () => Promise<void>;
   toasts: ToastMessage[];
   showToast: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+
+  // Price Alerts
+  priceAlerts: PriceAlert[];
+  setPriceAlert: (productId: number, targetPrice: number) => PriceAlert;
+  removePriceAlert: (productId: number) => void;
+  getPriceAlert: (productId: number) => PriceAlert | undefined;
+  simulatePriceDrop: (productId: number, newPrice?: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -476,6 +483,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [sponsoredCampaigns, setSponsoredCampaigns] = useState<SponsoredCampaign[]>(INITIAL_SPONSORED_CAMPAIGNS);
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>(() => {
+    try {
+      const saved = localStorage.getItem('nexhaat_price_alerts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nexhaat_price_alerts', JSON.stringify(priceAlerts));
+    } catch {}
+  }, [priceAlerts]);
 
   useEffect(() => {
     if (flaskUser?.role !== 'customer') return;
@@ -1207,9 +1228,133 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast(t('All notifications marked as read', 'সকল নোটিফিকেশন পড়া হয়েছে'));
   };
 
+  // Price Alerts Engine
+  const setPriceAlert = (productId: number, targetPrice: number): PriceAlert => {
+    const product = products.find(p => p.id === productId);
+    if (!product) throw new Error('Product not found');
+
+    const currentPrice = product.discount_price ?? product.price;
+    const isAlreadyAtOrBelow = currentPrice <= targetPrice;
+
+    const existing = priceAlerts.find(a => a.product_id === productId);
+    const alertId = existing ? existing.id : `pa-${Date.now()}`;
+
+    const newAlert: PriceAlert = {
+      id: alertId,
+      product_id: product.id,
+      product_name: product.name,
+      product_name_bn: product.name_bn,
+      product_image: product.image,
+      product_slug: product.slug,
+      initial_price: currentPrice,
+      target_price: targetPrice,
+      current_price: currentPrice,
+      is_active: true,
+      is_triggered: isAlreadyAtOrBelow,
+      created_at: new Date().toISOString(),
+      triggered_at: isAlreadyAtOrBelow ? new Date().toISOString() : undefined,
+    };
+
+    setPriceAlerts(prev => [newAlert, ...prev.filter(a => a.product_id !== productId)]);
+
+    if (isAlreadyAtOrBelow) {
+      const alertNotif: Notification = {
+        id: `notif-pa-${Date.now()}`,
+        type: 'price_alert',
+        title: `🎯 Price Alert Triggered: ${product.name}`,
+        title_bn: `🎯 মূল্য হ্রাস সতর্কতা: ${product.name_bn || product.name}`,
+        message: `Great news! The current price of ${product.name} (৳${currentPrice}) is already at or below your target price of ৳${targetPrice}!`,
+        message_bn: `দারুণ খবর! ${product.name_bn || product.name}-এর বর্তমান দর (৳${currentPrice}) আপনার লক্ষ্যমূল্য ৳${targetPrice}-এর সমান বা নিচে নেমেছে!`,
+        link: 'product-detail',
+        product_slug: product.slug,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      };
+      setNotifications(prev => [alertNotif, ...prev]);
+      showToast(
+        t(
+          `Price alert active! Current price (৳${currentPrice}) already meets target (৳${targetPrice}). Notification sent!`,
+          `সতর্কতা সক্রিয়! বর্তমান দর (৳${currentPrice}) আপনার লক্ষ্য পূরণ করেছে। নোটিফিকেশন পাঠানো হয়েছে!`
+        ),
+        'success'
+      );
+    } else {
+      showToast(
+        t(
+          `Price alert set for ${product.name}! We'll notify you when it drops to ৳${targetPrice} or lower.`,
+          `${product.name}-এর জন্য সতর্কতা সক্রিয়! দর ৳${targetPrice} বা তার নিচে নামলে নোটিফিকেশন পাবেন।`
+        ),
+        'success'
+      );
+    }
+
+    return newAlert;
+  };
+
+  const removePriceAlert = (productId: number) => {
+    setPriceAlerts(prev => prev.filter(a => a.product_id !== productId));
+    showToast(t('Price alert removed', 'মূল্য সতর্কতা মুছে ফেলা হয়েছে'), 'info');
+  };
+
+  const getPriceAlert = (productId: number) => {
+    return priceAlerts.find(a => a.product_id === productId);
+  };
+
+  const simulatePriceDrop = (productId: number, newPrice?: number) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    const alert = priceAlerts.find(a => a.product_id === productId);
+    const dropTarget = newPrice ?? (alert ? alert.target_price : Math.round((product.discount_price ?? product.price) * 0.85));
+
+    setProducts(prev =>
+      prev.map(p => (p.id === productId ? { ...p, discount_price: dropTarget } : p))
+    );
+
+    setPriceAlerts(prev =>
+      prev.map(a =>
+        a.product_id === productId
+          ? {
+              ...a,
+              current_price: dropTarget,
+              is_triggered: true,
+              triggered_at: new Date().toISOString(),
+            }
+          : a
+      )
+    );
+
+    const alertNotif: Notification = {
+      id: `notif-pa-${Date.now()}`,
+      type: 'price_alert',
+      title: `🎯 Price Alert Triggered: ${product.name}`,
+      title_bn: `🎯 মূল্য হ্রাস সতর্কতা: ${product.name_bn || product.name}`,
+      message: `Great news! The price of ${product.name} dropped to ৳${dropTarget}, reaching your target of ৳${alert?.target_price ?? dropTarget}!`,
+      message_bn: `দারুণ খবর! ${product.name_bn || product.name}-এর মূল্য কমে ৳${dropTarget} হয়েছে, যা আপনার লক্ষ্যমূল্য ৳${alert?.target_price ?? dropTarget}-এ পৌঁছেছে!`,
+      link: 'product-detail',
+      product_slug: product.slug,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+
+    setNotifications(prev => [alertNotif, ...prev]);
+    showToast(
+      t(
+        `⚡ Price drop simulated! ${product.name} is now ৳${dropTarget}. Notification sent!`,
+        `⚡ মূল্য হ্রাস টেস্ট সফল! ${product.name}-এর নতুন দর ৳${dropTarget}। নোটিফিকেশন পাঠানো হয়েছে!`
+      ),
+      'success'
+    );
+  };
+
   return (
     <AppContext.Provider
       value={{
+        priceAlerts,
+        setPriceAlert,
+        removePriceAlert,
+        getPriceAlert,
+        simulatePriceDrop,
         currentView,
         setCurrentView,
         selectedProductSlug,

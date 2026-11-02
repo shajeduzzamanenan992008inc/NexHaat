@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductVariant, Product } from '../types';
 import { ProductCard } from '../components/ProductCard';
+import { PriceIntelligenceCard } from '../components/PriceIntelligenceCard';
+import { PriceTrendChart } from '../components/PriceTrendChart';
+import { ProductReviewsSection } from '../components/ProductReviewsSection';
+import { PriceAlertModal } from '../components/PriceAlertModal';
 import { 
   Star, Heart, ShoppingBag, Truck, ShieldCheck, 
   RotateCcw, CheckCircle2, ChevronRight, Share2, 
   Plus, Minus, ArrowLeft, MessageSquarePlus, Layers, 
   Sparkles, HelpCircle, Send, Check, Eye, Clock, 
-  ThumbsUp, CheckSquare, Square, PackageCheck, Zap, RefreshCw, Store 
+  ThumbsUp, CheckSquare, Square, PackageCheck, Zap, RefreshCw, Store, Scale,
+  Bell, BellRing 
 } from 'lucide-react';
 import { 
   calculateBundlePrice, 
@@ -28,11 +33,11 @@ export const ProductDetailPage: React.FC = () => {
     setIsCompareModalOpen,
     setCurrentView,
     getProductReviews,
-    addReview,
     getProductQuestions,
     addQuestion,
     isPrimeMember,
     setIsPrimeModalOpen,
+    getPriceAlert,
     showToast,
     t,
     language,
@@ -51,6 +56,10 @@ export const ProductDetailPage: React.FC = () => {
 
   // Amazon Purchase Type: One-time vs Subscribe & Save (10% discount)
   const [purchaseType, setPurchaseType] = useState<'one-time' | 'subscribe'>('one-time');
+
+  // Price Drop Alert Modal State
+  const [isPriceAlertModalOpen, setIsPriceAlertModalOpen] = useState(false);
+  const existingAlert = getPriceAlert(product.id);
 
   // Amazon Delivery Promise Countdown
   const [countdown, setCountdown] = useState<{ hours: number; minutes: number; seconds: number }>({
@@ -93,25 +102,8 @@ export const ProductDetailPage: React.FC = () => {
   const selectedBundleProducts = bundlePool.filter((p) => bundleSelectedIds.includes(p.id));
   const bundlePricing = calculateBundlePrice(selectedBundleProducts, 10);
 
-  // Amazon Star Rating Filter & Helpful Votes
-  const [filterStar, setFilterStar] = useState<number | null>(null);
-  const [helpfulVotes, setHelpfulVotes] = useState<Record<string, number>>({});
-
-  const handleHelpfulVote = (reviewId: string) => {
-    setHelpfulVotes((prev) => ({
-      ...prev,
-      [reviewId]: (prev[reviewId] || 0) + 1,
-    }));
-    showToast(t('Marked review as helpful!', 'রিভিউটি সহায়ক হিসেবে চিহ্নিত করা হয়েছে!'), 'success');
-  };
-
-  // Tabs: Details, Specs, Reviews, Q&A
-  const [activeTab, setActiveTab] = useState<'details' | 'specs' | 'reviews' | 'qa'>('details');
-
-  // Review Form
-  const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
+  // Tabs: Details, Specs, Pricing, Reviews, Q&A
+  const [activeTab, setActiveTab] = useState<'details' | 'specs' | 'pricing' | 'reviews' | 'qa'>('details');
 
   // Q&A Form
   const [questionInput, setQuestionInput] = useState('');
@@ -178,13 +170,6 @@ export const ProductDetailPage: React.FC = () => {
     );
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reviewComment.trim()) return;
-    addReview(product.id, reviewRating, reviewComment.trim());
-    setReviewComment('');
-    setIsReviewFormOpen(false);
-  };
 
   const handleQuestionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,46 +280,76 @@ export const ProductDetailPage: React.FC = () => {
           </div>
 
           {/* Price Box */}
-          <div className="p-4 rounded-2xl bg-surface-raised border border-border flex items-baseline justify-between">
-            <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-ink">
-                  {formatPrice(effectiveUnitPrice)}
-                </span>
-                {product.discount_price && (
-                  <span className="text-base text-slate-400 line-through">
-                    {formatPrice(product.price + modifier)}
+          <div className="p-4 rounded-2xl bg-surface-raised border border-border space-y-2.5">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-ink">
+                    {formatPrice(effectiveUnitPrice)}
                   </span>
-                )}
-                {purchaseType === 'subscribe' ? (
-                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3 text-amber-700 animate-spin" />
-                    <span>10% Subscribe & Save Discount</span>
+                  {product.discount_price && (
+                    <span className="text-base text-slate-400 line-through">
+                      {formatPrice(product.price + modifier)}
+                    </span>
+                  )}
+                  {purchaseType === 'subscribe' ? (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 text-amber-700 animate-spin" />
+                      <span>10% Subscribe & Save Discount</span>
+                    </span>
+                  ) : (
+                    bulkDiscountPercent > 0 && (
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold">
+                        {bulkDiscountPercent}% Bulk Discount Applied!
+                      </span>
+                    )
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {t('Inclusive of all VAT and platform escrow protection', 'ভ্যাট ও প্ল্যাটফর্ম সুরক্ষা অন্তর্ভুক্ত')}
+                </p>
+              </div>
+
+              <div className="text-right">
+                {availableStock > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>{t('In Stock', 'মজুদ আছে')} ({availableStock})</span>
                   </span>
                 ) : (
-                  bulkDiscountPercent > 0 && (
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold">
-                      {bulkDiscountPercent}% Bulk Discount Applied!
-                    </span>
-                  )
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                    {t('Out of Stock', 'মজুদ শেষ')}
+                  </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                {t('Inclusive of all VAT and platform escrow protection', 'ভ্যাট ও প্ল্যাটফর্ম সুরক্ষা অন্তর্ভুক্ত')}
-              </p>
             </div>
 
-            <div className="text-right">
-              {availableStock > 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>{t('In Stock', 'মজুদ আছে')} ({availableStock})</span>
+            {/* Price Alert Action Strip */}
+            <div className="pt-2 border-t border-border/70 flex items-center justify-between text-xs">
+              <span className="text-muted flex items-center gap-1.5">
+                <Bell className="w-3.5 h-3.5 text-amber-500" />
+                <span>{t('Want to buy at a lower price?', 'কম মূল্যে কিনতে চান?')}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsPriceAlertModalOpen(true)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                  existingAlert && existingAlert.is_active
+                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-300'
+                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-primary hover:text-primary'
+                }`}
+              >
+                {existingAlert && existingAlert.is_active ? (
+                  <BellRing className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
+                ) : (
+                  <Bell className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {existingAlert && existingAlert.is_active
+                    ? `${t('Alert: ', 'সতর্কতা: ')}${formatPrice(existingAlert.target_price)}`
+                    : t('Set Price Alert', 'মূল্য সতর্কতা')}
                 </span>
-              ) : (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
-                  {t('Out of Stock', 'মজুদ শেষ')}
-                </span>
-              )}
+              </button>
             </div>
           </div>
 
@@ -566,6 +581,23 @@ export const ProductDetailPage: React.FC = () => {
               >
                 <Layers className="w-5 h-5" />
               </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPriceAlertModalOpen(true)}
+                className={`p-3.5 rounded-2xl border transition-all ${
+                  existingAlert && existingAlert.is_active
+                    ? 'bg-amber-100 border-amber-300 text-amber-700 shadow-sm'
+                    : 'bg-white border-border text-muted hover:text-amber-600 hover:border-amber-300'
+                }`}
+                title={existingAlert && existingAlert.is_active ? `Price Alert Active (৳${existingAlert.target_price})` : t('Set Price Drop Alert', 'মূল্য সতর্কতা')}
+              >
+                {existingAlert && existingAlert.is_active ? (
+                  <BellRing className="w-5 h-5 text-amber-600" />
+                ) : (
+                  <Bell className="w-5 h-5" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -585,7 +617,10 @@ export const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs Section: Specifications, Q&A, Customer Reviews */}
+      {/* Price Intelligence & Historical Trend Feature */}
+      <PriceIntelligenceCard product={product} />
+
+      {/* Tabs Section: Overview, Specifications, Price & Comparison, Customer Reviews, Q&A */}
       <div className="bg-white rounded-3xl border border-border shadow-card p-6 sm:p-8 space-y-6">
         <div className="flex gap-4 border-b border-slate-100 pb-3 overflow-x-auto text-xs font-bold">
           <button
@@ -603,6 +638,15 @@ export const ProductDetailPage: React.FC = () => {
             }`}
           >
             {t('Technical Specifications', 'বিস্তারিত বিবরণী')}
+          </button>
+          <button
+            onClick={() => setActiveTab('pricing')}
+            className={`pb-2 transition-colors shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'pricing' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-ink'
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>{t('Price Comparison & Trends', 'মূল্য তুলনা ও ট্রেন্ড')}</span>
           </button>
           <button
             onClick={() => setActiveTab('reviews')}
@@ -678,161 +722,17 @@ export const ProductDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Tab: Reviews (Amazon Customer Reviews with Star Breakdown) */}
-        {activeTab === 'reviews' && (
+        {/* Tab: Price & Comparison Hub */}
+        {activeTab === 'pricing' && (
           <div className="space-y-6">
-            {/* Amazon Rating Breakdown Header */}
-            {(() => {
-              const reviewDist = calculateReviewDistribution(reviews);
-              const displayedReviews = filterStar
-                ? reviews.filter((r) => Math.round(r.rating) === filterStar)
-                : reviews;
-
-              return (
-                <div className="space-y-6">
-                  <div className="p-5 rounded-2xl bg-surface-raised border border-border flex flex-col md:flex-row items-center gap-6 justify-between">
-                    {/* Left: Overall rating */}
-                    <div className="text-center md:text-left shrink-0">
-                      <div className="text-4xl font-black text-ink">{product.rating}</div>
-                      <div className="flex text-amber-400 my-1 justify-center md:justify-start">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} className={`w-4 h-4 ${i < Math.round(product.rating) ? 'fill-current' : 'text-slate-200'}`} />
-                        ))}
-                      </div>
-                      <p className="text-xs text-muted">
-                        {t(`Based on ${reviewDist.total} global ratings`, `${reviewDist.total}টি ভেরিফাইড রেটিংয়ের ভিত্তিতে`)}
-                      </p>
-                      <p className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1 justify-center md:justify-start">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>100% Verified Customer Reviews</span>
-                      </p>
-                    </div>
-
-                    {/* Middle: Star breakdown progress bars */}
-                    <div className="w-full max-w-sm space-y-1.5">
-                      {reviewDist.breakdown.map((tier) => (
-                        <button
-                          key={tier.star}
-                          type="button"
-                          onClick={() => setFilterStar(filterStar === tier.star ? null : tier.star)}
-                          className={`w-full flex items-center gap-2 text-xs group hover:text-primary transition-colors ${
-                            filterStar === tier.star ? 'font-bold text-primary' : 'text-slate-600'
-                          }`}
-                        >
-                          <span className="w-10 text-left shrink-0 group-hover:underline">
-                            {tier.star} star
-                          </span>
-                          <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                filterStar === tier.star ? 'bg-primary' : 'bg-amber-400 group-hover:bg-amber-500'
-                              }`}
-                              style={{ width: `${tier.percentage}%` }}
-                            />
-                          </div>
-                          <span className="w-8 text-right shrink-0 text-muted text-[11px]">
-                            {tier.percentage}%
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Right: Write review button */}
-                    <div className="shrink-0 text-center">
-                      <button
-                        onClick={() => setIsReviewFormOpen(!isReviewFormOpen)}
-                        className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-sm transition-colors"
-                      >
-                        {isReviewFormOpen ? t('Cancel', 'বাতিল') : t('Write a Customer Review', 'রিভিউ লিখুন')}
-                      </button>
-                      <p className="text-[10px] text-slate-400 mt-1.5">Share thoughts with other buyers</p>
-                    </div>
-                  </div>
-
-                  {filterStar && (
-                    <div className="flex items-center justify-between p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-slate-700">
-                      <span>{t(`Filtered by: ${filterStar} Star Reviews`, `${filterStar} স্টার রিভিউ ফিল্টার করা হয়েছে`)}</span>
-                      <button
-                        onClick={() => setFilterStar(null)}
-                        className="font-bold text-primary hover:underline text-[11px]"
-                      >
-                        {t('Clear filter (Show all)', 'ফিল্টার মুছুন')}
-                      </button>
-                    </div>
-                  )}
-
-                  {isReviewFormOpen && (
-                    <form onSubmit={handleReviewSubmit} className="p-4 rounded-2xl bg-surface-raised border border-border space-y-3 animate-fade-in">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-ink">Rating:</span>
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button key={star} type="button" onClick={() => setReviewRating(star)}>
-                              <Star className={`w-5 h-5 ${star <= reviewRating ? 'text-amber-400 fill-current' : 'text-slate-300'}`} />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <textarea
-                        value={reviewComment}
-                        onChange={(e) => setReviewComment(e.target.value)}
-                        placeholder="Share details of your experience with this product..."
-                        rows={3}
-                        required
-                        className="w-full p-3 text-xs border border-slate-200 rounded-xl bg-white"
-                      />
-                      <button type="submit" className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold shadow-sm">
-                        {t('Submit Review', 'রিভিউ জমা দিন')}
-                      </button>
-                    </form>
-                  )}
-
-                  <div className="space-y-3">
-                    {displayedReviews.length === 0 ? (
-                      <p className="text-xs text-muted italic text-center py-4">No reviews match this star rating.</p>
-                    ) : (
-                      displayedReviews.map((rev) => {
-                        const count = helpfulVotes[rev.id] || rev.helpful_count || 0;
-                        return (
-                          <div key={rev.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 text-xs">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-ink">{rev.user_name}</span>
-                                {rev.verified_purchase && (
-                                  <span className="text-[10px] text-amber-700 bg-amber-100 font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5">
-                                    <CheckCircle2 className="w-3 h-3 text-amber-600" />
-                                    <span>Verified Purchase</span>
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-slate-400 text-[11px]">{rev.created_at}</span>
-                            </div>
-                            <div className="flex text-amber-400">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <Star key={i} className={`w-3.5 h-3.5 ${i < rev.rating ? 'fill-current' : 'text-slate-200'}`} />
-                              ))}
-                            </div>
-                            <p className="text-slate-700 leading-relaxed">{rev.comment}</p>
-                            <div className="pt-2 flex items-center gap-3 text-[11px] text-slate-500 border-t border-slate-100">
-                              <span>Was this review helpful?</span>
-                              <button
-                                type="button"
-                                onClick={() => handleHelpfulVote(rev.id)}
-                                className="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-100 font-semibold text-slate-700 flex items-center gap-1 transition-colors"
-                              >
-                                <ThumbsUp className="w-3 h-3 text-primary" />
-                                <span>Helpful ({count})</span>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
+            <PriceTrendChart product={product} />
+            <PriceIntelligenceCard product={product} />
           </div>
+        )}
+
+        {/* Tab: Customer Ratings & Verified Reviews */}
+        {activeTab === 'reviews' && (
+          <ProductReviewsSection product={product} />
         )}
 
         {/* Tab: Customer Q&A (Amazon-style) */}
@@ -1024,6 +924,14 @@ export const ProductDetailPage: React.FC = () => {
           </div>
         </section>
       )}
+
+      {/* Price Alert Modal */}
+      <PriceAlertModal
+        product={product}
+        isOpen={isPriceAlertModalOpen}
+        onClose={() => setIsPriceAlertModalOpen(false)}
+      />
     </div>
   );
 };
+

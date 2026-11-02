@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Bell, CheckCheck, Package, Tag, Truck, Info, ArrowRight } from 'lucide-react';
+import { Bell, CheckCheck, Package, Tag, Truck, Info, ArrowRight, BellRing } from 'lucide-react';
 
 export const NotificationsPage: React.FC = () => {
   const { 
@@ -8,16 +8,19 @@ export const NotificationsPage: React.FC = () => {
     markNotificationAsRead, 
     markAllNotificationsAsRead, 
     setCurrentView, 
+    navigateToProduct,
     t, 
     language 
   } = useApp();
 
-  const [filterType, setFilterType] = useState<'all' | 'order' | 'promotion' | 'delivery'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'order' | 'promotion' | 'delivery' | 'price_alert'>('all');
 
   const filtered = notifications.filter(n => filterType === 'all' || n.type === filterType);
 
   const getIcon = (type: string) => {
     switch (type) {
+      case 'price_alert':
+        return <BellRing className="w-4 h-4 text-amber-500" />;
       case 'order':
         return <Package className="w-4 h-4 text-primary" />;
       case 'promotion':
@@ -59,6 +62,7 @@ export const NotificationsPage: React.FC = () => {
       <div className="flex gap-2 border-b border-border pb-2 overflow-x-auto">
         {[
           { id: 'all', label: t('All Notifications', 'সব বিজ্ঞপ্তি') },
+          { id: 'price_alert', label: t('Price Alerts', 'মূল্য সতর্কতা') },
           { id: 'order', label: t('Orders', 'অর্ডারসমূহ') },
           { id: 'promotion', label: t('Deals & Offers', 'অফার ও ছাড়') },
           { id: 'delivery', label: t('Delivery', 'ডেলিভারি') },
@@ -89,7 +93,11 @@ export const NotificationsPage: React.FC = () => {
               key={item.id}
               onClick={() => {
                 if (!item.is_read) markNotificationAsRead(item.id);
-                if (item.link) setCurrentView(item.link as any);
+                if (item.product_slug) {
+                  navigateToProduct(item.product_slug);
+                } else if (item.link) {
+                  setCurrentView(item.link as any);
+                }
               }}
               className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
                 item.is_read

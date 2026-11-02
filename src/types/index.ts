@@ -156,14 +156,31 @@ export interface ProductQuestion {
   created_at: string;
 }
 
+export interface PriceAlert {
+  id: string;
+  product_id: number;
+  product_name: string;
+  product_name_bn?: string;
+  product_image: string;
+  product_slug: string;
+  initial_price: number;
+  target_price: number;
+  current_price: number;
+  is_active: boolean;
+  is_triggered: boolean;
+  created_at: string;
+  triggered_at?: string;
+}
+
 export interface Notification {
   id: string;
-  type: 'order' | 'promotion' | 'system' | 'delivery' | 'prime';
+  type: 'order' | 'promotion' | 'system' | 'delivery' | 'prime' | 'price_alert';
   title: string;
   title_bn: string;
   message: string;
   message_bn: string;
   link?: string;
+  product_slug?: string;
   is_read: boolean;
   created_at: string;
 }

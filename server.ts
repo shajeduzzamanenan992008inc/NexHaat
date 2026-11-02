@@ -811,6 +811,7 @@ Provide:
 
 // 11. WebSocket Server for Real-Time Gemini Live API (gemini-3.8-live)
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+let viteDevServer: any = null;
 
 function isAllowedLiveOrigin(origin: string | undefined, host: string | undefined): boolean {
   if (!origin) return true;
@@ -835,6 +836,12 @@ server.on('upgrade', (request, socket, head) => {
   }
 
   if (pathname !== '/live') {
+    if (viteDevServer?.ws && (request.headers['sec-websocket-protocol'] === 'vite-hmr' || pathname === '/')) {
+      viteDevServer.ws.handleUpgrade(request, socket, head, (ws: any) => {
+        viteDevServer.ws.emit('connection', ws, request);
+      });
+      return;
+    }
     socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
     socket.destroy();
     return;
@@ -924,11 +931,11 @@ app.use(safeJsonErrorHandler);
 // Mount Vite middleware in development or serve static in production
 if (!isProduction) {
   const { createServer: createViteServer } = await import('vite');
-  const vite = await createViteServer({
+  viteDevServer = await createViteServer({
     server: { middlewareMode: true },
     appType: 'spa',
   });
-  app.use(vite.middlewares);
+  app.use(viteDevServer.middlewares);
 } else {
   const distPath = path.resolve(__dirname, 'dist');
   app.use(express.static(distPath));

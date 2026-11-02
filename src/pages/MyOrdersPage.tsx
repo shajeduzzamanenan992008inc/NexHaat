@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Order, OrderStatus } from '../types';
+import {
+  filterOrders,
+  getOrderStatusCounts,
+  OrderStatusFilter,
+  OrderTimeRange,
+  OrderSortBy,
+} from '../lib/orderFilters';
 import { 
   Package, Clock, CheckCircle2, XCircle, RotateCcw, 
-  ChevronDown, ChevronUp, ShoppingBag, Truck, Phone, AlertCircle 
+  ChevronDown, ChevronUp, ShoppingBag, Truck, Phone, AlertCircle,
+  Search, X, SlidersHorizontal, Calendar, ArrowUpDown, Filter
 } from 'lucide-react';
 
 export const MyOrdersPage: React.FC = () => {
@@ -19,10 +27,37 @@ export const MyOrdersPage: React.FC = () => {
     t 
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'delivered' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [timeRange, setTimeRange] = useState<OrderTimeRange>('all');
+  const [sortBy, setSortBy] = useState<OrderSortBy>('date_desc');
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   const [returnModalOrder, setReturnModalOrder] = useState<Order | null>(null);
   const [returnReason, setReturnReason] = useState<string>('Damaged or freshness issue');
+
+  // Compute status counts for badges
+  const statusCounts = useMemo(() => getOrderStatusCounts(orders), [orders]);
+
+  // Compute filtered orders
+  const filteredOrders = useMemo(
+    () =>
+      filterOrders(orders, {
+        status: statusFilter,
+        searchQuery,
+        timeRange,
+        sortBy,
+      }),
+    [orders, statusFilter, searchQuery, timeRange, sortBy]
+  );
+
+  const hasActiveFilters = statusFilter !== 'all' || searchQuery.trim() !== '' || timeRange !== 'all';
+
+  const resetAllFilters = () => {
+    setStatusFilter('all');
+    setSearchQuery('');
+    setTimeRange('all');
+    setSortBy('date_desc');
+  };
 
   const toggleExpand = (orderNumber: string) => {
     setExpandedOrders(prev => ({ ...prev, [orderNumber]: !prev[orderNumber] }));
@@ -44,14 +79,6 @@ export const MyOrdersPage: React.FC = () => {
     requestOrderReturn(returnModalOrder.order_number, returnReason);
     setReturnModalOrder(null);
   };
-
-  const filteredOrders = orders.filter(ord => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'active') return ['pending', 'confirmed', 'processing', 'shipped'].includes(ord.status);
-    if (activeTab === 'delivered') return ord.status === 'delivered';
-    if (activeTab === 'cancelled') return ord.status === 'cancelled';
-    return true;
-  });
 
   const getStatusBadge = (status: OrderStatus) => {
     switch (status) {
@@ -83,6 +110,13 @@ export const MyOrdersPage: React.FC = () => {
             <span>{t('Preparing', 'প্যাকেজিং হচ্ছে')}</span>
           </span>
         );
+      case 'pending':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+            <Clock className="w-3.5 h-3.5" />
+            <span>{t('Pending Approval', 'অনুমোদনের অপেক্ষায়')}</span>
+          </span>
+        );
       case 'confirmed':
       default:
         return (
@@ -94,6 +128,15 @@ export const MyOrdersPage: React.FC = () => {
     }
   };
 
+  const statusTabItems: { id: OrderStatusFilter; label: string; count: number }[] = [
+    { id: 'all', label: t('All Orders', 'সব অর্ডার'), count: statusCounts.all },
+    { id: 'pending', label: t('Pending', 'অপেক্ষমাণ'), count: statusCounts.pending },
+    { id: 'processing', label: t('Processing', 'প্রক্রিয়াধীন'), count: statusCounts.processing + statusCounts.confirmed },
+    { id: 'shipped', label: t('In Transit', 'চলমান'), count: statusCounts.shipped },
+    { id: 'delivered', label: t('Delivered', 'ডেলিভারিকৃত'), count: statusCounts.delivered },
+    { id: 'cancelled', label: t('Cancelled', 'বাতিলকৃত'), count: statusCounts.cancelled },
+  ];
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16">
       {/* Header */}
@@ -102,51 +145,197 @@ export const MyOrdersPage: React.FC = () => {
           {t('My Orders & Tracking', 'আমার অর্ডার ও ট্র্যাকিং')}
         </h1>
         <p className="text-xs sm:text-sm text-muted mt-0.5">
-          {t('Review active deliveries, request returns, and track shipments in real-time', 'অর্ডারের অগ্রগতি দেখুন এবং দ্রুত রি-অর্ডার করুন')}
+          {t(
+            'Filter and track order status, review delivery history, and request returns in real-time',
+            'অর্ডারের অগ্রগতি দেখুন, স্ট্যাটাস ফিল্টার করুন এবং দ্রুত রি-অর্ডার করুন'
+          )}
         </p>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 border-b border-border pb-2 overflow-x-auto">
-        {[
-          { id: 'all', label: t('All Orders', 'সব অর্ডার') },
-          { id: 'active', label: t('Active & In Transit', 'চলমান অর্ডার') },
-          { id: 'delivered', label: t('Delivered', 'ডেলিভারিকৃত') },
-          { id: 'cancelled', label: t('Cancelled', 'বাতিলকৃত') },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              activeTab === tab.id
-                ? 'bg-primary text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* FILTER CONTROLS HUB */}
+      <div className="bg-white rounded-3xl border border-border shadow-xs p-4 sm:p-5 space-y-4">
+        {/* Status Filter Tabs / Chips */}
+        <div>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-600 mb-2">
+            <span className="flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-primary" />
+              <span>{t('Filter by Order Status:', 'স্ট্যাটাস অনুযায়ী ফিল্টার:')}</span>
+            </span>
+            <span className="text-muted font-normal text-[11px]">
+              {t(`Total: ${orders.length} orders`, `মোট: ${orders.length}টি অর্ডার`)}
+            </span>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {statusTabItems.map((tab) => {
+              const isSelected = statusFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 border ${
+                    isSelected
+                      ? 'bg-primary text-white border-primary shadow-sm'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                      isSelected
+                        ? 'bg-white/25 text-white'
+                        : 'bg-white text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Search Bar and Secondary Filter Controls */}
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2 border-t border-slate-100">
+          {/* Search Input */}
+          <div className="sm:col-span-6 relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('Search order #, product, or area...', 'অর্ডার নম্বর, পণ্যের নাম বা এলাকা দিয়ে খুঁজুন...')}
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:border-primary transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-ink"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Time Range Filter */}
+          <div className="sm:col-span-3">
+            <div className="relative">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value as OrderTimeRange)}
+                className="w-full pl-8 pr-6 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 focus:bg-white focus:border-primary appearance-none cursor-pointer"
+              >
+                <option value="all">{t('All Time', 'সব সময়')}</option>
+                <option value="30d">{t('Last 30 Days', 'বিগত ৩০ দিন')}</option>
+                <option value="90d">{t('Last 90 Days', 'বিগত ৯০ দিন')}</option>
+                <option value="year">{t('Past Year', 'বিগত ১ বছর')}</option>
+              </select>
+              <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Sort By Selector */}
+          <div className="sm:col-span-3">
+            <div className="relative">
+              <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as OrderSortBy)}
+                className="w-full pl-8 pr-6 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 focus:bg-white focus:border-primary appearance-none cursor-pointer"
+              >
+                <option value="date_desc">{t('Newest First', 'নতুন আগে')}</option>
+                <option value="date_asc">{t('Oldest First', 'পুরাতন আগে')}</option>
+                <option value="amount_desc">{t('Highest Total', 'বেশি মূল্য')}</option>
+                <option value="amount_asc">{t('Lowest Total', 'কম মূল্য')}</option>
+              </select>
+              <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* Active Filter Indicators and Reset Action */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5 text-muted">
+              <span>{t('Filtering:', 'ফিল্টার:')}</span>
+              {statusFilter !== 'all' && (
+                <span className="px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-bold">
+                  {statusTabItems.find((tab) => tab.id === statusFilter)?.label}
+                </span>
+              )}
+              {searchQuery.trim() && (
+                <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-semibold">
+                  "{searchQuery}"
+                </span>
+              )}
+              {timeRange !== 'all' && (
+                <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 font-semibold">
+                  {timeRange === '30d' ? '30 Days' : timeRange === '90d' ? '90 Days' : '1 Year'}
+                </span>
+              )}
+              <span className="text-slate-400 ml-1">
+                • {t(`Showing ${filteredOrders.length} of ${orders.length} orders`, `${orders.length}টির মধ্যে ${filteredOrders.length}টি প্রদর্শিত`)}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="text-primary hover:text-primary-hover font-bold flex items-center gap-1 text-xs"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>{t('Reset Filters', 'সব ফিল্টার মুছুন')}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Orders List */}
       <div className="space-y-4">
         {filteredOrders.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-3xl border border-border shadow-card space-y-3">
+          <div className="p-12 text-center bg-white rounded-3xl border border-border shadow-card space-y-4">
             <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
               <Package className="w-8 h-8" />
             </div>
-            <h3 className="font-bold text-ink text-base">
-              {t('No orders found in this view', 'কোনো অর্ডার পাওয়া যায়নি')}
-            </h3>
-            <p className="text-xs text-muted max-w-xs mx-auto">
-              {t('Browse the marketplace to find fresh foods and daily goods.', 'মার্কেটপ্লেস ব্রাউজ করে পছন্দের পণ্য অর্ডার করুন।')}
-            </p>
-            <button
-              onClick={() => setCurrentView('catalog')}
-              className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold shadow-sm"
-            >
-              {t('Start Shopping', 'কেনাকাটা শুরু করুন')}
-            </button>
+            <div>
+              <h3 className="font-bold text-ink text-base">
+                {hasActiveFilters
+                  ? t('No orders match your filter criteria', 'ফিল্টারের সাথে মেলে এমন কোনো অর্ডার পাওয়া যায়নি')
+                  : t('No orders found in this view', 'কোনো অর্ডার পাওয়া যায়নি')}
+              </h3>
+              <p className="text-xs text-muted max-w-sm mx-auto mt-1">
+                {hasActiveFilters
+                  ? t(
+                      'Try choosing a different status filter or clearing your search keywords.',
+                      'অন্য কোনো স্ট্যাটাস ফিল্টার নির্বাচন করুন অথবা সার্চ কি-ওয়ার্ড মুছে চেষ্টা করুন।'
+                    )
+                  : t(
+                      'Browse the marketplace to find fresh foods and daily goods.',
+                      'মার্কেটপ্লেস ব্রাউজ করে পছন্দের পণ্য অর্ডার করুন।'
+                    )}
+              </p>
+            </div>
+
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold shadow-sm inline-flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{t('Clear Filters & Show All', 'ফিল্টার মুছুন ও সব দেখুন')}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setCurrentView('catalog')}
+                className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold shadow-sm"
+              >
+                {t('Start Shopping', 'কেনাকাটা শুরু করুন')}
+              </button>
+            )}
           </div>
         ) : (
           filteredOrders.map(order => {
