@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { manageSearchHistory } from '../lib/amazonFeatures';
 import { FlaskAuthPanel } from './FlaskAuthPanel';
+import { PWAInstallButton } from './PWAInstallButton';
+
 
 export const Navbar: React.FC = () => {
   const {
@@ -596,8 +598,12 @@ export const Navbar: React.FC = () => {
 
           {/* Action Icons: AI Copilot, Compare, Wishlist, Notification, Cart */}
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Install Android App / PWA Button */}
+            <PWAInstallButton variant="compact" />
+
             {/* Gemini HaatAI Assistant Trigger */}
             <button
+
               type="button"
               onClick={() => setIsAIAssistantOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-primary to-indigo-600 text-white font-bold text-xs shadow-md hover:opacity-95 transition-all animate-pulse"

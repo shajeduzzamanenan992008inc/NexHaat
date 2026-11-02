@@ -10,4 +10,6 @@ sealed class NavRoutes(val route: String) {
     }
     object Cart : NavRoutes("cart")
     object SignIn : NavRoutes("sign_in")
+    object Settings : NavRoutes("settings")
 }
+

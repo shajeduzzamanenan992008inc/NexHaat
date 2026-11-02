@@ -8,6 +8,9 @@ import { AIAssistantDrawer } from './components/AIAssistantDrawer';
 import { CompareModal } from './components/CompareModal';
 import { ComparisonBar } from './components/ComparisonBar';
 import { PrimeModal } from './components/PrimeModal';
+import { AmazonAppBanner } from './components/AmazonAppBanner';
+import { OfflineIndicator } from './components/OfflineIndicator';
+
 
 const HomePage = React.lazy(() => import('./pages/HomePage').then(({ HomePage }) => ({ default: HomePage })));
 const CatalogPage = React.lazy(() =>
@@ -83,13 +86,16 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-page dark:bg-slate-950 transition-colors">
+      <AmazonAppBanner />
       <Navbar />
       <CartDrawer />
       <AIAssistantDrawer />
       <CompareModal />
       <ComparisonBar />
       <PrimeModal />
+      <OfflineIndicator />
       <ToastContainer />
+
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
         <Suspense

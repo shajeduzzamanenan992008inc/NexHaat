@@ -57,4 +57,36 @@
     <string name="password">পাসওয়ার্ড</string>
     <string name="view_cart">কার্ট দেখুন</string>
     <string name="checkout_not_available">অ্যান্ড্রয়েড অ্যাপে এখনো চেকআউট নেই। আপনার কার্টের মোট সার্ভারে হিসাব করা হয়।</string>
+    <string name="biometric_sign_in">বায়োমেট্রিক দিয়ে সাইন ইন করুন</string>
+    <string name="biometric_prompt_title">বায়োমেট্রিক সাইন ইন</string>
+    <string name="biometric_prompt_subtitle">সাইন ইন করতে আপনার আঙুলের ছাপ বা মুখ ব্যবহার করুন</string>
+    <string name="biometric_prompt_description">আপনার নেক্সহাট অ্যাকাউন্টে নিরাপদে প্রবেশ করতে পরিচয় নিশ্চিত করুন।</string>
+    <string name="enable_biometric_sign_in">পরবর্তী লগইনের জন্য ফিঙ্গারপ্রিন্ট / ফেস আনলক সংরক্ষণ করুন</string>
+    <string name="biometric_auth_failed">বায়োমেট্রিক যাচাই ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন বা পাসওয়ার্ড ব্যবহার করুন।</string>
+    <string name="cancel">বাতিল</string>
+    <string name="settings">সেটিংস</string>
+    <string name="security_settings">নিরাপত্তা ও প্রমাণীকরণ</string>
+    <string name="biometric_auth_title">বায়োমেট্রিক সাইন-ইন</string>
+    <string name="biometric_auth_desc">দ্রুত ও নিরাপদ প্রবেশের জন্য ফিঙ্গারপ্রিন্ট বা ফেস আনলক ব্যবহার করুন</string>
+    <string name="biometric_lockout_title">সেন্সর সাময়িকভাবে লক হয়েছে</string>
+    <string name="biometric_permanent_lockout_title">বায়োমেট্রিক সেন্সর লক হয়েছে</string>
+    <string name="biometric_none_enrolled_title">কোন বায়োমেট্রিক নিবন্ধিত নেই</string>
+    <string name="biometric_hardware_unavailable_title">বায়োমেট্রিক হার্ডওয়্যার অনুপলব্ধ</string>
+    <string name="biometric_error_title">প্রমাণীকরণ বিজ্ঞপ্তি</string>
+    <string name="open_settings">সেটিংস খুলুন</string>
+    <string name="use_password">পাসওয়ার্ড ব্যবহার করুন</string>
+    <string name="fallback_auth_title">বিকল্প পাসওয়ার্ড প্রমাণীকরণ</string>
+    <string name="fallback_auth_desc">বায়োমেট্রিক অনুপলব্ধ হলে আপনার নেক্সহাট অ্যাকাউন্টের পাসওয়ার্ড দিয়ে পরিচয় নিশ্চিত করুন।</string>
+    <string name="verify_fallback_password">বিকল্প পাসওয়ার্ড যাচাই করুন</string>
+    <string name="clear_biometric_data">সংরক্ষিত বায়োমেট্রিক তথ্য মুছুন</string>
+    <string name="biometric_cleared_msg">বায়োমেট্রিক প্রমাণপত্রের তথ্য মুছে ফেলা হয়েছে।</string>
+    <string name="device_biometric_status">ডিভাইস সেন্সর অবস্থা</string>
+    <string name="status_ready">প্রস্তুত (নিবন্ধিত ও সমর্থিত)</string>
+    <string name="status_not_available">এই ডিভাইসে অনুপলব্ধ</string>
+    <string name="status_none_enrolled">আঙুলের ছাপ বা মুখ নিবন্ধিত নেই</string>
+    <string name="status_hardware_unavailable">সেন্সর সাময়িকভাবে অনুপলব্ধ</string>
+    <string name="setup_biometrics_in_settings">অ্যান্ড্রয়েড সেটিংসে বায়োমেট্রিক সেট করুন</string>
+    <string name="test_biometrics">বায়োমেট্রিক আনলক পরীক্ষা করুন</string>
 </resources>
+
+

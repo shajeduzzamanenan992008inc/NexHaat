@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.ShoppingCart
+
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,8 +31,10 @@ import com.nexhaat.app.R
 fun MarketplaceTopBar(
     onSearch: (() -> Unit)? = null,
     onNavigateBack: (() -> Unit)? = null,
-    onCart: (() -> Unit)? = null
+    onCart: (() -> Unit)? = null,
+    onSettings: (() -> Unit)? = null
 ) {
+
     Surface(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
@@ -76,6 +80,12 @@ fun MarketplaceTopBar(
                     Icon(Icons.Default.ShoppingCart, contentDescription = stringResource(R.string.cart))
                 }
             }
+            onSettings?.let { settings ->
+                IconButton(onClick = settings) {
+                    Icon(Icons.Default.Security, contentDescription = stringResource(R.string.security_settings))
+                }
+            }
         }
     }
+
 }

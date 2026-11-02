@@ -61,4 +61,36 @@
     <string name="password">Password</string>
     <string name="view_cart">View cart</string>
     <string name="checkout_not_available">Checkout is not available in the Android app yet. Your cart total is server-calculated.</string>
+    <string name="biometric_sign_in">Sign in with Biometrics</string>
+    <string name="biometric_prompt_title">Biometric Sign In</string>
+    <string name="biometric_prompt_subtitle">Use your fingerprint or face to sign in</string>
+    <string name="biometric_prompt_description">Verify your identity to access your NexHaat account securely.</string>
+    <string name="enable_biometric_sign_in">Save for quick Fingerprint / Face sign-in</string>
+    <string name="biometric_auth_failed">Biometric authentication failed. Please try again or use your password.</string>
+    <string name="cancel">Cancel</string>
+    <string name="settings">Settings</string>
+    <string name="security_settings">Security &amp; Authentication</string>
+    <string name="biometric_auth_title">Biometric Sign-In</string>
+    <string name="biometric_auth_desc">Use fingerprint or face recognition for fast, secure access</string>
+    <string name="biometric_lockout_title">Sensor Temporarily Locked</string>
+    <string name="biometric_permanent_lockout_title">Biometric Sensor Locked</string>
+    <string name="biometric_none_enrolled_title">No Biometrics Enrolled</string>
+    <string name="biometric_hardware_unavailable_title">Biometric Hardware Unavailable</string>
+    <string name="biometric_error_title">Authentication Notice</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="use_password">Use Password</string>
+    <string name="fallback_auth_title">Fallback Authentication</string>
+    <string name="fallback_auth_desc">When biometrics are locked or unavailable, verify using your NexHaat password.</string>
+    <string name="verify_fallback_password">Test Password Fallback</string>
+    <string name="clear_biometric_data">Clear Stored Biometric Credentials</string>
+    <string name="biometric_cleared_msg">Stored biometric credentials cleared.</string>
+    <string name="device_biometric_status">Device Sensor Status</string>
+    <string name="status_ready">Ready (Enrolled &amp; Supported)</string>
+    <string name="status_not_available">Not Available on this Device</string>
+    <string name="status_none_enrolled">No Fingerprint or Face Enrolled</string>
+    <string name="status_hardware_unavailable">Sensor Temporarily Unavailable</string>
+    <string name="setup_biometrics_in_settings">Configure Biometrics in Android Settings</string>
+    <string name="test_biometrics">Test Biometric Unlock</string>
 </resources>
+
+

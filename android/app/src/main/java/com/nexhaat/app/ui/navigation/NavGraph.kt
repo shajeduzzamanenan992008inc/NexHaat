@@ -14,6 +14,8 @@ import com.nexhaat.app.ui.screens.home.HomeScreen
 import com.nexhaat.app.ui.screens.product.ProductDetailScreen
 import com.nexhaat.app.ui.screens.products.ProductsScreen
 import com.nexhaat.app.ui.screens.search.SearchScreen
+import com.nexhaat.app.ui.screens.settings.SettingsScreen
+
 
 @Composable
 fun NexHaatNavGraph() {
@@ -45,9 +47,11 @@ fun NexHaatNavGraph() {
                 onNavigateToProducts = { navController.navigate(NavRoutes.Products.route) },
                 onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
                 onNavigateToProductDetail = ::navigateToProduct,
-                onNavigateToCart = ::navigateToCart
+                onNavigateToCart = ::navigateToCart,
+                onNavigateToSettings = { navController.navigate(NavRoutes.Settings.route) }
             )
         }
+
         composable(NavRoutes.Categories.route) {
             CategoriesScreen(
                 onNavigateToProducts = { categoryId ->
@@ -116,5 +120,15 @@ fun NexHaatNavGraph() {
                 }
             )
         }
+        composable(NavRoutes.Settings.route) {
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
+                onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
+                onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
+                onNavigateToCart = ::navigateToCart
+            )
+        }
     }
 }
+

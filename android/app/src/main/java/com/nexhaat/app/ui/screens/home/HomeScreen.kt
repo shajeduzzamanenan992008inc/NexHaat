@@ -58,12 +58,20 @@ fun HomeScreen(
     onNavigateToProducts: () -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToProductDetail: (Int) -> Unit,
-    onNavigateToCart: () -> Unit = {}
+    onNavigateToCart: () -> Unit = {},
+    onNavigateToSettings: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
-        topBar = { MarketplaceTopBar(onSearch = onNavigateToSearch, onCart = onNavigateToCart) },
+        topBar = {
+            MarketplaceTopBar(
+                onSearch = onNavigateToSearch,
+                onCart = onNavigateToCart,
+                onSettings = onNavigateToSettings
+            )
+        },
+
         bottomBar = {
             MarketplaceBottomBar(
                 selectedTab = MarketplaceTab.Home,
