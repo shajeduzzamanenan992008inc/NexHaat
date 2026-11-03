@@ -10,7 +10,6 @@ from flask import Blueprint, current_app, request, session
 from flask_login import logout_user
 from flask_wtf.csrf import generate_csrf
 from sqlalchemy import select
-from werkzeug.security import generate_password_hash
 
 from ...extensions import db
 from ...i18n import SUPPORTED_LOCALES
@@ -408,42 +407,36 @@ def reset_password():
     return success_response(None, "Password updated successfully. You can now sign in.")
 
 
+SOCIAL_PROVIDERS = frozenset({"google", "microsoft", "github"})
+TWO_FACTOR_MAX_ATTEMPTS = 5
+
+
 @auth_api.post("/social-login")
 def social_login():
-    from ...routes.auth import _start_authenticated_session
+    """Refuse provider sign-in until a verified token flow exists.
 
+    An earlier implementation started a session from a client-supplied email
+    address, which let any caller sign in as any account. Identity must come from
+    a provider token whose issuer, audience, expiry, and signature are verified on
+    the server. Until that verification is configured this route fails closed and
+    never falls back to email-only authentication.
+    """
     payload = request.get_json(silent=True) or {}
-    provider = str(payload.get("provider", "google")).strip().lower()
-    email = str(payload.get("email", "")).strip().lower()
-    display_name = str(payload.get("display_name", "")).strip()
+    provider = str(payload.get("provider", "")).strip().lower()
+    remote_addr = request.remote_addr
 
-    if not email or "@" not in email:
-        raise ApiError("Valid email is required for social sign-in.", "VALIDATION_ERROR", 422)
+    if login_is_throttled(remote_addr):
+        raise ApiError("Too many attempts. Try again later.", "RATE_LIMITED", 429)
+    if provider not in SOCIAL_PROVIDERS:
+        record_login_failure(remote_addr)
+        raise ApiError("Choose a supported sign-in provider.", "UNSUPPORTED_PROVIDER", 422)
 
-    user = db.session.scalar(select(User).where(User.email == email))
-    if user:
-        if not user.is_active:
-            raise ApiError("This account is suspended.", "ACCOUNT_SUSPENDED", 403)
-        _start_authenticated_session(user)
-        record_audit("auth.social_login", actor=user, detail=f"provider:{provider}")
-        return success_response(user_to_dict(user), f"Signed in with {provider.capitalize()}.")
-
-    # Auto-create customer account
-    user = User(
-        email=email,
-        role="customer",
-        password_hash=generate_password_hash(secrets.token_urlsafe(32)),
-        preferred_locale=session.get("locale", "en"),
+    record_audit("auth.social_login_blocked", detail=f"provider:{provider}")
+    raise ApiError(
+        "Social sign-in is not available yet. Use email and password.",
+        "SOCIAL_LOGIN_UNAVAILABLE",
+        503,
     )
-    user.customer_profile = CustomerProfile(
-        full_name=display_name or email.split("@")[0],
-        phone="+8801700000000",
-    )
-    db.session.add(user)
-    db.session.commit()
-    _start_authenticated_session(user)
-    record_audit("auth.social_register", actor=user, detail=f"provider:{provider}")
-    return created_response(user_to_dict(user), f"Account created and signed in with {provider.capitalize()}.")
 
 
 @auth_api.post("/2fa/setup")
@@ -482,10 +475,23 @@ def verify_2fa():
 
     payload = request.get_json(silent=True) or {}
     code = str(payload.get("code", "")).strip().replace(" ", "")
-    secret = str(payload.get("secret", "")).strip() or session.get("totp_pending_secret", "")
+    # The enrollment secret is only ever the one this server generated and kept
+    # server-side for this session. Accepting a caller-supplied secret would let
+    # anyone "enable 2FA" with a factor they control.
+    secret = str(session.get("totp_pending_secret", "") or "").strip()
 
+    if not secret:
+        raise ApiError(
+            "Two-factor setup session expired. Start setup again.",
+            "SETUP_EXPIRED",
+            400,
+        )
     if not code:
         raise ApiError("Verification code is required.", "VALIDATION_ERROR", 422)
+    if int(session.get("totp_failed_attempts", 0) or 0) >= TWO_FACTOR_MAX_ATTEMPTS:
+        session.pop("totp_pending_secret", None)
+        session.pop("totp_backup_codes", None)
+        raise ApiError("Too many incorrect codes. Start setup again.", "CODE_LOCKED", 429)
 
     # Check if matches any backup code
     backup_codes = session.get("totp_backup_codes", [])
@@ -516,8 +522,10 @@ def verify_2fa():
         valid = False
 
     if not valid:
+        session["totp_failed_attempts"] = int(session.get("totp_failed_attempts", 0) or 0) + 1
         raise ApiError("The 6-digit authenticator code is incorrect.", "INVALID_CODE", 400)
 
+    session.pop("totp_failed_attempts", None)
     session["two_factor_verified"] = True
     session["totp_secret"] = clean_secret
     session.pop("totp_pending_secret", None)

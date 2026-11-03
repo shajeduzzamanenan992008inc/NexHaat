@@ -143,13 +143,15 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    suspend fun socialLogin(provider: String, token: String, email: String?, name: String?): NetworkResult<UserDto> = withContext(Dispatchers.IO) {
+    // Provider sign-in must prove identity with a token the server verifies. Email and
+    // display name are never sent: the server must not trust client-supplied identity.
+    suspend fun socialLogin(provider: String, idToken: String): NetworkResult<UserDto> = withContext(Dispatchers.IO) {
         sessionOperationMutex.withLock {
             try {
                 if (!refreshCsrfToken()) {
                     return@withLock NetworkResult.Error("Could not start a secure session.")
                 }
-                val response = apiService.socialLogin(SocialLoginRequestDto(provider, token, email, name))
+                val response = apiService.socialLogin(SocialLoginRequestDto(provider, idToken))
                 val user = response.data?.takeIf { response.success }
                     ?: return@withLock NetworkResult.Error(response.error?.message ?: response.message ?: "Social sign-in failed.")
                 refreshCsrfToken()

@@ -24,7 +24,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -189,66 +188,6 @@ fun SignInScreen(
                 ) {
                     if (uiState.isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp))
                     else Text(stringResource(R.string.sign_in))
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f))
-                    Text(
-                        text = " " + stringResource(R.string.or_continue_with) + " ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    HorizontalDivider(modifier = Modifier.weight(1f))
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        viewModel.socialLogin("google", "google_token", uiState.email.ifBlank { "google_user@nexhaat.com" }, "Google User")
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.continue_with_google))
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.socialLogin("microsoft", "ms_token", uiState.email.ifBlank { "ms_user@nexhaat.com" }, "Microsoft User")
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp),
-                        enabled = !uiState.isLoading
-                    ) {
-                        Text("Microsoft")
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.socialLogin("github", "gh_token", uiState.email.ifBlank { "github_user@nexhaat.com" }, "GitHub User")
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp),
-                        enabled = !uiState.isLoading
-                    ) {
-                        Text("GitHub")
-                    }
                 }
 
                 Spacer(Modifier.height(16.dp))

@@ -25,10 +25,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -232,88 +230,6 @@ fun SignUpScreen(
                         CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                     } else {
                         Text(stringResource(R.string.sign_up), style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f))
-                    Text(
-                        text = " " + stringResource(R.string.or_continue_with) + " ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    HorizontalDivider(modifier = Modifier.weight(1f))
-                }
-
-                Spacer(Modifier.height(14.dp))
-
-                // Social sign-in buttons
-                OutlinedButton(
-                    onClick = {
-                        viewModel.socialLogin(
-                            provider = "google",
-                            token = "google_auth_token_mock",
-                            email = uiState.email.ifBlank { "google_user@nexhaat.com" },
-                            name = uiState.fullName.ifBlank { "Google User" }
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .testTag("google_login_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = !uiState.isLoading
-                ) {
-                    Text(stringResource(R.string.continue_with_google))
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.socialLogin(
-                                provider = "microsoft",
-                                token = "ms_auth_token_mock",
-                                email = uiState.email.ifBlank { "ms_user@nexhaat.com" },
-                                name = uiState.fullName.ifBlank { "Microsoft User" }
-                            )
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp)
-                            .testTag("microsoft_login_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = !uiState.isLoading
-                    ) {
-                        Text("Microsoft")
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.socialLogin(
-                                provider = "github",
-                                token = "github_auth_token_mock",
-                                email = uiState.email.ifBlank { "github_user@nexhaat.com" },
-                                name = uiState.fullName.ifBlank { "GitHub User" }
-                            )
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp)
-                            .testTag("github_login_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = !uiState.isLoading
-                    ) {
-                        Text("GitHub")
                     }
                 }
 

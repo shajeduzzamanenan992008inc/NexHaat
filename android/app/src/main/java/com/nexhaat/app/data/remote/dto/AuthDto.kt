@@ -58,9 +58,8 @@ data class ResetPasswordRequestDto(
 @Serializable
 data class SocialLoginRequestDto(
     val provider: String,
-    val token: String,
-    val email: String? = null,
-    val name: String? = null
+    @SerialName("id_token")
+    val idToken: String
 )
 
 @Serializable

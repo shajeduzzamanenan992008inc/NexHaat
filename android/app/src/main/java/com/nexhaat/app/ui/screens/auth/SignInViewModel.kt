@@ -95,28 +95,6 @@ class SignInViewModel @Inject constructor(
         }
     }
 
-    fun socialLogin(provider: String, token: String, email: String, name: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = authRepository.socialLogin(provider, token, email, name)) {
-                is NetworkResult.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        signedInUser = result.data,
-                        error = null
-                    )
-                }
-                is NetworkResult.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
-                }
-                NetworkResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = false)
-            }
-        }
-    }
-
     val biometricHelper: BiometricPromptHelper
         get() = biometricPromptHelper
 
