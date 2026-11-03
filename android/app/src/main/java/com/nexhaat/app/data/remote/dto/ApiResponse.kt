@@ -9,7 +9,9 @@ data class ApiResponse<T>(
     val data: T? = null,
     val message: String? = null,
     val pagination: Pagination? = null,
-    val error: ApiError? = null
+    val error: ApiError? = null,
+    @SerialName("two_factor_required")
+    val twoFactorRequired: Boolean = false
 )
 
 @Serializable

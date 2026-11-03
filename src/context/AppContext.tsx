@@ -18,10 +18,12 @@ import {
   FlaskAuthError,
   FlaskUser,
   getCurrentFlaskUser,
+  LoginResult,
   loginWithFlask as authenticateWithFlask,
   logoutFromFlask,
   RegistrationRequest,
   startFlaskRegistration,
+  verifyTwoFactorChallenge as verify2FAChallengeApi,
 } from '../lib/flaskAuth';
 import {
   addMarketplaceCartItem,
@@ -92,7 +94,8 @@ interface AppContextType {
   isFirebaseAuthLoading: boolean;
   flaskUser: FlaskUser | null;
   isFlaskAuthLoading: boolean;
-  loginWithFlask: (email: string, password: string) => Promise<void>;
+  loginWithFlask: (email: string, password: string) => Promise<LoginResult>;
+  verifyTwoFactorChallenge: (code: string) => Promise<FlaskUser>;
   logoutFlask: () => Promise<void>;
   startFlaskRegistration: (request: RegistrationRequest) => Promise<void>;
   submitMarketplaceCheckout: (input: {
@@ -320,16 +323,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const loginWithFlask = async (email: string, password: string) => {
+  const loginWithFlask = async (email: string, password: string): Promise<LoginResult> => {
     setIsFlaskAuthLoading(true);
     try {
-      const user = await authenticateWithFlask(email, password);
-      setFlaskUser(user);
-      showToast(t('Signed in to the NexHaat marketplace.', 'NexHaat মার্কেটপ্লেসে সাইন ইন হয়েছে।'), 'success');
+      const result = await authenticateWithFlask(email, password);
+      if (result.status === 'authenticated') {
+        setFlaskUser(result.user);
+        showToast(t('Signed in to the NexHaat marketplace.', 'NexHaat মার্কেটপ্লেসে সাইন ইন হয়েছে।'), 'success');
+      }
+      return result;
     } finally {
       setIsFlaskAuthLoading(false);
     }
   };
+
+  const verifyTwoFactorChallenge = async (code: string): Promise<FlaskUser> => {
+    setIsFlaskAuthLoading(true);
+    try {
+      const user = await verify2FAChallengeApi(code);
+      setFlaskUser(user);
+      showToast(t('Signed in with two-factor authentication.', 'টু-ফ্যাক্টর অথেনটিকেশন দিয়ে সাইন ইন হয়েছে।'), 'success');
+      return user;
+    } finally {
+      setIsFlaskAuthLoading(false);
+    }
+  };
+
 
   const logoutFlask = async () => {
     setIsFlaskAuthLoading(true);
@@ -1443,6 +1462,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         flaskUser,
         isFlaskAuthLoading,
         loginWithFlask,
+        verifyTwoFactorChallenge,
         logoutFlask,
         startFlaskRegistration: beginFlaskRegistration,
         submitMarketplaceCheckout: createMarketplaceOrder,

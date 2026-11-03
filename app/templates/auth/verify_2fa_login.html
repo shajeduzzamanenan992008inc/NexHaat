@@ -1,0 +1,24 @@
+{% extends "auth/base.html" %}
+{% block title %}{{ _('Two-Factor Verification') }} · {{ app_name }}{% endblock %}
+{% block auth_content %}
+<section class="auth-card" data-auth-card>
+  <div class="auth-panel" style="padding: 2.5rem;">
+    <div class="auth-panel__brand" aria-hidden="true">🔒</div>
+    <p class="eyebrow">{{ _('SECURITY CHECK') }}</p>
+    <h1>{{ _('Two-Factor Authentication') }}</h1>
+    <p class="auth-subtitle">{{ _('Enter the 6-digit code from your authenticator app or an 8-digit backup code.') }}</p>
+
+    <form class="auth-form" method="post" action="{{ url_for('auth.two_factor_login_challenge') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-field">
+        <label for="code">{{ _('Authentication Code or Backup Code') }}</label>
+        <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required autofocus placeholder="123456">
+      </div>
+      <button class="button button--primary" type="submit" style="width: 100%; margin-top: 1rem;">{{ _('Verify and Sign In') }}</button>
+    </form>
+    <p class="form-hint" style="margin-top: 1.5rem; text-align: center;">
+      <a href="{{ url_for('auth.login') }}">{{ _('Back to Sign in') }}</a>
+    </p>
+  </div>
+</section>
+{% endblock %}

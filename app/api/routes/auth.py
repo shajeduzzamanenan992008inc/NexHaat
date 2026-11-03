@@ -6,7 +6,7 @@ import re
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from flask import Blueprint, current_app, request, session
+from flask import Blueprint, current_app, jsonify, request, session
 from flask_login import logout_user
 from flask_wtf.csrf import generate_csrf
 from sqlalchemy import select
@@ -19,6 +19,8 @@ from ...models import (
     RegistrationChallenge,
     SellerProfile,
     User,
+    UserBackupCode,
+    UserTwoFactor,
 )
 from ...security import (
     clear_login_failures,
@@ -180,10 +182,34 @@ def login():
         record_login_failure(remote_addr)
         raise ApiError("Invalid email or password.", "INVALID_CREDENTIALS", 401)
     clear_login_failures(remote_addr)
+
+    if user.is_totp_enabled:
+        challenge_id = secrets.token_urlsafe(32)
+        expires_at = datetime.now(UTC) + timedelta(minutes=5)
+        session.clear()
+        session["pending_2fa_user_id"] = user.id
+        session["pending_2fa_challenge_id"] = challenge_id
+        session["pending_2fa_expires_at"] = expires_at.isoformat()
+        session["pending_2fa_attempts"] = 0
+        record_audit("auth.login_2fa_challenge_issued", actor=user)
+        response = jsonify({
+            "success": True,
+            "two_factor_required": True,
+            "data": {
+                "challenge_id": challenge_id,
+                "expires_at": expires_at.isoformat(),
+                "two_factor_required": True,
+            },
+            "message": "Two-factor authentication required. Enter your authenticator or backup code.",
+        })
+        response.status_code = 202
+        return response
+
     from ...routes.auth import _start_authenticated_session
     _start_authenticated_session(user)
     record_audit("auth.login", actor=user)
     return success_response(user_to_dict(user), "Signed in.")
+
 
 
 @auth_api.post("/logout")
@@ -439,96 +465,263 @@ def social_login():
     )
 
 
-@auth_api.post("/2fa/setup")
-def setup_2fa():
-    import base64
-    import urllib.parse
-
+@auth_api.get("/2fa/status")
+def two_factor_status():
+    """Return the current user's 2FA status and remaining backup codes."""
     user = current_session_user()
     if not user:
         raise ApiError("Sign in is required.", "UNAUTHENTICATED", 401)
 
-    raw_bytes = secrets.token_bytes(20)
-    secret = base64.b32encode(raw_bytes).decode("ascii").rstrip("=")
-    session["totp_pending_secret"] = secret
-    backup_codes = [f"{secrets.randbelow(100_000_000):08d}" for _ in range(8)]
-    session["totp_backup_codes"] = backup_codes
-    otpauth_url = f"otpauth://totp/NexHaat:{user.email}?secret={secret}&issuer=NexHaat"
-    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={urllib.parse.quote(otpauth_url)}"
+    from ...services.two_factor import get_backup_codes_remaining_count
+
+    remaining = get_backup_codes_remaining_count(user.id) if user.is_totp_enabled else 0
+    return success_response({
+        "enabled": user.is_totp_enabled,
+        "confirmed_at": user.two_factor.confirmed_at.isoformat() if (user.two_factor and user.two_factor.confirmed_at) else None,
+        "backup_codes_remaining": remaining,
+    })
+
+
+@auth_api.post("/2fa/setup")
+def setup_2fa():
+    """Start 2FA setup.
+
+    Generates a secure secret, encrypts it with AES-256-GCM, stores unconfirmed record,
+    and returns the provisioning URI and backup codes. Never sends data to external QR APIs.
+    """
+    user = current_session_user()
+    if not user:
+        raise ApiError("Sign in is required.", "UNAUTHENTICATED", 401)
+
+    from ...services.two_factor import (
+        generate_backup_codes,
+        generate_totp_secret,
+        get_provisioning_uri,
+        save_backup_codes,
+    )
+    from ...services.two_factor_crypto import encrypt_totp_secret
+
+    secret = generate_totp_secret()
+    encrypted_secret, version = encrypt_totp_secret(secret)
+
+    if user.two_factor:
+        user.two_factor.encrypted_secret = encrypted_secret
+        user.two_factor.encryption_key_version = version
+        user.two_factor.enabled = False
+        user.two_factor.confirmed_at = None
+        user.two_factor.updated_at = datetime.now(UTC)
+    else:
+        tf = UserTwoFactor(
+            user_id=user.id,
+            encrypted_secret=encrypted_secret,
+            encryption_key_version=version,
+            enabled=False,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        db.session.add(tf)
+
+    backup_codes = generate_backup_codes(8)
+    save_backup_codes(user.id, backup_codes)
+    db.session.commit()
+
+    provisioning_uri = get_provisioning_uri(user.email, secret)
+    record_audit("auth.2fa_setup_initiated", actor=user)
 
     return success_response({
         "secret": secret,
-        "qr_code_url": qr_code_url,
+        "provisioning_uri": provisioning_uri,
         "backup_codes": backup_codes,
     }, "Two-factor authentication setup initiated.")
 
 
+@auth_api.post("/2fa/confirm")
 @auth_api.post("/2fa/verify")
-def verify_2fa():
-    import base64
-    import struct
-    import time
-
+def confirm_2fa():
+    """Verify code and activate 2FA for the authenticated user."""
     user = current_session_user()
     if not user:
         raise ApiError("Sign in is required.", "UNAUTHENTICATED", 401)
 
     payload = request.get_json(silent=True) or {}
     code = str(payload.get("code", "")).strip().replace(" ", "")
-    # The enrollment secret is only ever the one this server generated and kept
-    # server-side for this session. Accepting a caller-supplied secret would let
-    # anyone "enable 2FA" with a factor they control.
-    secret = str(session.get("totp_pending_secret", "") or "").strip()
+    if not code:
+        raise ApiError("Verification code is required.", "VALIDATION_ERROR", 422)
 
-    if not secret:
+    tf = user.two_factor
+    if not tf or not tf.encrypted_secret:
         raise ApiError(
-            "Two-factor setup session expired. Start setup again.",
+            "Two-factor setup expired or was not initiated. Start setup again.",
             "SETUP_EXPIRED",
             400,
         )
-    if not code:
-        raise ApiError("Verification code is required.", "VALIDATION_ERROR", 422)
-    if int(session.get("totp_failed_attempts", 0) or 0) >= TWO_FACTOR_MAX_ATTEMPTS:
-        session.pop("totp_pending_secret", None)
-        session.pop("totp_backup_codes", None)
-        raise ApiError("Too many incorrect codes. Start setup again.", "CODE_LOCKED", 429)
 
-    # Check if matches any backup code
-    backup_codes = session.get("totp_backup_codes", [])
-    if code in backup_codes:
-        backup_codes.remove(code)
-        session["totp_backup_codes"] = backup_codes
-        session["two_factor_verified"] = True
-        record_audit("auth.2fa_backup_code_used", actor=user)
-        return success_response({"two_factor_enabled": True}, "Verified with backup code.")
+    from ...services.two_factor import verify_totp_code
+    from ...services.two_factor_crypto import decrypt_totp_secret
 
-    # Verify RFC 6238 TOTP
-    clean_secret = secret.replace(" ", "").upper()
-    pad = (8 - len(clean_secret) % 8) % 8
-    try:
-        key = base64.b32decode(clean_secret + "=" * pad)
-        current_step = int(time.time() // 30)
-        target_code = int(code)
-        valid = False
-        for step in (current_step - 1, current_step, current_step + 1):
-            msg = struct.pack(">Q", step)
-            h = hmac.new(key, msg, hashlib.sha1).digest()
-            offset = h[-1] & 0x0F
-            token = (struct.unpack(">I", h[offset:offset + 4])[0] & 0x7FFFFFFF) % 1_000_000
-            if token == target_code:
-                valid = True
-                break
-    except Exception:
-        valid = False
+    secret = decrypt_totp_secret(tf.encrypted_secret, version=tf.encryption_key_version)
+    valid, step = verify_totp_code(secret, code, last_used_step=tf.last_used_step)
 
     if not valid:
-        session["totp_failed_attempts"] = int(session.get("totp_failed_attempts", 0) or 0) + 1
-        raise ApiError("The 6-digit authenticator code is incorrect.", "INVALID_CODE", 400)
+        record_audit("auth.2fa_confirm_failed", actor=user)
+        raise ApiError("The 6-digit authenticator code is incorrect or expired.", "INVALID_CODE", 400)
 
-    session.pop("totp_failed_attempts", None)
-    session["two_factor_verified"] = True
-    session["totp_secret"] = clean_secret
-    session.pop("totp_pending_secret", None)
+    tf.enabled = True
+    tf.confirmed_at = datetime.now(UTC)
+    tf.last_used_step = step
+    tf.updated_at = datetime.now(UTC)
+    user.auth_version += 1
+    session["auth_version"] = user.auth_version
+    db.session.commit()
+
     record_audit("auth.2fa_enabled", actor=user)
     return success_response({"two_factor_enabled": True}, "Two-factor authentication verified and enabled.")
+
+
+@auth_api.post("/2fa/challenge")
+def challenge_2fa():
+    """Verify second-factor code (TOTP or backup code) during login."""
+    remote_addr = request.remote_addr
+    if login_is_throttled(remote_addr):
+        raise ApiError("Too many attempts. Try again later.", "RATE_LIMITED", 429)
+
+    pending_user_id = session.get("pending_2fa_user_id")
+    pending_challenge_id = session.get("pending_2fa_challenge_id")
+    expires_at_str = session.get("pending_2fa_expires_at")
+
+    if not pending_user_id or not pending_challenge_id or not expires_at_str:
+        raise ApiError("No pending two-factor challenge. Please sign in again.", "CHALLENGE_EXPIRED", 401)
+
+    try:
+        expires_at = datetime.fromisoformat(expires_at_str)
+        if datetime.now(UTC) > expires_at:
+            session.clear()
+            raise ApiError("Two-factor challenge expired. Please sign in again.", "CHALLENGE_EXPIRED", 401)
+    except (ValueError, TypeError):
+        session.clear()
+        raise ApiError("Two-factor challenge is invalid. Please sign in again.", "CHALLENGE_EXPIRED", 401)
+
+    attempts = int(session.get("pending_2fa_attempts", 0) or 0)
+    if attempts >= TWO_FACTOR_MAX_ATTEMPTS:
+        session.clear()
+        record_login_failure(remote_addr)
+        raise ApiError("Too many incorrect codes. Please sign in again.", "CODE_LOCKED", 429)
+
+    payload = request.get_json(silent=True) or {}
+    code = str(payload.get("code", "")).strip().replace(" ", "")
+    if not code:
+        raise ApiError("Verification code is required.", "VALIDATION_ERROR", 422)
+
+    user = db.session.get(User, pending_user_id)
+    if not user or not user.is_active or not user.is_totp_enabled:
+        session.clear()
+        raise ApiError("Invalid authentication state. Please sign in again.", "INVALID_SESSION", 401)
+
+    from ...services.two_factor import verify_and_consume_backup_code, verify_totp_code
+    from ...services.two_factor_crypto import decrypt_totp_secret
+
+    authenticated = False
+    if len(code) == 6 and code.isdigit():
+        tf = user.two_factor
+        secret = decrypt_totp_secret(tf.encrypted_secret, version=tf.encryption_key_version)
+        valid, step = verify_totp_code(secret, code, last_used_step=tf.last_used_step)
+        if valid:
+            tf.last_used_step = step
+            db.session.commit()
+            authenticated = True
+            record_audit("auth.login_2fa", actor=user)
+    elif len(code) == 8 and code.isdigit():
+        if verify_and_consume_backup_code(user.id, code):
+            authenticated = True
+            record_audit("auth.login_backup_code", actor=user)
+
+    if not authenticated:
+        session["pending_2fa_attempts"] = attempts + 1
+        record_login_failure(remote_addr)
+        raise ApiError("The verification code is incorrect or expired.", "INVALID_CODE", 400)
+
+    session.clear()
+    clear_login_failures(remote_addr)
+    from ...routes.auth import _start_authenticated_session
+    _start_authenticated_session(user)
+    return success_response(user_to_dict(user), "Signed in successfully.")
+
+
+@auth_api.post("/2fa/regenerate-backup-codes")
+def regenerate_backup_codes():
+    """Generate fresh backup codes, invalidating previous unused codes."""
+    user = current_session_user()
+    if not user:
+        raise ApiError("Sign in is required.", "UNAUTHENTICATED", 401)
+    if not user.is_totp_enabled:
+        raise ApiError("Two-factor authentication is not enabled.", "PRECONDITION_REQUIRED", 400)
+
+    payload = request.get_json(silent=True) or {}
+    password = str(payload.get("password", "")).strip()
+    code = str(payload.get("code", "")).strip().replace(" ", "")
+
+    reauth_ok = False
+    if password and user.check_password(password):
+        reauth_ok = True
+    elif code and len(code) == 6 and code.isdigit():
+        from ...services.two_factor import verify_totp_code
+        from ...services.two_factor_crypto import decrypt_totp_secret
+        secret = decrypt_totp_secret(user.two_factor.encrypted_secret, version=user.two_factor.encryption_key_version)
+        valid, step = verify_totp_code(secret, code, last_used_step=user.two_factor.last_used_step)
+        if valid:
+            user.two_factor.last_used_step = step
+            reauth_ok = True
+
+    if not reauth_ok:
+        raise ApiError("Your password or current authenticator code is required to regenerate backup codes.", "REAUTH_REQUIRED", 403)
+
+    from ...services.two_factor import generate_backup_codes, save_backup_codes
+    new_codes = generate_backup_codes(8)
+    save_backup_codes(user.id, new_codes)
+    record_audit("auth.2fa_backup_codes_regenerated", actor=user)
+
+    return success_response({
+        "backup_codes": new_codes,
+    }, "New backup codes generated.")
+
+
+@auth_api.post("/2fa/disable")
+def disable_2fa():
+    """Disable 2FA after password or TOTP reauthentication."""
+    user = current_session_user()
+    if not user:
+        raise ApiError("Sign in is required.", "UNAUTHENTICATED", 401)
+    if not user.is_totp_enabled:
+        raise ApiError("Two-factor authentication is not enabled.", "PRECONDITION_REQUIRED", 400)
+
+    payload = request.get_json(silent=True) or {}
+    password = str(payload.get("password", "")).strip()
+    code = str(payload.get("code", "")).strip().replace(" ", "")
+
+    reauth_ok = False
+    if password and user.check_password(password):
+        reauth_ok = True
+    elif code and len(code) == 6 and code.isdigit():
+        from ...services.two_factor import verify_totp_code
+        from ...services.two_factor_crypto import decrypt_totp_secret
+        secret = decrypt_totp_secret(user.two_factor.encrypted_secret, version=user.two_factor.encryption_key_version)
+        valid, step = verify_totp_code(secret, code, last_used_step=user.two_factor.last_used_step)
+        if valid:
+            reauth_ok = True
+
+    if not reauth_ok:
+        raise ApiError("Your password or current authenticator code is required to disable 2FA.", "REAUTH_REQUIRED", 403)
+
+    from ...services.two_factor import revoke_all_backup_codes
+
+    revoke_all_backup_codes(user.id)
+    if user.two_factor:
+        db.session.delete(user.two_factor)
+    user.auth_version += 1
+    session["auth_version"] = user.auth_version
+    db.session.commit()
+
+    record_audit("auth.2fa_disabled", actor=user)
+    return success_response({"two_factor_enabled": False}, "Two-factor authentication has been disabled.")
+
 

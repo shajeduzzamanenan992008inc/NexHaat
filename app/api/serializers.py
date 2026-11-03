@@ -196,4 +196,6 @@ def user_to_dict(user):
         "role": user.role,
         "is_active": user.is_active,
         "preferred_locale": user.preferred_locale,
+        "is_totp_enabled": bool(getattr(user, "is_totp_enabled", False)),
     }
+

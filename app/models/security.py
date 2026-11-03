@@ -103,3 +103,49 @@ class PhoneOtpThrottle(db.Model):
         db.CheckConstraint("failures >= 0", name="ck_phone_otp_throttle_failures_nonnegative"),
         db.Index("ix_phone_otp_throttles_last_attempt", "last_attempt_at"),
     )
+
+
+class UserTwoFactor(db.Model):
+    __tablename__ = "user_two_factor"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True
+    )
+    encrypted_secret = db.Column(db.LargeBinary, nullable=False)
+    encryption_key_version = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+    enabled = db.Column(db.Boolean, nullable=False, default=False, server_default="0", index=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    last_used_step = db.Column(db.BigInteger, nullable=True)
+
+    __table_args__ = (
+        db.CheckConstraint("encryption_key_version >= 1", name="ck_user_two_factor_key_version_positive"),
+    )
+
+    user = db.relationship("User", backref=db.backref("two_factor", uselist=False, cascade="all, delete-orphan"))
+
+
+class UserBackupCode(db.Model):
+    __tablename__ = "user_backup_codes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    code_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    used_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        db.Index("ix_user_backup_codes_user_used", "user_id", "used_at"),
+    )
+
+    user = db.relationship("User", backref=db.backref("backup_codes", cascade="all, delete-orphan"))
+

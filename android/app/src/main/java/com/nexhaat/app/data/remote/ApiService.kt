@@ -26,6 +26,11 @@ import com.nexhaat.app.data.remote.dto.SellerDashboardDto
 import com.nexhaat.app.data.remote.dto.SocialLoginRequestDto
 import com.nexhaat.app.data.remote.dto.TotpSetupDto
 import com.nexhaat.app.data.remote.dto.TotpVerifyRequestDto
+import com.nexhaat.app.data.remote.dto.TwoFactorStatusDto
+import com.nexhaat.app.data.remote.dto.TwoFactorChallengeRequestDto
+import com.nexhaat.app.data.remote.dto.RegenerateBackupCodesRequestDto
+import com.nexhaat.app.data.remote.dto.BackupCodesResponseDto
+import com.nexhaat.app.data.remote.dto.DisableTwoFactorRequestDto
 import com.nexhaat.app.data.remote.dto.UpdateCartItemRequest
 import com.nexhaat.app.data.remote.dto.UserDto
 import com.nexhaat.app.data.remote.dto.VerifyRegistrationRequestDto
@@ -62,11 +67,23 @@ interface ApiService {
     @POST("api/v1/auth/social-login")
     suspend fun socialLogin(@Body request: SocialLoginRequestDto): ApiResponse<UserDto>
 
+    @GET("api/v1/auth/2fa/status")
+    suspend fun getTwoFactorStatus(): ApiResponse<TwoFactorStatusDto>
+
     @POST("api/v1/auth/2fa/setup")
     suspend fun setupTotp(): ApiResponse<TotpSetupDto>
 
     @POST("api/v1/auth/2fa/verify")
     suspend fun verifyTotp(@Body request: TotpVerifyRequestDto): ApiResponse<JsonElement>
+
+    @POST("api/v1/auth/2fa/challenge")
+    suspend fun challengeTotp(@Body request: TwoFactorChallengeRequestDto): ApiResponse<UserDto>
+
+    @POST("api/v1/auth/2fa/regenerate-backup-codes")
+    suspend fun regenerateBackupCodes(@Body request: RegenerateBackupCodesRequestDto): ApiResponse<BackupCodesResponseDto>
+
+    @POST("api/v1/auth/2fa/disable")
+    suspend fun disableTotp(@Body request: DisableTwoFactorRequestDto): ApiResponse<JsonElement>
 
     @POST("api/v1/auth/logout")
     suspend fun logout(): ApiResponse<JsonElement>

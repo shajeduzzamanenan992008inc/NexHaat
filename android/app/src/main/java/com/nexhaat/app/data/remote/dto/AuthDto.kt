@@ -77,6 +77,39 @@ data class TotpVerifyRequestDto(
 )
 
 @Serializable
+data class TwoFactorStatusDto(
+    val enabled: Boolean,
+    @SerialName("confirmed_at")
+    val confirmedAt: String? = null,
+    @SerialName("backup_codes_remaining")
+    val backupCodesRemaining: Int = 0
+)
+
+@Serializable
+data class TwoFactorChallengeRequestDto(
+    val code: String
+)
+
+@Serializable
+data class RegenerateBackupCodesRequestDto(
+    val password: String? = null,
+    val code: String? = null
+)
+
+@Serializable
+data class BackupCodesResponseDto(
+    @SerialName("backup_codes")
+    val backupCodes: List<String> = emptyList()
+)
+
+@Serializable
+data class DisableTwoFactorRequestDto(
+    val password: String? = null,
+    val code: String? = null
+)
+
+
+@Serializable
 data class UserDto(
     val id: Int,
     val email: String,

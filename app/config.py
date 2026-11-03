@@ -223,6 +223,7 @@ class Config:
     SMS_FALLBACK_API_KEY = os.getenv("SMS_FALLBACK_API_KEY", "").strip() or None
     SMS_MAX_ATTEMPTS = int(os.getenv("SMS_MAX_ATTEMPTS", "3"))
     PREFERRED_URL_SCHEME = "https" if ENVIRONMENT == "production" else "http"
+    TWO_FACTOR_ENCRYPTION_KEY = os.getenv("TWO_FACTOR_ENCRYPTION_KEY", "").strip()
 
 
 class TestingConfig(Config):
@@ -245,6 +246,7 @@ class TestingConfig(Config):
     SMS_SENDER_ID = ""
     SMS_FALLBACK_PROVIDER = None
     SMS_FALLBACK_API_KEY = None
+    TWO_FACTOR_ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef"
 
 
 def get_config():

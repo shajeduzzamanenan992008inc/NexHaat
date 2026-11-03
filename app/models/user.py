@@ -86,6 +86,11 @@ class User(UserMixin, TimestampMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    @property
+    def is_totp_enabled(self):
+        return bool(self.two_factor and self.two_factor.enabled)
+
+
 
 class CustomerProfile(TimestampMixin, db.Model):
     __tablename__ = "customers"

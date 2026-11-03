@@ -482,10 +482,88 @@ def login():
             flash(gettext("Invalid email or password."), "error")
         else:
             clear_login_failures(remote_addr)
+            if user.is_totp_enabled:
+                challenge_id = secrets.token_urlsafe(32)
+                expires_at = datetime.now(UTC) + timedelta(minutes=5)
+                session.clear()
+                session["pending_2fa_user_id"] = user.id
+                session["pending_2fa_challenge_id"] = challenge_id
+                session["pending_2fa_expires_at"] = expires_at.isoformat()
+                session["pending_2fa_attempts"] = 0
+                session["pending_2fa_remember"] = request.form.get("remember") == "on"
+                record_audit("auth.login_2fa_challenge_issued", actor=user)
+                return redirect(url_for("auth.two_factor_login_challenge"))
             _start_authenticated_session(user, permanent=request.form.get("remember") == "on")
             record_audit("auth.login", actor=user)
             return redirect(_role_destination(user))
     return render_template("auth/login.html")
+
+
+@auth_bp.route("/login/2fa", methods=["GET", "POST"])
+def two_factor_login_challenge():
+    pending_user_id = session.get("pending_2fa_user_id")
+    expires_at_str = session.get("pending_2fa_expires_at")
+    if not pending_user_id or not expires_at_str:
+        flash(gettext("No pending two-factor challenge. Please sign in again."), "error")
+        return redirect(url_for("auth.login"))
+
+    try:
+        expires_at = datetime.fromisoformat(expires_at_str)
+        if datetime.now(UTC) > expires_at:
+            session.clear()
+            flash(gettext("Two-factor challenge expired. Please sign in again."), "error")
+            return redirect(url_for("auth.login"))
+    except (ValueError, TypeError):
+        session.clear()
+        return redirect(url_for("auth.login"))
+
+    user = db.session.get(User, pending_user_id)
+    if not user or not user.is_active or not user.is_totp_enabled:
+        session.clear()
+        return redirect(url_for("auth.login"))
+
+    if request.method == "POST":
+        code = request.form.get("code", "").strip().replace(" ", "")
+        remote_addr = request.remote_addr
+        attempts = int(session.get("pending_2fa_attempts", 0) or 0)
+        if attempts >= 5:
+            session.clear()
+            record_login_failure(remote_addr)
+            flash(gettext("Too many incorrect codes. Please sign in again."), "error")
+            return redirect(url_for("auth.login"))
+
+        from ..services.two_factor import verify_and_consume_backup_code, verify_totp_code
+        from ..services.two_factor_crypto import decrypt_totp_secret
+
+        authenticated = False
+        if len(code) == 6 and code.isdigit():
+            tf = user.two_factor
+            secret = decrypt_totp_secret(tf.encrypted_secret, version=tf.encryption_key_version)
+            valid, step = verify_totp_code(secret, code, last_used_step=tf.last_used_step)
+            if valid:
+                tf.last_used_step = step
+                db.session.commit()
+                authenticated = True
+                record_audit("auth.login_2fa", actor=user)
+        elif len(code) == 8 and code.isdigit():
+            if verify_and_consume_backup_code(user.id, code):
+                authenticated = True
+                record_audit("auth.login_backup_code", actor=user)
+
+        if not authenticated:
+            session["pending_2fa_attempts"] = attempts + 1
+            record_login_failure(remote_addr)
+            flash(gettext("The verification code is incorrect or expired."), "error")
+            return render_template("auth/verify_2fa_login.html", user=user)
+
+        remember = session.get("pending_2fa_remember", False)
+        session.clear()
+        clear_login_failures(remote_addr)
+        _start_authenticated_session(user, permanent=remember)
+        return redirect(_role_destination(user))
+
+    return render_template("auth/verify_2fa_login.html", user=user)
+
 
 
 ADMIN_LOGIN_CODE_TTL = timedelta(minutes=10)

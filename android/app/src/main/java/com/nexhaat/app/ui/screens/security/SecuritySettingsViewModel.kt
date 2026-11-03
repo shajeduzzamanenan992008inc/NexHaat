@@ -83,14 +83,9 @@ class SecuritySettingsViewModel @Inject constructor(
             return
         }
 
-        val secret = state.totpSetupData?.secret ?: run {
-            _uiState.value = state.copy(error = "TOTP setup session expired. Please start again.")
-            return
-        }
-
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = authRepository.verifyTotp(state.verificationCode, secret)) {
+            when (val result = authRepository.verifyTotp(state.verificationCode)) {
                 is NetworkResult.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,

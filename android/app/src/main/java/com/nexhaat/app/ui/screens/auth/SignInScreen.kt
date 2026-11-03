@@ -80,127 +80,177 @@ fun SignInScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(stringResource(R.string.sign_in), style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.sign_in_to_cart),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                // A biometric prompt only verifies the device user; the server session is checked separately.
-                if (uiState.canUseBiometric && activity != null) {
-                    Spacer(Modifier.height(20.dp))
-                    BiometricPromptButton(
-                        biometricPromptHelper = viewModel.biometricHelper,
-                        buttonText = stringResource(R.string.biometric_sign_in),
-                        enabled = !uiState.isLoading,
-                        onSuccess = {
-                            viewModel.revalidateBiometricSession()
-                        },
-                        onError = viewModel::onBiometricError
+                if (uiState.isTwoFactorRequired) {
+                    Text("Two-Factor Verification", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Enter the 6-digit code from your authenticator app or an 8-digit backup code to continue.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(16.dp))
-                    Row(
+                    Spacer(Modifier.height(24.dp))
+                    OutlinedTextField(
+                        value = uiState.twoFactorCode,
+                        onValueChange = viewModel::setTwoFactorCode,
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f))
-                        Text(
-                            text = " " + stringResource(R.string.email) + " ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        HorizontalDivider(modifier = Modifier.weight(1f))
+                        label = { Text("Authentication Code") },
+                        placeholder = { Text("123456 or 12345678") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        enabled = !uiState.isLoading
+                    )
+
+                    uiState.error?.let { error ->
+                        Spacer(Modifier.height(12.dp))
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                     }
-                }
 
-                Spacer(Modifier.height(20.dp))
-                OutlinedTextField(
-                    value = uiState.email,
-                    onValueChange = viewModel::setEmail,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.email)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true,
-                    enabled = !uiState.isLoading
-                )
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = uiState.password,
-                    onValueChange = viewModel::setPassword,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.password)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    singleLine = true,
-                    enabled = !uiState.isLoading
-                )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = viewModel::submitTwoFactorChallenge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        enabled = !uiState.isLoading
+                    ) {
+                        if (uiState.isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        else Text("Verify & Sign In")
+                    }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
+                    Spacer(Modifier.height(12.dp))
                     androidx.compose.material3.TextButton(
-                        onClick = onNavigateToForgotPassword,
+                        onClick = viewModel::cancelTwoFactorChallenge,
                         enabled = !uiState.isLoading
                     ) {
                         Text(
-                            text = stringResource(R.string.forgot_password),
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "Back to Email & Password",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                }
+                } else {
+                    Text(stringResource(R.string.sign_in), style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.sign_in_to_cart),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-                // Option to enable biometric unlock for future logins
-                if (uiState.isBiometricSupported) {
+                    // A biometric prompt only verifies the device user; the server session is checked separately.
+                    if (uiState.canUseBiometric && activity != null) {
+                        Spacer(Modifier.height(20.dp))
+                        BiometricPromptButton(
+                            biometricPromptHelper = viewModel.biometricHelper,
+                            buttonText = stringResource(R.string.biometric_sign_in),
+                            enabled = !uiState.isLoading,
+                            onSuccess = {
+                                viewModel.revalidateBiometricSession()
+                            },
+                            onError = viewModel::onBiometricError
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                            Text(
+                                text = " " + stringResource(R.string.email) + " ",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            HorizontalDivider(modifier = Modifier.weight(1f))
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+                    OutlinedTextField(
+                        value = uiState.email,
+                        onValueChange = viewModel::setEmail,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.email)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        singleLine = true,
+                        enabled = !uiState.isLoading
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = uiState.password,
+                        onValueChange = viewModel::setPassword,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.password)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        enabled = !uiState.isLoading
+                    )
+
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        androidx.compose.material3.TextButton(
+                            onClick = onNavigateToForgotPassword,
+                            enabled = !uiState.isLoading
+                        ) {
+                            Text(
+                                text = stringResource(R.string.forgot_password),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    // Option to enable biometric unlock for future logins
+                    if (uiState.isBiometricSupported) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.setSaveBiometricForFuture(!uiState.saveBiometricForFuture) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = uiState.saveBiometricForFuture,
+                                onCheckedChange = viewModel::setSaveBiometricForFuture,
+                                enabled = !uiState.isLoading
+                            )
+                            Text(
+                                text = stringResource(R.string.enable_biometric_sign_in),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    uiState.error?.let { error ->
+                        Spacer(Modifier.height(12.dp))
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = viewModel::signIn,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { viewModel.setSaveBiometricForFuture(!uiState.saveBiometricForFuture) },
-                        verticalAlignment = Alignment.CenterVertically
+                            .height(50.dp),
+                        enabled = !uiState.isLoading
                     ) {
-                        Checkbox(
-                            checked = uiState.saveBiometricForFuture,
-                            onCheckedChange = viewModel::setSaveBiometricForFuture,
-                            enabled = !uiState.isLoading
-                        )
+                        if (uiState.isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        else Text(stringResource(R.string.sign_in))
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    androidx.compose.material3.TextButton(
+                        onClick = onNavigateToSignUp,
+                        enabled = !uiState.isLoading
+                    ) {
                         Text(
-                            text = stringResource(R.string.enable_biometric_sign_in),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = stringResource(R.string.dont_have_account),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
-                }
-
-                uiState.error?.let { error ->
-                    Spacer(Modifier.height(12.dp))
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                }
-                Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = viewModel::signIn,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    enabled = !uiState.isLoading
-                ) {
-                    if (uiState.isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                    else Text(stringResource(R.string.sign_in))
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                androidx.compose.material3.TextButton(
-                    onClick = onNavigateToSignUp,
-                    enabled = !uiState.isLoading
-                ) {
-                    Text(
-                        text = stringResource(R.string.dont_have_account),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
             }
         }

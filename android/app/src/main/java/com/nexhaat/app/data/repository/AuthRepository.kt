@@ -10,6 +10,7 @@ import com.nexhaat.app.data.remote.dto.ResetPasswordRequestDto
 import com.nexhaat.app.data.remote.dto.SocialLoginRequestDto
 import com.nexhaat.app.data.remote.dto.TotpSetupDto
 import com.nexhaat.app.data.remote.dto.TotpVerifyRequestDto
+import com.nexhaat.app.data.remote.dto.TwoFactorChallengeRequestDto
 import com.nexhaat.app.data.remote.dto.UserDto
 import com.nexhaat.app.data.remote.dto.VerifyRegistrationRequestDto
 import com.nexhaat.app.data.remote.interceptor.CsrfInterceptor
@@ -38,6 +39,9 @@ class AuthRepository @Inject constructor(
                     return@withLock NetworkResult.Error("Could not start a secure session.")
                 }
                 val response = apiService.login(LoginRequestDto(email, password))
+                if (response.twoFactorRequired) {
+                    return@withLock NetworkResult.Error(response.message ?: "Two-factor authentication required.", "TWO_FACTOR_REQUIRED")
+                }
                 val user = response.data?.takeIf { response.success }
                     ?: return@withLock NetworkResult.Error(response.error?.message ?: response.message ?: "Sign-in failed.")
                 if (!refreshCsrfToken()) {
@@ -200,6 +204,27 @@ class AuthRepository @Inject constructor(
             networkError(error)
         }
     }
+
+    suspend fun challengeTotp(code: String): NetworkResult<UserDto> = withContext(Dispatchers.IO) {
+        sessionOperationMutex.withLock {
+            try {
+                if (!ensureCsrfToken()) {
+                    return@withLock NetworkResult.Error("Could not start a secure session.")
+                }
+                val response = apiService.challengeTotp(TwoFactorChallengeRequestDto(code))
+                val user = response.data?.takeIf { response.success }
+                    ?: return@withLock NetworkResult.Error(response.error?.message ?: response.message ?: "2FA challenge verification failed.")
+                refreshCsrfToken()
+                sessionManager.authenticate(user)
+                NetworkResult.Success(user)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                networkError(error)
+            }
+        }
+    }
+
 
     suspend fun logout(): NetworkResult<Boolean> = withContext(Dispatchers.IO) {
         sessionOperationMutex.withLock {

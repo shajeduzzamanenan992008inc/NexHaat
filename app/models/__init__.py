@@ -52,6 +52,8 @@ from .security import (
     PhoneOtpChallenge,
     PhoneOtpThrottle,
     RegistrationChallenge,
+    UserBackupCode,
+    UserTwoFactor,
 )
 from .support import SupportConversation, SupportMessage
 from .telegram import (
@@ -82,7 +84,7 @@ __all__ = [
     "FdcCategory", "FdcFood", "FdcFoodNutrient", "FdcFoodPortion", "FdcNutrient",
     "FoodOnCategory", "NOTIFICATION_TYPES", "Notification", "Order", "OrderEvent", "ORDER_EVENT_TYPES", "ORDER_EVENT_ACTOR_ROLES", "OrderItem", "OrderReturn", "OutboundEmail", "Product", "ProductTranslation", "ProductVariant", "PromotionCode", "PromotionRedemption", "RecentViewedProduct",
     "REVIEW_REPORT_STATUSES", "REVIEW_STATUSES", "Review", "ReviewHelpfulVote", "ReviewReport", "ReturnRequest",
-    "PhoneOtpChallenge", "PhoneOtpThrottle", "RegistrationChallenge", "RiderProfile", "SellerProfile", "User", "WishlistItem",
+    "PhoneOtpChallenge", "PhoneOtpThrottle", "RegistrationChallenge", "RiderProfile", "SellerProfile", "User", "UserBackupCode", "UserTwoFactor", "WishlistItem",
     "Payment", "PaymentAttempt", "PaymentRefund", "SellerLedgerEntry", "SellerPayout",
     "ProcessedTelegramUpdate", "TelegramRateLimit",
     "CustomerCartItem", "TelegramAccountLinkChallenge", "TelegramIdentity",

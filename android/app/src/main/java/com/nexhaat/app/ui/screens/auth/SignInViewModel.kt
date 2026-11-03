@@ -25,7 +25,9 @@ data class SignInUiState(
     val signedInUser: UserDto? = null,
     val canUseBiometric: Boolean = false,
     val isBiometricSupported: Boolean = false,
-    val saveBiometricForFuture: Boolean = false
+    val saveBiometricForFuture: Boolean = false,
+    val isTwoFactorRequired: Boolean = false,
+    val twoFactorCode: String = ""
 )
 
 @HiltViewModel
@@ -53,6 +55,49 @@ class SignInViewModel @Inject constructor(
 
     fun setSaveBiometricForFuture(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(saveBiometricForFuture = enabled)
+    }
+
+    fun setTwoFactorCode(code: String) {
+        _uiState.value = _uiState.value.copy(twoFactorCode = code, error = null)
+    }
+
+    fun cancelTwoFactorChallenge() {
+        _uiState.value = _uiState.value.copy(
+            isTwoFactorRequired = false,
+            twoFactorCode = "",
+            error = null
+        )
+    }
+
+    fun submitTwoFactorChallenge() {
+        val state = _uiState.value
+        if (state.isLoading) return
+        val code = state.twoFactorCode.trim()
+        if (code.isBlank()) {
+            _uiState.value = state.copy(error = "Enter your 6-digit authenticator code or 8-digit backup code.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            when (val result = authRepository.challengeTotp(code)) {
+                is NetworkResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isTwoFactorRequired = false,
+                        twoFactorCode = "",
+                        password = "",
+                        signedInUser = result.data
+                    )
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
+                }
+                NetworkResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
     }
 
     fun signIn() {
@@ -86,10 +131,21 @@ class SignInViewModel @Inject constructor(
                         }
                     )
                 }
-                is NetworkResult.Error -> _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = result.message
-                )
+                is NetworkResult.Error -> {
+                    if (result.code == "TWO_FACTOR_REQUIRED") {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            isTwoFactorRequired = true,
+                            twoFactorCode = "",
+                            error = null
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
+                }
                 NetworkResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = false)
             }
         }
