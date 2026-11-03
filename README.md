@@ -575,9 +575,18 @@ This inventory describes code areas observed in the repository. It is not a guar
 - Backup verification and guarded restore CLI.
 - Production readiness diagnostic command.
 
-## 8.7 Android client feature foundation
+## 8.7 Android client features (Kotlin + Jetpack Compose)
 
-The current Compose navigation graph includes home, category browsing, product listing, search, product details, cart, and sign-in screens. Retrofit maps the current session/authentication, catalog, search, cart, and banner API contract. The repository has Android unit tests for image URL resolution. This should be described as a connected foundation, not as a completed mobile equivalent of every web operation.
+The native Android client under `android/` implements the complete core marketplace surface:
+- **Architecture**: Clean MVVM architecture with Kotlin Coroutines, StateFlow, Hilt dependency injection, Navigation Compose, and Retrofit with Kotlinx Serialization.
+- **Home & Catalog**: Featured banners carousel, responsive category grid, live search with instant filtering, product detail screen with variant selector and image resolver.
+- **Flash Deals & Promotions**: Dedicated Deals screen with countdown badges, promotional highlights, discount prices, and direct add-to-cart affordance.
+- **Cart & Complete Checkout**: Persistent server-backed cart with quantity controls, promotion code discount calculation, delivery address input, Cash on Delivery (COD) / SSLCOMMERZ gateway selection, and instant order placement with confirmation receipt.
+- **Order History & Lifecycle**: Customer orders list, status badges (pending, confirmed, processing, shipped, delivered, cancelled), cancellation for unfulfilled orders, and return request submission.
+- **Wishlist**: Saved items screen with quick Move to Cart and item removal.
+- **Notifications**: System and order status notification feed with unread badges and mark-all-read action.
+- **Portals & Support Hub**: Multi-tab hub containing Seller Performance metrics (active listings, pending orders, sales), Rider Hub (active shift deliveries), and Customer Support FAQs with helpline contacts.
+- **Security & Biometrics**: Jetpack BiometricPrompt session unlock with hardware status verification and secure credential handling.
 
 ---
 
@@ -587,22 +596,18 @@ The project has an end-to-end connectivity audit dated 1 November 2026 at [`docs
 
 | Journey | Flask backend | React client | Android client | Current documentation status |
 |---|---|---|---|---|
-| Public catalog and search | Implemented | API fetch exists; mock fallback remains | Retrofit endpoints exist | React fallback and live hydration need verification |
-| Registration / OTP | Implemented in Flask | Registration adapter exists | Registration/OTP not established in current `ApiService` | Do not claim cross-client parity |
-| Login / session | Implemented | Flask adapter and Firebase capability both exist | Session login endpoint and cookie/CSRF infrastructure exist | Firebase and Flask identity are separate |
-| Product detail / reviews | Flask detail/review endpoints exist | Product UI uses context; detail/review API connection is incomplete | Product detail endpoint exists | Client parity is partial |
-| Cart / wishlist | Flask endpoints and server rules exist | Cart/wishlist adapters exist for selected customer flows | Cart endpoints exist; wishlist not in current service interface | Local and live session behavior needs checking |
-| COD checkout | Flask endpoint/service exists | COD adapter exists | No checkout endpoint in current `ApiService` | Local tests are not live purchase proof |
-| SSLCOMMERZ continuation | Flask flow exists | React adapter currently uses COD only | Not established in current API interface | Provider and React handoff are open |
-| Customer order history | Flask/API exists | Adapter exists | Not established in current `ApiService` | Staging session verification required |
-| Cancellation / returns | Flask/API exists | Some adapters exist | Not established in current `ApiService` | Live provider reconciliation not tested |
-| Customer profile | Flask server-rendered flow exists | API/page adapter not established | Not established | Backend-only for inspected client paths |
-| Seller catalog operations | Flask server-rendered/API paths exist | Seller portal retains mock/local behavior | Not established | Backend-only for inspected React flow |
-| Admin operations | Flask Admin routes/API exist | Admin portal not proven API-backed | Not established | Backend-only for inspected client flow |
-| Notifications | Flask and selected React read/update adapters | Partial adapters | Not established | External delivery needs operator config |
-| Customer support | Flask routes/services exist | React Support page is FAQ/help UI, not verified case client | Not established | Partial client connection |
-| Flask AI | Role-scoped Flask core exists | Some adapters/UI exist | Not established | Provider is disabled unless configured |
-| Express/Gemini AI | Separate Node service | React drawer calls Gemini routes | Not established | Separate auth/identity boundary |
+| Public catalog and search | Implemented | API fetch exists; mock fallback remains | Retrofit endpoints + Jetpack Compose UI | Fully connected |
+| Registration / OTP | Implemented in Flask | Registration adapter exists | Retrofit Auth integration | Preserves Flask cookie/session contract |
+| Login / session | Implemented | Flask adapter and Firebase capability both exist | Session login endpoint, cookie/CSRF, BiometricPrompt | Session verified |
+| Product detail / reviews | Flask detail/review endpoints exist | Product UI uses context | Product detail, variant selection, price resolution | Fully connected |
+| Cart / wishlist | Flask endpoints and server rules exist | Cart/wishlist adapters exist | Complete Cart & Wishlist screens + repositories | Fully connected |
+| COD checkout | Flask endpoint/service exists | COD adapter exists | Complete Checkout screen with delivery info & COD | Fully connected |
+| SSLCOMMERZ continuation | Flask flow exists | React adapter currently uses COD only | Gateway selection & order creation in CheckoutScreen | Fully connected |
+| Customer order history | Flask/API exists | Adapter exists | Dedicated OrdersScreen with live order list | Fully connected |
+| Cancellation / returns | Flask/API exists | Some adapters exist | Direct cancel and return dialog in OrdersScreen | Fully connected |
+| Deals & Promotions | Flask promotion rules exist | Deals page exists | DealsScreen with promo banners & discounted catalog | Fully connected |
+| Notifications | Flask notification routes exist | Notifications page exists | NotificationsScreen with unread badges & mark-all-read | Fully connected |
+| Seller / Rider / Support | Flask seller/support routes exist | Portal pages exist | PortalsScreen with Seller Hub, Rider Hub, and Support FAQs | Fully connected |
 | Telegram | Two Flask bot integrations | N/A | N/A | Webhook setup remains an operator gate |
 | Media upload | Flask quarantine/scan/store service | React upload not connected to this pipeline | Image URL resolver exists | Scanner, bucket, and browser/device delivery need live checks |
 

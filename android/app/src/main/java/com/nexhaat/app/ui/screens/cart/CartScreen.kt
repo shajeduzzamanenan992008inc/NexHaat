@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -22,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -44,7 +47,8 @@ fun CartScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToCategories: () -> Unit,
     onNavigateToSearch: () -> Unit,
-    onNavigateToSignIn: () -> Unit
+    onNavigateToSignIn: () -> Unit,
+    onNavigateToCheckout: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.loadCart() }
@@ -117,12 +121,21 @@ fun CartScreen(
                             TotalRow(stringResource(R.string.subtotal), cart.subtotal)
                             TotalRow(stringResource(R.string.delivery_fee), cart.deliveryFee)
                             TotalRow(stringResource(R.string.total), cart.total, emphasized = true)
-                            Spacer(Modifier.padding(4.dp))
-                            Text(
-                                stringResource(R.string.checkout_not_available),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(
+                                onClick = onNavigateToCheckout,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .testTag("proceed_to_checkout_button"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.proceed_to_checkout),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -152,8 +165,6 @@ private fun CartLine(
             horizontalArrangement = Arrangement.End
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // The symbol glyphs alone are not a useful screen-reader label, so each
-                // 48dp control exposes an explicit localized description.
                 val decreaseLabel = stringResource(R.string.decrease_quantity)
                 val increaseLabel = stringResource(R.string.increase_quantity)
                 IconButton(

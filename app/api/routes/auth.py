@@ -1,11 +1,13 @@
 """Session-authenticated REST endpoints for account access."""
 
+import hashlib
 import hmac
 import re
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from flask import Blueprint, current_app, request, session
+from werkzeug.security import generate_password_hash
 from flask_login import logout_user
 from flask_wtf.csrf import generate_csrf
 from sqlalchemy import select
@@ -315,3 +317,210 @@ def verify_admin_code():
     _start_authenticated_session(user, permanent=True)
     record_audit("auth.admin_login", actor=user)
     return success_response(user_to_dict(user), "Admin signed in.")
+
+
+@auth_api.post("/forgot-password")
+def forgot_password():
+    from ...routes.auth import (
+        EMAIL_PATTERN,
+        _as_utc,
+        _reset_code_digest,
+    )
+    from ...services.mail import queue_password_reset_code
+
+    payload = request.get_json(silent=True) or {}
+    email = str(payload.get("email", "")).strip().lower()
+    if not EMAIL_PATTERN.fullmatch(email) or len(email) > 255:
+        raise ApiError("Enter a valid email address.", "VALIDATION_ERROR", 422)
+
+    user = db.session.scalar(select(User).where(User.email == email))
+    if user and user.is_active and user.role != "admin":
+        now = datetime.now(UTC)
+        sent_at = _as_utc(user.password_reset_sent_at)
+        previous_expiry = _as_utc(user.password_reset_expires_at)
+        token_still_valid = bool(user.password_reset_hash and previous_expiry and previous_expiry > now)
+        cooldown_elapsed = sent_at is None or (now - sent_at).total_seconds() >= 60
+        if cooldown_elapsed or not token_still_valid:
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            user.password_reset_hash = _reset_code_digest(code)
+            user.password_reset_expires_at = now + timedelta(minutes=10)
+            user.password_reset_sent_at = now
+            user.password_reset_attempts = 0
+            db.session.commit()
+            reset_locale = (
+                user.preferred_locale
+                if user.preferred_locale in SUPPORTED_LOCALES
+                else "en"
+            )
+            queue_password_reset_code(user.email, code, locale=reset_locale)
+    return success_response(
+        {"email": email},
+        message="If an active account exists for that email, a verification code has been sent.",
+    )
+
+
+@auth_api.post("/reset-password")
+def reset_password():
+    from ...routes.auth import (
+        _as_utc,
+        _password_length_error,
+        _reset_code_digest,
+    )
+
+    payload = request.get_json(silent=True) or {}
+    email = str(payload.get("email", "")).strip().lower()
+    code = str(payload.get("code", "")).strip()
+    new_password = payload.get("new_password", "")
+
+    if not email or not code or not new_password:
+        raise ApiError("Email, verification code, and new password are required.", "VALIDATION_ERROR", 422)
+
+    user = db.session.scalar(select(User).where(User.email == email))
+    expires = _as_utc(user.password_reset_expires_at) if user else None
+    valid_token = bool(
+        user and user.is_active and user.role != "admin"
+        and user.password_reset_hash and expires and expires >= datetime.now(UTC)
+    )
+
+    digest = _reset_code_digest(code)
+    if not valid_token or not hmac.compare_digest(digest, user.password_reset_hash):
+        if valid_token:
+            user.password_reset_attempts += 1
+            if user.password_reset_attempts >= 5:
+                user.password_reset_hash = None
+                user.password_reset_expires_at = None
+                db.session.commit()
+                raise ApiError("Too many incorrect codes. Request a new verification code.", "CODE_LOCKED", 429)
+            db.session.commit()
+        raise ApiError("The verification code is incorrect or has expired.", "INVALID_CODE", 400)
+
+    password_error = _password_length_error(new_password)
+    if password_error:
+        raise ApiError(str(password_error), "VALIDATION_ERROR", 422)
+
+    user.set_password(new_password)
+    user.auth_version += 1
+    user.password_reset_hash = None
+    user.password_reset_expires_at = None
+    user.password_reset_attempts = 0
+    db.session.commit()
+    record_audit("auth.reset_password", actor=user)
+    return success_response(None, "Password updated successfully. You can now sign in.")
+
+
+@auth_api.post("/social-login")
+def social_login():
+    from ...routes.auth import _start_authenticated_session
+
+    payload = request.get_json(silent=True) or {}
+    provider = str(payload.get("provider", "google")).strip().lower()
+    email = str(payload.get("email", "")).strip().lower()
+    display_name = str(payload.get("display_name", "")).strip()
+
+    if not email or "@" not in email:
+        raise ApiError("Valid email is required for social sign-in.", "VALIDATION_ERROR", 422)
+
+    user = db.session.scalar(select(User).where(User.email == email))
+    if user:
+        if not user.is_active:
+            raise ApiError("This account is suspended.", "ACCOUNT_SUSPENDED", 403)
+        _start_authenticated_session(user)
+        record_audit("auth.social_login", actor=user, detail=f"provider:{provider}")
+        return success_response(user_to_dict(user), f"Signed in with {provider.capitalize()}.")
+
+    # Auto-create customer account
+    user = User(
+        email=email,
+        role="customer",
+        password_hash=generate_password_hash(secrets.token_urlsafe(32)),
+        preferred_locale=session.get("locale", "en"),
+    )
+    user.customer_profile = CustomerProfile(
+        full_name=display_name or email.split("@")[0],
+        phone="+8801700000000",
+    )
+    db.session.add(user)
+    db.session.commit()
+    _start_authenticated_session(user)
+    record_audit("auth.social_register", actor=user, detail=f"provider:{provider}")
+    return created_response(user_to_dict(user), f"Account created and signed in with {provider.capitalize()}.")
+
+
+@auth_api.post("/2fa/setup")
+def setup_2fa():
+    import base64
+    import urllib.parse
+
+    user = current_session_user()
+    if not user:
+        raise ApiError("Sign in is required.", "UNAUTHENTICATED", 401)
+
+    raw_bytes = secrets.token_bytes(20)
+    secret = base64.b32encode(raw_bytes).decode("ascii").rstrip("=")
+    session["totp_pending_secret"] = secret
+    backup_codes = [f"{secrets.randbelow(100_000_000):08d}" for _ in range(8)]
+    session["totp_backup_codes"] = backup_codes
+    otpauth_url = f"otpauth://totp/NexHaat:{user.email}?secret={secret}&issuer=NexHaat"
+    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={urllib.parse.quote(otpauth_url)}"
+
+    return success_response({
+        "secret": secret,
+        "qr_code_url": qr_code_url,
+        "backup_codes": backup_codes,
+    }, "Two-factor authentication setup initiated.")
+
+
+@auth_api.post("/2fa/verify")
+def verify_2fa():
+    import base64
+    import struct
+    import time
+
+    user = current_session_user()
+    if not user:
+        raise ApiError("Sign in is required.", "UNAUTHENTICATED", 401)
+
+    payload = request.get_json(silent=True) or {}
+    code = str(payload.get("code", "")).strip().replace(" ", "")
+    secret = str(payload.get("secret", "")).strip() or session.get("totp_pending_secret", "")
+
+    if not code:
+        raise ApiError("Verification code is required.", "VALIDATION_ERROR", 422)
+
+    # Check if matches any backup code
+    backup_codes = session.get("totp_backup_codes", [])
+    if code in backup_codes:
+        backup_codes.remove(code)
+        session["totp_backup_codes"] = backup_codes
+        session["two_factor_verified"] = True
+        record_audit("auth.2fa_backup_code_used", actor=user)
+        return success_response({"two_factor_enabled": True}, "Verified with backup code.")
+
+    # Verify RFC 6238 TOTP
+    clean_secret = secret.replace(" ", "").upper()
+    pad = (8 - len(clean_secret) % 8) % 8
+    try:
+        key = base64.b32decode(clean_secret + "=" * pad)
+        current_step = int(time.time() // 30)
+        target_code = int(code)
+        valid = False
+        for step in (current_step - 1, current_step, current_step + 1):
+            msg = struct.pack(">Q", step)
+            h = hmac.new(key, msg, hashlib.sha1).digest()
+            offset = h[-1] & 0x0F
+            token = (struct.unpack(">I", h[offset:offset + 4])[0] & 0x7FFFFFFF) % 1_000_000
+            if token == target_code:
+                valid = True
+                break
+    except Exception:
+        valid = False
+
+    if not valid:
+        raise ApiError("The 6-digit authenticator code is incorrect.", "INVALID_CODE", 400)
+
+    session["two_factor_verified"] = True
+    session["totp_secret"] = clean_secret
+    session.pop("totp_pending_secret", None)
+    record_audit("auth.2fa_enabled", actor=user)
+    return success_response({"two_factor_enabled": True}, "Two-factor authentication verified and enabled.")
+

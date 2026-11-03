@@ -17,16 +17,27 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexhaat.app.ui.screens.auth.SignInScreen
+import com.nexhaat.app.ui.screens.auth.SignUpScreen
+import com.nexhaat.app.ui.screens.auth.VerifyRegistrationScreen
+import com.nexhaat.app.ui.screens.auth.ForgotPasswordScreen
 import com.nexhaat.app.ui.screens.auth.SessionViewModel
+import com.nexhaat.app.ui.screens.ai.AIAssistantScreen
+import com.nexhaat.app.ui.screens.security.SecuritySettingsScreen
 import com.nexhaat.app.ui.screens.cart.CartScreen
 import com.nexhaat.app.ui.screens.catalog.CategoriesScreen
+import com.nexhaat.app.ui.screens.checkout.CheckoutScreen
+import com.nexhaat.app.ui.screens.checkout.OrderConfirmationScreen
+import com.nexhaat.app.ui.screens.deals.DealsScreen
 import com.nexhaat.app.ui.screens.home.HomeScreen
+import com.nexhaat.app.ui.screens.notifications.NotificationsScreen
+import com.nexhaat.app.ui.screens.orders.OrdersScreen
+import com.nexhaat.app.ui.screens.portals.PortalsScreen
 import com.nexhaat.app.ui.screens.product.ProductDetailScreen
 import com.nexhaat.app.ui.screens.products.ProductsScreen
 import com.nexhaat.app.ui.screens.search.SearchScreen
 import com.nexhaat.app.ui.screens.settings.SettingsScreen
+import com.nexhaat.app.ui.screens.wishlist.WishlistScreen
 import com.nexhaat.app.data.session.SessionState
-
 
 @Composable
 fun NexHaatNavGraph() {
@@ -86,7 +97,13 @@ fun NexHaatNavGraph() {
                 onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
                 onNavigateToProductDetail = ::navigateToProduct,
                 onNavigateToCart = ::navigateToCart,
-                onNavigateToSettings = { navController.navigate(NavRoutes.Settings.route) }
+                onNavigateToSettings = { navController.navigate(NavRoutes.Settings.route) },
+                onNavigateToDeals = { navigateToTab(NavRoutes.Deals.route) },
+                onNavigateToWishlist = { navController.navigate(NavRoutes.Wishlist.route) },
+                onNavigateToNotifications = { navController.navigate(NavRoutes.Notifications.route) },
+                onNavigateToOrders = { navigateToTab(NavRoutes.Orders.route) },
+                onNavigateToPortals = { navController.navigate(NavRoutes.Portals.route) },
+                onNavigateToAIAssistant = { navController.navigate(NavRoutes.AIAssistant.route) }
             )
         }
 
@@ -100,6 +117,18 @@ fun NexHaatNavGraph() {
                 onNavigateToCart = ::navigateToCart
             )
         }
+
+        composable(NavRoutes.Deals.route) {
+            DealsScreen(
+                onNavigateToProductDetail = ::navigateToProduct,
+                onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
+                onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
+                onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
+                onNavigateToCart = ::navigateToCart,
+                onNavigateToSettings = { navController.navigate(NavRoutes.Settings.route) }
+            )
+        }
+
         composable(
             route = "${NavRoutes.Products.route}?categoryId={categoryId}",
             arguments = listOf(navArgument("categoryId") {
@@ -117,6 +146,7 @@ fun NexHaatNavGraph() {
                 onNavigateToCart = ::navigateToCart
             )
         }
+
         composable(NavRoutes.Search.route) {
             SearchScreen(
                 onNavigateToProductDetail = ::navigateToProduct,
@@ -125,6 +155,7 @@ fun NexHaatNavGraph() {
                 onNavigateToCart = ::navigateToCart
             )
         }
+
         composable(
             route = NavRoutes.ProductDetail.route,
             arguments = listOf(navArgument("productId") { type = NavType.IntType })
@@ -139,14 +170,90 @@ fun NexHaatNavGraph() {
                 onNavigateToCart = ::navigateToCart
             )
         }
+
         composable(NavRoutes.Cart.route) {
             CartScreen(
                 onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
                 onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
                 onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
+                onNavigateToSignIn = { navController.navigate(NavRoutes.SignIn.route) },
+                onNavigateToCheckout = { navController.navigate(NavRoutes.Checkout.route) }
+            )
+        }
+
+        composable(NavRoutes.Checkout.route) {
+            CheckoutScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onOrderPlaced = { orderNumber ->
+                    navController.navigate(NavRoutes.OrderConfirmation.createRoute(orderNumber)) {
+                        popUpTo(NavRoutes.Cart.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = NavRoutes.OrderConfirmation.route,
+            arguments = listOf(navArgument("orderNumber") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val orderNumber = backStackEntry.arguments?.getString("orderNumber") ?: ""
+            OrderConfirmationScreen(
+                orderNumber = orderNumber,
+                onContinueShopping = {
+                    navController.navigate(NavRoutes.Home.route) {
+                        popUpTo(NavRoutes.Home.route) { inclusive = true }
+                    }
+                },
+                onViewOrders = {
+                    navController.navigate(NavRoutes.Orders.route) {
+                        popUpTo(NavRoutes.Home.route) { inclusive = false }
+                    }
+                }
+            )
+        }
+
+        composable(NavRoutes.Wishlist.route) {
+            WishlistScreen(
+                onNavigateToProductDetail = ::navigateToProduct,
+                onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
+                onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
+                onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
+                onNavigateToCart = ::navigateToCart,
                 onNavigateToSignIn = { navController.navigate(NavRoutes.SignIn.route) }
             )
         }
+
+        composable(NavRoutes.Notifications.route) {
+            NotificationsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
+                onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
+                onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
+                onNavigateToCart = ::navigateToCart,
+                onNavigateToSignIn = { navController.navigate(NavRoutes.SignIn.route) }
+            )
+        }
+
+        composable(NavRoutes.Orders.route) {
+            OrdersScreen(
+                onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
+                onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
+                onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
+                onNavigateToCart = ::navigateToCart,
+                onNavigateToSignIn = { navController.navigate(NavRoutes.SignIn.route) }
+            )
+        }
+
+        composable(NavRoutes.Portals.route) {
+            PortalsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
+                onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
+                onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
+                onNavigateToCart = ::navigateToCart
+            )
+        }
+
         composable(NavRoutes.SignIn.route) {
             SignInScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -155,9 +262,75 @@ fun NexHaatNavGraph() {
                         popUpTo(NavRoutes.SignIn.route) { inclusive = true }
                         launchSingleTop = true
                     }
+                },
+                onNavigateToSignUp = { navController.navigate(NavRoutes.SignUp.route) },
+                onNavigateToForgotPassword = { navController.navigate(NavRoutes.ForgotPassword.route) }
+            )
+        }
+
+        composable(NavRoutes.SignUp.route) {
+            SignUpScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToSignIn = { navController.popBackStack() },
+                onRegistrationSuccess = { email, challengeId ->
+                    navController.navigate(NavRoutes.VerifyRegistration.createRoute(email, challengeId))
+                },
+                onSignedIn = {
+                    navController.navigate(NavRoutes.Home.route) {
+                        popUpTo(NavRoutes.Home.route) { inclusive = true }
+                    }
                 }
             )
         }
+
+        composable(
+            route = NavRoutes.VerifyRegistration.route,
+            arguments = listOf(
+                navArgument("email") { type = NavType.StringType },
+                navArgument("challengeId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email") ?: ""
+            val challengeId = backStackEntry.arguments?.getString("challengeId")
+            VerifyRegistrationScreen(
+                email = email,
+                challengeId = challengeId,
+                onNavigateBack = { navController.popBackStack() },
+                onVerified = {
+                    navController.navigate(NavRoutes.Home.route) {
+                        popUpTo(NavRoutes.Home.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(NavRoutes.ForgotPassword.route) {
+            ForgotPasswordScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onPasswordResetSuccess = {
+                    navController.navigate(NavRoutes.SignIn.route) {
+                        popUpTo(NavRoutes.SignIn.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(NavRoutes.AIAssistant.route) {
+            AIAssistantScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(NavRoutes.SecurityCenter.route) {
+            SecuritySettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         composable(NavRoutes.Settings.route) {
             SettingsScreen(
                 isLoggingOut = isLoggingOut,
@@ -166,7 +339,8 @@ fun NexHaatNavGraph() {
                 onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
                 onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
                 onNavigateToSearch = { navigateToTab(NavRoutes.Search.route) },
-                onNavigateToCart = ::navigateToCart
+                onNavigateToCart = ::navigateToCart,
+                onNavigateToSecurityCenter = { navController.navigate(NavRoutes.SecurityCenter.route) }
             )
         }
     }

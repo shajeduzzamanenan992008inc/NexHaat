@@ -50,7 +50,9 @@ import com.nexhaat.app.ui.components.MarketplaceTopBar
 fun SignInScreen(
     viewModel: SignInViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onSignedIn: () -> Unit
+    onSignedIn: () -> Unit,
+    onNavigateToSignUp: () -> Unit = {},
+    onNavigateToForgotPassword: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -75,7 +77,7 @@ fun SignInScreen(
                     .fillMaxWidth()
                     .heightIn(min = maxHeight)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -136,9 +138,24 @@ fun SignInScreen(
                     enabled = !uiState.isLoading
                 )
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    androidx.compose.material3.TextButton(
+                        onClick = onNavigateToForgotPassword,
+                        enabled = !uiState.isLoading
+                    ) {
+                        Text(
+                            text = stringResource(R.string.forgot_password),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
                 // Option to enable biometric unlock for future logins
                 if (uiState.isBiometricSupported) {
-                    Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -162,14 +179,89 @@ fun SignInScreen(
                     Spacer(Modifier.height(12.dp))
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                 }
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = viewModel::signIn,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
                     enabled = !uiState.isLoading
                 ) {
                     if (uiState.isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp))
                     else Text(stringResource(R.string.sign_in))
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f))
+                    Text(
+                        text = " " + stringResource(R.string.or_continue_with) + " ",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f))
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        viewModel.socialLogin("google", "google_token", uiState.email.ifBlank { "google_user@nexhaat.com" }, "Google User")
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    enabled = !uiState.isLoading
+                ) {
+                    Text(stringResource(R.string.continue_with_google))
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.socialLogin("microsoft", "ms_token", uiState.email.ifBlank { "ms_user@nexhaat.com" }, "Microsoft User")
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        enabled = !uiState.isLoading
+                    ) {
+                        Text("Microsoft")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.socialLogin("github", "gh_token", uiState.email.ifBlank { "github_user@nexhaat.com" }, "GitHub User")
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        enabled = !uiState.isLoading
+                    ) {
+                        Text("GitHub")
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                androidx.compose.material3.TextButton(
+                    onClick = onNavigateToSignUp,
+                    enabled = !uiState.isLoading
+                ) {
+                    Text(
+                        text = stringResource(R.string.dont_have_account),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

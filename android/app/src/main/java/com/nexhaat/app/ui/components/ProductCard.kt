@@ -90,7 +90,8 @@ fun ProductCard(
                 imageUrl = product.imageReference,
                 contentDescription = product.name.ifBlank { null },
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallbackHint = product.name
             )
 
             if (discounted) {

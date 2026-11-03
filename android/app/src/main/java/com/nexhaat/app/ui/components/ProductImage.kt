@@ -29,10 +29,11 @@ fun ProductImage(
     imageUrl: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    fallbackHint: String? = null
 ) {
     val resolvedImageUrl = remember(imageUrl, BuildConfig.MEDIA_BASE_URL, BuildConfig.MEDIA_BASE_URL_RUNTIME_FALLBACK) {
-        ImageUrlResolver.resolve(
+        val direct = ImageUrlResolver.resolve(
             imageUrl,
             MediaBaseUrlResolver.resolvedOrFallbackString(
                 resolvedFlag = BuildConfig.MEDIA_BASE_URL_RESOLVED,
@@ -40,18 +41,16 @@ fun ProductImage(
                 runtimeFallback = BuildConfig.MEDIA_BASE_URL_RUNTIME_FALLBACK
             )
         ) ?: ImageUrlResolver.resolveFromBackendAbsolute(imageUrl)
+        direct ?: ImageUrlResolver.getCategoryFallback(fallbackHint ?: contentDescription)
     }
 
-    if (resolvedImageUrl == null) {
-        ProductImageFallback(modifier, contentDescription)
-        return
-    }
-
-    val painter = rememberAsyncImagePainter(model = resolvedImageUrl)
+    val painter = rememberAsyncImagePainter(
+        model = resolvedImageUrl ?: ImageUrlResolver.getCategoryFallback(fallbackHint ?: contentDescription)
+    )
     val painterState = painter.state
     LaunchedEffect(painterState, resolvedImageUrl) {
         if (BuildConfig.DEBUG && painterState is AsyncImagePainter.State.Error) {
-            Log.w("NexHaatImage", "Product image failed to load or decode.")
+            Log.w("NexHaatImage", "Product image failed to load or decode: $resolvedImageUrl")
         }
     }
 
@@ -71,7 +70,23 @@ fun ProductImage(
         ) {
             CircularProgressIndicator(strokeWidth = 2.dp)
         }
-        is AsyncImagePainter.State.Error -> ProductImageFallback(modifier, contentDescription)
+        is AsyncImagePainter.State.Error -> {
+            // Secondary fallback image painter
+            val secondaryModel = remember(fallbackHint, contentDescription) {
+                ImageUrlResolver.getCategoryFallback(fallbackHint ?: contentDescription)
+            }
+            val fallbackPainter = rememberAsyncImagePainter(model = secondaryModel)
+            if (fallbackPainter.state is AsyncImagePainter.State.Success) {
+                Image(
+                    painter = fallbackPainter,
+                    contentDescription = contentDescription,
+                    modifier = modifier,
+                    contentScale = contentScale
+                )
+            } else {
+                ProductImageFallback(modifier, contentDescription)
+            }
+        }
     }
 }
 

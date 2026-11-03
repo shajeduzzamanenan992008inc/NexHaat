@@ -158,6 +158,12 @@ app.post(
   '/api/gemini/chat',
   requireJsonObject,
   validateJsonBody((body) => {
+    if (typeof body.message === 'string' && typeof body.prompt !== 'string') {
+      body.prompt = body.message;
+    }
+    if (Array.isArray(body.history) && !Array.isArray(body.messages)) {
+      body.messages = body.history;
+    }
     const promptError = boundedStringError(body, 'prompt', { maximumLength: 8_000 });
     if (promptError) return promptError;
     const instructionError = boundedStringError(body, 'systemInstruction', { maximumLength: 4_000 });
@@ -226,6 +232,7 @@ app.post(
 
       return res.json({
         text: response.text ?? '',
+        reply: response.text ?? '',
         model: selectedModel,
       });
     } catch (modelError: any) {
@@ -239,6 +246,7 @@ app.post(
         });
         return res.json({
           text: fallbackResponse.text ?? '',
+          reply: fallbackResponse.text ?? '',
           model: 'gemini-3.8-flash',
           note: 'The selected model was unavailable; generated with the fallback model.',
         });

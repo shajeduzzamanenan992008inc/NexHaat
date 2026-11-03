@@ -41,7 +41,8 @@ fun CategoryCard(
                 contentDescription = category.name,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(96.dp)
+                    .height(96.dp),
+                fallbackHint = category.slug ?: category.name
             )
             Column(
                 modifier = Modifier

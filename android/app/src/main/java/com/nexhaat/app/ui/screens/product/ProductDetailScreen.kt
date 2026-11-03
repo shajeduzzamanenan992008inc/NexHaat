@@ -107,7 +107,8 @@ fun ProductDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(productImageHeight),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        fallbackHint = product.name
                     )
                     Column(
                         modifier = Modifier.padding(18.dp),
