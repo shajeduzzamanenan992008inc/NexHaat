@@ -50,6 +50,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    # Declaring the GitHub Environment is what makes GitHub create a deployment
+    # record for this exact commit and report its status from the outcome of the
+    # Azure deployment steps below. Removing this declaration (2026-11-02 Azure
+    # portal regeneration) silently stopped production deployment records from
+    # being created; see docs/architecture/PRODUCTION_DEPLOYMENT_STATUS_RECONCILIATION_REPORT.md.
+    environment:
+      name: production
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout

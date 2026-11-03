@@ -10,13 +10,33 @@
 - Azure Entra federated credential trusts the exact GitHub `production` environment subject.
 
 ## Automatic path
-The Azure deployment workflow listens for a successful `CI` workflow caused by a push
-to `main`. It checks out the exact `workflow_run.head_sha`, repeats production checks,
-packages the artifact, and deploys through OIDC.
+`.github/workflows/main_nexhaat.yml` runs on every push to `main`, builds the Python
+artifact from the pushed commit, and deploys it to the `NexHaat` App Service
+`Production` slot through Azure OIDC. The `deploy` job declares the GitHub Environment
+`production`, so each run creates a commit-specific GitHub deployment record whose
+state follows the real Azure deployment steps.
+
+Known limitation: the CI-success `workflow_run` gate and the typed
+`DEPLOY-PRODUCTION` confirmation described in earlier revisions of this runbook are
+not present in the current workflow, which was regenerated from the Azure portal
+Deployment Center on 2026-11-02. Until the gate is restored by the owner, a push to
+`main` deploys without a separate CI-success precondition.
 
 ## Manual path
-Use `workflow_dispatch` on `main` only and enter the exact phrase
-`DEPLOY-PRODUCTION`. This is not a substitute for review or Environment approval.
+Use `workflow_dispatch` on `main` only. The workflow deploys the selected ref and does
+not itself block a non-`main` ref, so selecting another branch would deploy
+unreviewed code. This is not a substitute for review or Environment approval.
+
+## Deployment status signals
+These are separate signals; record each one separately instead of inferring one
+from another:
+- GitHub Actions run conclusion (build and deploy steps).
+- GitHub Environment `production` deployment record (commit, state, approver).
+- Azure App Service deployment operation result.
+- Application health after deploy.
+
+A green Actions run does not by itself prove the Environment deployment record or
+the live application state, and vice versa.
 
 ## After deployment
 - Verify the deployment run and artifact SHA.
