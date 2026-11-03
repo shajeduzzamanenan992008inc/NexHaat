@@ -504,9 +504,12 @@ def confirmation(order_number):
             .order_by(Order.order_number)
         ).all()
     grand_total = sum((item.total for item in sub_orders), Decimal("0.00"))
+    from ..services.order_timeline import list_order_events
+
+    timelines = {sub.id: list_order_events(sub.id) for sub in sub_orders}
     return render_template(
         "orders/confirmation.html",
-        order=order, sub_orders=sub_orders, grand_total=grand_total,
+        order=order, sub_orders=sub_orders, grand_total=grand_total, timelines=timelines,
     )
 
 
@@ -1184,7 +1187,11 @@ def admin_order_detail(order_id):
     order = db.session.get(Order, order_id)
     if not order:
         abort(404)
-    return render_template("admin/order_detail.html", order=order)
+    from ..services.order_timeline import list_order_events
+
+    return render_template(
+        "admin/order_detail.html", order=order, timeline=list_order_events(order.id)
+    )
 
 
 def _set_admin_order_status(order_id, status):
@@ -1206,7 +1213,7 @@ def _set_admin_order_status(order_id, status):
             flash(gettext(str(error)), "error")
             return redirect(url_for("admin.dashboard"))
     else:
-        if not transition_order(order, status):
+        if not transition_order(order, status, actor=current_session_user()):
             flash(gettext("That order status transition is not allowed."), "error")
             return redirect(url_for("admin.dashboard"))
         db.session.commit()
@@ -1265,7 +1272,7 @@ def _set_all_pending_order_status(status):
                     final_order_status=status,
                 )
                 updated.append(order)
-            elif transition_order(order, status):
+            elif transition_order(order, status, actor=current_session_user()):
                 updated.append(order)
             else:
                 rejected += 1
@@ -1475,7 +1482,7 @@ def admin_order_status(order_id):
             flash(gettext(str(error)), "error")
             return redirect(url_for("admin.dashboard"))
     else:
-        if not transition_order(order, status):
+        if not transition_order(order, status, actor=current_session_user()):
             flash(gettext("That order status transition is not allowed."), "error")
             return redirect(url_for("admin.dashboard"))
         db.session.commit()

@@ -137,6 +137,22 @@ def order_to_dict(order):
     }
 
 
+def order_event_to_dict(event):
+    """Serialize one timeline entry without exposing actor identifiers."""
+    return {
+        "id": event.id,
+        "event_type": event.event_type,
+        "previous_status": event.previous_status,
+        "new_status": event.new_status,
+        "actor_role": event.actor_role,
+        "description": event.description,
+        "tracking_reference": event.tracking_reference,
+        "carrier": event.carrier,
+        "estimated_delivery_at": _iso(event.estimated_delivery_at),
+        "created_at": _iso(event.created_at),
+    }
+
+
 def review_to_dict(review):
     return {
         "id": review.id,

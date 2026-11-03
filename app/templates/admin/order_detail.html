@@ -34,6 +34,26 @@
       <p class="summary-row summary-total"><span>{{ _('Order total') }}</span><strong>৳{{ '%.2f'|format(order.total)
           }}</strong></p>
     </section>
+    <section class="surface surface-card" style="grid-column:1/-1">
+      <h2 style="margin-top:0;font:800 1.2rem Manrope,sans-serif">{{ _('Order tracking timeline') }}</h2>
+      {% if timeline %}
+      <ol aria-label="{{ _('Order tracking timeline') }}"
+        style="list-style:none;margin:0;padding:0;display:grid;gap:10px">
+        {% for event in timeline %}
+        <li style="border-inline-start:2px solid var(--line,#d9dee8);padding-inline-start:12px">
+          <p style="margin:0;font-weight:700">{{ event.new_status|capitalize if event.new_status else event.event_type|capitalize }}
+            {% if event.previous_status %}<small class="source-caption">← {{ event.previous_status|capitalize }}</small>{% endif %}
+          </p>
+          <p style="margin:2px 0 0;color:var(--muted);font-size:.85rem">{{ event.created_at.strftime('%b %d, %Y · %I:%M %p') }} · {{ event.event_type }}{% if event.actor_role %} · {{ event.actor_role }}{% endif %}</p>
+          {% if event.description %}<p style="margin:2px 0 0">{{ event.description }}</p>{% endif %}
+          {% if event.carrier or event.tracking_reference %}
+          <p style="margin:2px 0 0;color:var(--muted);font-size:.85rem">{{ event.carrier or '' }}{% if event.carrier and event.tracking_reference %} · {% endif %}{{ event.tracking_reference or '' }}</p>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}<p style="color:var(--muted)">{{ _('No timeline events recorded yet.') }}</p>{% endif %}
+    </section>
     <aside class="surface surface-card">
       <h2 style="margin-top:0;font:800 1.2rem Manrope,sans-serif">{{ _('Delivery details') }}</h2>
       <p><strong>{{ order.customer_name }}</strong><br>{{ order.phone }}<br><a href="mailto:{{ order.email }}">{{

@@ -23,6 +23,7 @@ from ..models import (
 )
 from .mail import enqueue_order_emails
 from .notifications import notify
+from .order_timeline import record_order_event
 
 DELIVERY_FEE = Decimal("2.50")
 
@@ -224,6 +225,15 @@ def create_checkout_orders(
                 subtotal=row["subtotal"],
             ))
         db.session.add(order)
+        record_order_event(
+            order,
+            event_type="created",
+            new_status="pending",
+            actor=user,
+            actor_role="customer" if user is not None else "system",
+            description=gettext("Order placed."),
+            dedupe_key="created",
+        )
         orders.append(order)
     if promotion is not None:
         reserved_usage = db.session.execute(

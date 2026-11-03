@@ -294,6 +294,39 @@ export async function fetchMarketplaceOrders(): Promise<Order[]> {
   return (response.data || []).map(mapOrder);
 }
 
+export interface OrderTimelineEvent {
+  id: number;
+  event_type: string;
+  previous_status?: string | null;
+  new_status?: string | null;
+  actor_role?: string | null;
+  description?: string | null;
+  tracking_reference?: string | null;
+  carrier?: string | null;
+  estimated_delivery_at?: string | null;
+  created_at: string;
+}
+
+interface ApiOrderTimeline {
+  order_number: string;
+  status: string;
+  delivery_status: string;
+  events: OrderTimelineEvent[];
+}
+
+/**
+ * Fetch the owner-scoped tracking timeline for one order. The Flask API enforces
+ * ownership, so a 404 here means the order is not the caller's own order.
+ */
+export async function fetchMarketplaceOrderTimeline(
+  orderNumber: string,
+): Promise<OrderTimelineEvent[]> {
+  const response = await requestApi<ApiOrderTimeline>(
+    `/api/v1/orders/${encodeURIComponent(orderNumber)}/timeline`,
+  );
+  return response.data?.events || [];
+}
+
 export async function submitMarketplaceCheckout(input: {
   customerName: string;
   phone: string;

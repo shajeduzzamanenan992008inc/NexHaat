@@ -463,7 +463,7 @@ def update_order_status(order_id):
             db.session.rollback()
             flash(gettext(str(error)), "error")
             return redirect(url_for("seller.orders"))
-    elif not transition_order(order, target):
+    elif not transition_order(order, target, actor=seller):
         flash(gettext("That order status transition is not allowed."), "error")
         return redirect(url_for("seller.orders"))
     db.session.commit()

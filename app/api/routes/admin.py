@@ -349,7 +349,7 @@ def update_order(order_id):
         except PaymentError as error:
             db.session.rollback()
             raise ApiError(str(error), "ORDER_CANCELLATION_REJECTED", 409) from error
-    elif not transition_order(order, target):
+    elif not transition_order(order, target, actor=admin):
         raise ApiError("That order status transition is not allowed.", "INVALID_TRANSITION", 409)
     db.session.commit()
     record_audit("order.status", actor=admin, target_type="order", target_id=order.id, detail=target)

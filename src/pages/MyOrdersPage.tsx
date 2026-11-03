@@ -13,6 +13,10 @@ import {
   ChevronDown, ChevronUp, ShoppingBag, Truck, Phone, AlertCircle,
   Search, X, SlidersHorizontal, Calendar, ArrowUpDown, Filter
 } from 'lucide-react';
+import {
+  fetchMarketplaceOrderTimeline,
+  OrderTimelineEvent,
+} from '../lib/marketplaceApi';
 
 export const MyOrdersPage: React.FC = () => {
   const { 
@@ -34,6 +38,9 @@ export const MyOrdersPage: React.FC = () => {
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   const [returnModalOrder, setReturnModalOrder] = useState<Order | null>(null);
   const [returnReason, setReturnReason] = useState<string>('Damaged or freshness issue');
+  const [timelines, setTimelines] = useState<Record<string, OrderTimelineEvent[]>>({});
+  const [timelineErrors, setTimelineErrors] = useState<Record<string, string>>({});
+  const [timelineLoading, setTimelineLoading] = useState<Record<string, boolean>>({});
 
   // Compute status counts for badges
   const statusCounts = useMemo(() => getOrderStatusCounts(orders), [orders]);
@@ -59,8 +66,27 @@ export const MyOrdersPage: React.FC = () => {
     setSortBy('date_desc');
   };
 
-  const toggleExpand = (orderNumber: string) => {
-    setExpandedOrders(prev => ({ ...prev, [orderNumber]: !prev[orderNumber] }));
+  const toggleExpand = async (orderNumber: string) => {
+    const willExpand = !expandedOrders[orderNumber];
+    setExpandedOrders(prev => ({ ...prev, [orderNumber]: willExpand }));
+    if (!willExpand || timelines[orderNumber] || timelineLoading[orderNumber]) return;
+
+    setTimelineLoading(prev => ({ ...prev, [orderNumber]: true }));
+    setTimelineErrors(prev => ({ ...prev, [orderNumber]: '' }));
+    try {
+      const events = await fetchMarketplaceOrderTimeline(orderNumber);
+      setTimelines(prev => ({ ...prev, [orderNumber]: events }));
+    } catch (error) {
+      setTimelineErrors(prev => ({
+        ...prev,
+        [orderNumber]:
+          error instanceof Error
+            ? error.message
+            : t('Could not load the tracking timeline.', 'ট্র্যাকিং টাইমলাইন লোড করা যায়নি।'),
+      }));
+    } finally {
+      setTimelineLoading(prev => ({ ...prev, [orderNumber]: false }));
+    }
   };
 
   const handleBuyAgain = (order: Order) => {
@@ -432,6 +458,61 @@ export const MyOrdersPage: React.FC = () => {
                           <span className="font-bold text-ink">{formatPrice(item.total_price)}</span>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Order tracking timeline */}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                      <h4 className="text-xs font-black text-ink uppercase tracking-wide mb-3">
+                        {t('Order Tracking Timeline', 'অর্ডার ট্র্যাকিং টাইমলাইন')}
+                      </h4>
+                      {timelineLoading[order.order_number] ? (
+                        <p className="text-xs text-muted" role="status">
+                          {t('Loading timeline…', 'টাইমলাইন লোড হচ্ছে…')}
+                        </p>
+                      ) : timelineErrors[order.order_number] ? (
+                        <p className="text-xs text-danger" role="alert">
+                          {timelineErrors[order.order_number]}
+                        </p>
+                      ) : (timelines[order.order_number] || []).length === 0 ? (
+                        <p className="text-xs text-muted">
+                          {t('No tracking events recorded yet.', 'এখনো কোনো ট্র্যাকিং ইভেন্ট নেই।')}
+                        </p>
+                      ) : (
+                        <ol className="space-y-3">
+                          {(timelines[order.order_number] || []).map((event) => (
+                            <li
+                              key={event.id}
+                              className="relative pl-5 border-l-2 border-slate-200 motion-safe:transition-colors"
+                            >
+                              <span
+                                className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-primary"
+                                aria-hidden="true"
+                              />
+                              <p className="text-xs font-bold text-ink">
+                                {event.description ||
+                                  (event.new_status || event.event_type).replace(/_/g, ' ')}
+                              </p>
+                              <p className="text-[11px] text-muted">
+                                {new Date(event.created_at).toLocaleString()}
+                                {event.actor_role ? ` • ${event.actor_role}` : ''}
+                              </p>
+                              {(event.carrier || event.tracking_reference) && (
+                                <p className="text-[11px] text-slate-600">
+                                  {[event.carrier, event.tracking_reference]
+                                    .filter(Boolean)
+                                    .join(' • ')}
+                                </p>
+                              )}
+                              {event.estimated_delivery_at && (
+                                <p className="text-[11px] text-slate-600">
+                                  {t('Estimated delivery:', 'আনুমানিক ডেলিভারি:')}{' '}
+                                  {new Date(event.estimated_delivery_at).toLocaleDateString()}
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
                     </div>
 
                     {/* Address & payment details */}

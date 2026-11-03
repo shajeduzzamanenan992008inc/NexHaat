@@ -7,10 +7,10 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from flask import Blueprint, current_app, request, session
-from werkzeug.security import generate_password_hash
 from flask_login import logout_user
 from flask_wtf.csrf import generate_csrf
 from sqlalchemy import select
+from werkzeug.security import generate_password_hash
 
 from ...extensions import db
 from ...i18n import SUPPORTED_LOCALES

@@ -31,6 +31,16 @@ REQUIRED_CONFIG = (
     ROOT / "android" / "gradlew.bat",
     ROOT / "android" / "settings.gradle.kts",
 )
+NODE_MANIFEST = ROOT / "package.json"
+NODE_LOCKFILE = ROOT / "package-lock.json"
+NODE_LOCKFILE_MIN_VERSION = 2
+COMPETING_NODE_LOCKFILES = (
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "bun.lock",
+    "bun.lockb",
+    "npm-shrinkwrap.json",
+)
 SOURCE_PREFIXES = ("app/", "src/", "android/app/src/", "tests/", "migrations/", "scripts/")
 SOURCE_SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".kt", ".kts", ".sql")
 
@@ -123,6 +133,112 @@ def validate_required_config(failures: list[str]) -> int:
     return missing
 
 
+def read_json_object(path: Path, label: str, failures: list[str]) -> dict | None:
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"{label} unreadable: {error}", failures)
+        return None
+    if not isinstance(document, dict):
+        fail(f"{label} must contain a JSON object", failures)
+        return None
+    return document
+
+
+def validate_node_dependency_lock(failures: list[str]) -> tuple[int, int, int]:
+    """Validate the npm manifest/lockfile pair that CI installs with ``npm ci``.
+
+    Presence alone is not a meaningful contract: a lockfile whose dependency
+    graph or integrity hashes cannot reproduce ``package.json`` makes the
+    frontend job fail, or installs a different tree than the one reviewed.
+    """
+    for competing in COMPETING_NODE_LOCKFILES:
+        if (ROOT / competing).exists():
+            fail(
+                f"conflicting Node lockfile {competing}: npm with package-lock.json is the "
+                "authoritative package-management contract",
+                failures,
+            )
+
+    if not NODE_MANIFEST.is_file() or not NODE_LOCKFILE.is_file():
+        return 0, 0, 0
+
+    manifest = read_json_object(NODE_MANIFEST, "package.json", failures)
+    lockfile = read_json_object(NODE_LOCKFILE, "package-lock.json", failures)
+    if manifest is None or lockfile is None:
+        return 0, 0, 0
+
+    lock_version = lockfile.get("lockfileVersion")
+    if not isinstance(lock_version, int) or lock_version < NODE_LOCKFILE_MIN_VERSION:
+        fail(
+            f"package-lock.json must declare lockfileVersion >= {NODE_LOCKFILE_MIN_VERSION} "
+            f"so npm ci can install the exact dependency graph (found {lock_version!r})",
+            failures,
+        )
+
+    packages = lockfile.get("packages")
+    if not isinstance(packages, dict) or not isinstance(packages.get(""), dict):
+        fail("package-lock.json has no root packages entry; npm ci cannot install it", failures)
+        return 0, 0, 0
+    root = packages[""]
+
+    for field in ("name", "version"):
+        if root.get(field) != manifest.get(field):
+            fail(
+                f"package-lock.json root {field} is out of sync with package.json "
+                f"({root.get(field)!r} != {manifest.get(field)!r})",
+                failures,
+            )
+
+    declared = 0
+    for section in ("dependencies", "devDependencies"):
+        wanted = manifest.get(section) or {}
+        locked = root.get(section) or {}
+        if not isinstance(wanted, dict) or not isinstance(locked, dict):
+            fail(f"package.json {section} and its lockfile copy must be JSON objects", failures)
+            continue
+        for name, spec in sorted(wanted.items()):
+            declared += 1
+            if locked.get(name) != spec:
+                fail(
+                    f"package-lock.json {section} does not match package.json for {name}",
+                    failures,
+                )
+            if not isinstance(packages.get(f"node_modules/{name}"), dict):
+                fail(
+                    f"package-lock.json has no locked entry for declared dependency {name}",
+                    failures,
+                )
+
+    resolvable = [
+        key for key, entry in packages.items()
+        if key and isinstance(entry, dict) and not entry.get("link")
+    ]
+    without_resolved = [
+        key for key in resolvable
+        if not isinstance(packages[key].get("resolved"), str) or not packages[key]["resolved"]
+    ]
+    without_integrity = [
+        key for key in resolvable
+        if key not in without_resolved
+        and packages[key].get("integrity") is None
+        and not str(packages[key].get("resolved", "")).startswith(("git", "file:"))
+    ]
+    if without_resolved:
+        fail(
+            f"package-lock.json has {len(without_resolved)} entries without a resolved URL "
+            f"(first: {without_resolved[0]})",
+            failures,
+        )
+    if without_integrity:
+        fail(
+            f"package-lock.json has {len(without_integrity)} entries without an integrity hash "
+            f"(first: {without_integrity[0]})",
+            failures,
+        )
+    return declared, len(resolvable), len(without_resolved) + len(without_integrity)
+
+
 def changed_paths(base: str) -> list[tuple[str, str, str | None]]:
     changes: list[tuple[str, str, str | None]] = []
     for args in (
@@ -205,6 +321,7 @@ def main() -> int:
     marketplace_direct, express_direct = validate_frontend_boundaries(failures)
     missing_imports = validate_relative_imports(failures)
     missing_config = validate_required_config(failures)
+    node_deps, node_packages, node_unverifiable = validate_node_dependency_lock(failures)
     deleted_sources, renamed_sources = validate_change_review(
         args.base, failures, args.fail_on_review
     )
@@ -216,6 +333,9 @@ def main() -> int:
     print(f"express_ai_call_sites={express_direct}")
     print(f"missing_relative_import_targets={missing_imports}")
     print(f"missing_required_config={missing_config}")
+    print(f"node_manifest_dependencies_declared={node_deps}")
+    print(f"node_lockfile_packages={node_packages}")
+    print(f"node_lockfile_entries_without_resolved_integrity={node_unverifiable}")
     print(f"source_deletions_for_review={deleted_sources}")
     print(f"source_renames_for_review={renamed_sources}")
     print(f"worktree_entries_for_review={status_count}")

@@ -93,6 +93,12 @@ class Order(db.Model):
 
     items = db.relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     return_request = db.relationship("OrderReturn", back_populates="order", uselist=False)
+    events = db.relationship(
+        "OrderEvent",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        order_by="OrderEvent.id",
+    )
     seller = db.relationship("User", foreign_keys=[seller_id])
     rider = db.relationship("User", foreign_keys=[rider_id])
     payment = db.relationship("Payment", back_populates="orders")
@@ -153,6 +159,59 @@ class OrderReturn(db.Model):
     order = db.relationship("Order", back_populates="return_request")
     customer = db.relationship("User", foreign_keys=[customer_id])
     requested_by = db.relationship("User", foreign_keys=[requested_by_id])
+
+
+ORDER_EVENT_TYPES = ("created", "status", "delivery", "payment", "return", "tracking")
+ORDER_EVENT_ACTOR_ROLES = ("customer", "seller", "admin", "rider", "system")
+
+
+class OrderEvent(db.Model):
+    """One immutable entry in an order's chronological tracking timeline.
+
+    Events are appended only for real state changes. ``dedupe_key`` makes a
+    retried request idempotent: the unique constraint keeps one row per
+    order/transition even if a caller repeats the same operation.
+    """
+
+    __tablename__ = "order_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(
+        db.Integer, db.ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event_type = db.Column(
+        db.String(20), nullable=False, default="status", server_default="status"
+    )
+    previous_status = db.Column(db.String(20), nullable=True)
+    new_status = db.Column(db.String(20), nullable=True)
+    actor_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    actor_role = db.Column(db.String(16), nullable=True)
+    description = db.Column(db.String(255), nullable=True)
+    tracking_reference = db.Column(db.String(80), nullable=True)
+    carrier = db.Column(db.String(80), nullable=True)
+    estimated_delivery_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    dedupe_key = db.Column(db.String(120), nullable=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), index=True
+    )
+    __table_args__ = (
+        db.CheckConstraint(
+            "event_type IN ('created', 'status', 'delivery', 'payment', 'return', 'tracking')",
+            name="ck_order_event_type_valid",
+        ),
+        db.CheckConstraint(
+            "actor_role IS NULL OR actor_role IN "
+            "('customer', 'seller', 'admin', 'rider', 'system')",
+            name="ck_order_event_actor_role_valid",
+        ),
+        db.UniqueConstraint("order_id", "dedupe_key", name="uq_order_event_dedupe"),
+        db.Index("ix_order_events_order_created", "order_id", "created_at"),
+    )
+
+    order = db.relationship("Order", back_populates="events")
+    actor = db.relationship("User", foreign_keys=[actor_id])
 
 
 class OrderItem(db.Model):

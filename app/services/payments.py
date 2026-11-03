@@ -239,7 +239,19 @@ def _complete_return_refund(return_request, refund, *, actor=None):
     return_request.status = "refunded"
     return_request.provider_refund_id = refund.provider_refund_id or return_request.provider_refund_id
     return_request.resolved_at = return_request.resolved_at or utc_now()
+    from .order_timeline import record_order_event
+
+    previous_status = order.status
     order.status = "returned"
+    record_order_event(
+        order,
+        event_type="return",
+        previous_status=previous_status,
+        new_status="returned",
+        actor_role="system",
+        description="Return refund completed.",
+        dedupe_key=f"return:{return_request.id}:refunded",
+    )
     _new_ledger_entry(payment, order, "refund", -order.items_subtotal, f"return:{return_request.id}:sale")
     _new_ledger_entry(
         payment,
@@ -384,7 +396,19 @@ def record_manual_return_refund(return_request, *, actor, reference):
     return_request.manual_refund_reference = reference
     return_request.status = "refunded"
     return_request.resolved_at = utc_now()
+    from .order_timeline import record_order_event
+
+    previous_status = order.status
     order.status = "returned"
+    record_order_event(
+        order,
+        event_type="return",
+        previous_status=previous_status,
+        new_status="returned",
+        actor_role="system",
+        description="Manual refund recorded.",
+        dedupe_key=f"return:{return_request.id}:manual-refund",
+    )
     db.session.commit()
     record_audit(
         "order.return_manual_refunded",
@@ -548,9 +572,22 @@ def _confirm_paid_payment(payment, attempt, *, risk_level=0):
     payment.bank_tran_id = attempt.bank_tran_id
     payment.validation_id = attempt.validation_id
     payment.paid_at = utc_now()
+    from .order_timeline import record_order_event
+
     for order in orders:
+        previous_status = order.status
         if order.status == "pending":
             order.status = "confirmed"
+        if previous_status != order.status:
+            record_order_event(
+                order,
+                event_type="payment",
+                previous_status=previous_status,
+                new_status=order.status,
+                actor_role="system",
+                description="Payment confirmed by the provider.",
+                dedupe_key=f"payment:paid:{payment.id}",
+            )
         _new_ledger_entry(payment, order, "sale", order.items_subtotal, "sale")
         commission = Decimal(order.commission_amount or 0)
         _new_ledger_entry(payment, order, "commission", -commission, "commission")
@@ -676,7 +713,9 @@ def cancel_order_with_refund(order, *, actor=None, reason=None, final_order_stat
     if order.payment_method != "sslcommerz" or order.payment is None:
         from .orders import transition_order
 
-        if not transition_order(order, final_order_status):
+        if not transition_order(
+            order, final_order_status, actor=actor, description=reason
+        ):
             raise PaymentError("That order status transition is not allowed.")
         db.session.commit()
         return None
@@ -715,14 +754,16 @@ def cancel_order_with_refund(order, *, actor=None, reason=None, final_order_stat
             if group_order.status not in {"pending", "confirmed"}:
                 continue
             target = final_order_status if group_order.id == order.id else "cancelled"
-            if not transition_order(group_order, target):
+            if not transition_order(
+                group_order, target, actor=actor, description=reason
+            ):
                 raise PaymentError("The unpaid checkout could not be cancelled safely.")
         db.session.commit()
         return None
 
     from .orders import transition_order
 
-    if not transition_order(order, final_order_status):
+    if not transition_order(order, final_order_status, actor=actor, description=reason):
         raise PaymentError("That order status transition is not allowed.")
     db.session.commit()
     return None
@@ -861,7 +902,7 @@ def initiate_order_refund(order, *, actor, reason, final_order_status="cancelled
     from .orders import transition_order
 
     if order.status != final_order_status and not transition_order(
-        order, final_order_status, allow_paid_cancel=True
+        order, final_order_status, allow_paid_cancel=True, actor=actor, description=reason
     ):
         db.session.rollback()
         raise PaymentError("The order changed before the refund could be recorded.")

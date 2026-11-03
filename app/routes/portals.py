@@ -185,13 +185,35 @@ def update_delivery(order_id):
         if note:
             order.delivery_note = note
         order.delivered_at = now
+        from ..services.order_timeline import record_status_transition
+
+        previous_order_status = order.status
         order.status = "delivered"
+        if previous_order_status != order.status:
+            record_status_transition(
+                order,
+                previous_order_status,
+                "delivered",
+                actor=user,
+                description=gettext("Delivered with proof of delivery."),
+            )
         make_seller_ledger_eligible(order, now)
     elif target == "failed":
         note = request.form.get("delivery_note", "").strip()[:500]
         if note:
             order.delivery_note = note
+    from ..services.order_timeline import record_order_event
+
+    previous_delivery_status = order.delivery_status
     order.delivery_status = target
+    record_order_event(
+        order,
+        event_type="delivery",
+        previous_status=previous_delivery_status,
+        new_status=target,
+        actor=user,
+        description=gettext("Delivery updated to %(status)s.", status=target.replace("_", " ")),
+    )
     db.session.commit()
     record_audit("delivery.update", target_type="order", target_id=order.id, detail=target)
     if target == "delivered" and order.user_id:

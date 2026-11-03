@@ -357,6 +357,26 @@ def customer_order_detail(order_number):
     return success_response(order_to_dict(order))
 
 
+@commerce_api.get("/orders/<order_number>/timeline")
+def customer_order_timeline(order_number):
+    """Return the owner-scoped chronological timeline for one order."""
+    user = _customer()
+    from ...services.order_timeline import list_order_events
+    from ..serializers import order_event_to_dict
+
+    order = db.session.scalar(
+        select(Order).where(Order.order_number == order_number, Order.user_id == user.id)
+    )
+    if order is None:
+        raise ApiError("Order not found.", "NOT_FOUND", 404)
+    return success_response({
+        "order_number": order.order_number,
+        "status": order.status,
+        "delivery_status": order.delivery_status,
+        "events": [order_event_to_dict(event) for event in list_order_events(order.id)],
+    })
+
+
 @commerce_api.post("/orders/<order_number>/return")
 def customer_order_return(order_number):
     user = _customer()
@@ -627,6 +647,29 @@ def update_seller_order(order_id):
     target = payload.get("status")
     if target not in {"confirmed", "preparing", "declined"}:
         raise ApiError("That order status transition is not allowed.", "INVALID_TRANSITION", 409)
+    from ...services.order_timeline import parse_estimated_delivery, record_order_event
+
+    tracking_reference = payload.get("tracking_reference")
+    carrier = payload.get("carrier")
+    tracking_note = payload.get("tracking_note")
+    if tracking_reference is not None and (
+        not isinstance(tracking_reference, str) or len(tracking_reference.strip()) > 80
+    ):
+        raise ApiError(
+            "Tracking reference must be text of 80 characters or fewer.", "INVALID_INPUT", 422
+        )
+    if carrier is not None and (not isinstance(carrier, str) or len(carrier.strip()) > 80):
+        raise ApiError("Carrier must be text of 80 characters or fewer.", "INVALID_INPUT", 422)
+    if tracking_note is not None and (
+        not isinstance(tracking_note, str) or len(tracking_note.strip()) > 255
+    ):
+        raise ApiError(
+            "Tracking note must be text of 255 characters or fewer.", "INVALID_INPUT", 422
+        )
+    try:
+        estimated_delivery_at = parse_estimated_delivery(payload.get("estimated_delivery_at"))
+    except ValueError as error:
+        raise ApiError(str(error), "INVALID_INPUT", 422) from error
     if target == "declined":
         try:
             cancel_order_with_refund(
@@ -636,8 +679,18 @@ def update_seller_order(order_id):
         except PaymentError as error:
             db.session.rollback()
             raise ApiError(str(error), "ORDER_DECLINE_REJECTED", 409) from error
-    elif not transition_order(order, target):
+    elif not transition_order(order, target, actor=user):
         raise ApiError("That order status transition is not allowed.", "INVALID_TRANSITION", 409)
+    if tracking_reference or carrier or tracking_note or estimated_delivery_at:
+        record_order_event(
+            order,
+            event_type="tracking",
+            actor=user,
+            description=tracking_note,
+            tracking_reference=tracking_reference,
+            carrier=carrier,
+            estimated_delivery_at=estimated_delivery_at,
+        )
     db.session.commit()
     record_audit("order.status", actor=user, target_type="order", target_id=order.id, detail=target)
     queue_order_status(order)
@@ -649,3 +702,23 @@ def update_seller_order(order_id):
             link=url_for("orders.confirmation", order_number=order.order_number),
         )
     return success_response(order_to_dict(order), "Order status updated.")
+
+
+@commerce_api.get("/seller/orders/<int:order_id>/timeline")
+def seller_order_timeline(order_id):
+    """Return the timeline for an order that belongs to the seller's own store."""
+    user = _seller()
+    from ...services.order_timeline import list_order_events
+    from ..serializers import order_event_to_dict
+
+    order = db.session.scalar(
+        select(Order).where(Order.id == order_id, Order.seller_id == user.id)
+    )
+    if order is None:
+        raise ApiError("Order not found.", "NOT_FOUND", 404)
+    return success_response({
+        "order_number": order.order_number,
+        "status": order.status,
+        "delivery_status": order.delivery_status,
+        "events": [order_event_to_dict(event) for event in list_order_events(order.id)],
+    })

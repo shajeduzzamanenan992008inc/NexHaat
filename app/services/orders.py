@@ -2,6 +2,7 @@
 
 from ..extensions import db
 from ..models import Order, Product, ProductVariant
+from .order_timeline import record_status_transition
 
 ORDER_STATUS_TRANSITIONS = {
     "pending": {"confirmed", "declined", "cancelled"},
@@ -28,8 +29,10 @@ def release_reserved_stock(order):
                 product.stock_quantity = min(MAX_STOCK, product.stock_quantity + item.quantity)
 
 
-def transition_order(order: Order, target_status, *, allow_paid_cancel=False):
-    """Apply an allowed status transition and release stock when appropriate."""
+def transition_order(order: Order, target_status, *, allow_paid_cancel=False, actor=None,
+                     description=None, actor_role=None):
+    """Apply an allowed status transition, record its timeline event, and
+    release stock when appropriate."""
     if target_status not in ORDER_STATUS_TRANSITIONS.get(order.status, set()):
         return False
     if order.payment_method == "sslcommerz":
@@ -46,5 +49,14 @@ def transition_order(order: Order, target_status, *, allow_paid_cancel=False):
             return False
     if target_status in {"cancelled", "declined"}:
         release_reserved_stock(order)
+    previous_status = order.status
     order.status = target_status
+    record_status_transition(
+        order,
+        previous_status,
+        target_status,
+        actor=actor,
+        actor_role=actor_role,
+        description=description,
+    )
     return True
