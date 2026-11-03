@@ -2,4 +2,5 @@
 <full-backup-content>
     <include domain="sharedpref" path="."/>
     <exclude domain="sharedpref" path="device.xml"/>
+    <exclude domain="sharedpref" path="nexhaat_biometric_prefs.xml"/>
 </full-backup-content>

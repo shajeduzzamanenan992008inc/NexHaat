@@ -5,6 +5,7 @@ import com.nexhaat.app.data.remote.NetworkResult
 import com.nexhaat.app.data.remote.dto.AddCartItemRequest
 import com.nexhaat.app.data.remote.dto.CartDto
 import com.nexhaat.app.data.remote.dto.UpdateCartItemRequest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -42,6 +43,8 @@ class CartRepository @Inject constructor(
         val response = block()
         if (response.success && response.data != null) NetworkResult.Success(response.data)
         else NetworkResult.Error(response.error?.message ?: response.message ?: "Cart request failed.")
+    } catch (error: CancellationException) {
+        throw error
     } catch (error: Exception) {
         when (error) {
             is HttpException -> {

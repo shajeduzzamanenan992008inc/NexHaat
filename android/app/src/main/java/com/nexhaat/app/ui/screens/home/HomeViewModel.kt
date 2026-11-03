@@ -10,6 +10,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import com.nexhaat.app.data.repository.CatalogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,13 +31,15 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    private var homeJob: Job? = null
 
     init {
         loadHomeData()
     }
 
     fun loadHomeData() {
-        viewModelScope.launch {
+        if (homeJob?.isActive == true) return
+        homeJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             val categoriesResult = async { repository.getCategories() }

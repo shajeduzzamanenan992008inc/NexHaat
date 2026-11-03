@@ -1,13 +1,23 @@
 package com.nexhaat.app.ui.navigation
 
+import android.widget.Toast
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexhaat.app.ui.screens.auth.SignInScreen
+import com.nexhaat.app.ui.screens.auth.SessionViewModel
 import com.nexhaat.app.ui.screens.cart.CartScreen
 import com.nexhaat.app.ui.screens.catalog.CategoriesScreen
 import com.nexhaat.app.ui.screens.home.HomeScreen
@@ -15,11 +25,39 @@ import com.nexhaat.app.ui.screens.product.ProductDetailScreen
 import com.nexhaat.app.ui.screens.products.ProductsScreen
 import com.nexhaat.app.ui.screens.search.SearchScreen
 import com.nexhaat.app.ui.screens.settings.SettingsScreen
+import com.nexhaat.app.data.session.SessionState
 
 
 @Composable
 fun NexHaatNavGraph() {
     val navController = rememberNavController()
+    val sessionViewModel: SessionViewModel = hiltViewModel()
+    val sessionState by sessionViewModel.sessionState.collectAsStateWithLifecycle()
+    val isLoggingOut by sessionViewModel.isLoggingOut.collectAsStateWithLifecycle()
+    val logoutError by sessionViewModel.logoutError.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var wasAuthenticated by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        sessionViewModel.revalidateSession()
+    }
+    LaunchedEffect(sessionState) {
+        if (sessionState is SessionState.Authenticated) {
+            wasAuthenticated = true
+        } else if (sessionState is SessionState.Unauthenticated && wasAuthenticated) {
+            wasAuthenticated = false
+            navController.navigate(NavRoutes.Home.route) {
+                popUpTo(NavRoutes.Home.route) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+    LaunchedEffect(logoutError) {
+        logoutError?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            sessionViewModel.dismissLogoutError()
+        }
+    }
 
     fun navigateToTab(route: String) {
         navController.navigate(route) {
@@ -122,6 +160,8 @@ fun NexHaatNavGraph() {
         }
         composable(NavRoutes.Settings.route) {
             SettingsScreen(
+                isLoggingOut = isLoggingOut,
+                onLogout = sessionViewModel::logout,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToHome = { navigateToTab(NavRoutes.Home.route) },
                 onNavigateToCategories = { navigateToTab(NavRoutes.Categories.route) },
@@ -131,4 +171,3 @@ fun NexHaatNavGraph() {
         }
     }
 }
-

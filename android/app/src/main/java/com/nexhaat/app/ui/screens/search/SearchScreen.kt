@@ -6,11 +6,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -22,12 +25,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexhaat.app.R
 import com.nexhaat.app.ui.components.EmptyState
 import com.nexhaat.app.ui.components.ErrorState
@@ -46,7 +51,7 @@ fun SearchScreen(
     onNavigateToCategories: () -> Unit = {},
     onNavigateToCart: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = { MarketplaceTopBar(onCart = onNavigateToCart) },
@@ -65,6 +70,7 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .imePadding()
                 .padding(horizontal = 16.dp)
         ) {
             OutlinedTextField(
@@ -86,6 +92,13 @@ fun SearchScreen(
                     }
                 },
                 shape = RoundedCornerShape(16.dp),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Search
+                ),
+                keyboardActions = KeyboardActions(
+                    onSearch = { viewModel.search(uiState.query, immediate = true) }
+                ),
                 singleLine = true
             )
             when {
@@ -95,8 +108,8 @@ fun SearchScreen(
                         .padding(top = 16.dp),
                     cardHeight = 220.dp
                 )
-                uiState.error != null && uiState.products.isEmpty() -> ErrorState(
-                    message = uiState.error ?: stringResource(R.string.error_occurred),
+                (uiState.error != null || uiState.hasUnexpectedResult) && uiState.products.isEmpty() -> ErrorState(
+                    message = uiState.error ?: stringResource(R.string.request_did_not_complete),
                     onRetry = { viewModel.search(uiState.query, immediate = true) },
                     modifier = Modifier.fillMaxSize()
                 )

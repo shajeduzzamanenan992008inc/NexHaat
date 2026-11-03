@@ -5,6 +5,7 @@ import com.nexhaat.app.data.remote.NetworkResult
 import com.nexhaat.app.data.remote.dto.BannerDto
 import com.nexhaat.app.data.remote.dto.CategoryDto
 import com.nexhaat.app.data.remote.dto.ProductDto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -22,6 +23,8 @@ class CatalogRepository @Inject constructor(
             } else {
                 NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to fetch categories")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Unknown error")
         }
@@ -35,6 +38,8 @@ class CatalogRepository @Inject constructor(
             } else {
                 NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to fetch banners")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Unknown error")
         }
@@ -58,6 +63,8 @@ class CatalogRepository @Inject constructor(
             } else {
                 NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to fetch products")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Unknown error")
         }
@@ -71,6 +78,8 @@ class CatalogRepository @Inject constructor(
             } else {
                 NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to search products")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Unknown error")
         }
@@ -84,6 +93,8 @@ class CatalogRepository @Inject constructor(
             } else {
                 NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to fetch product")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Unknown error")
         }
@@ -97,6 +108,8 @@ class CatalogRepository @Inject constructor(
             } else {
                 NetworkResult.Error(response.error?.message ?: response.message ?: "Failed to fetch banners")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (e: Exception) {
             NetworkResult.Error(e.localizedMessage ?: "Unknown error")
         }

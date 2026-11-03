@@ -76,7 +76,10 @@ fun BiometricPromptButton(
                     is BiometricError.TemporaryLockout,
                     is BiometricError.PermanentLockout,
                     is BiometricError.NoneEnrolled,
-                    is BiometricError.HardwareUnavailable -> {
+                    is BiometricError.HardwareUnavailable,
+                    is BiometricError.EnrollmentChanged,
+                    is BiometricError.SetupRequired,
+                    is BiometricError.CryptoUnavailable -> {
                         // Critical error requiring fallback or settings
                         activeErrorDialog = biometricError
                         onError(biometricError)

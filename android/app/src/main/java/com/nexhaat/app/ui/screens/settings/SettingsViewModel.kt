@@ -1,28 +1,27 @@
 package com.nexhaat.app.ui.screens.settings
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexhaat.app.data.biometric.BiometricAuthStatus
+import com.nexhaat.app.data.biometric.BiometricError
 import com.nexhaat.app.data.biometric.BiometricPromptHelper
 import com.nexhaat.app.data.biometric.BiometricStorage
 import com.nexhaat.app.data.remote.NetworkResult
 import com.nexhaat.app.data.repository.AuthRepository
+import com.nexhaat.app.data.session.SessionManager
+import com.nexhaat.app.data.session.SessionState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SettingsUiState(
     val isBiometricEnabled: Boolean = false,
     val biometricStatus: BiometricAuthStatus = BiometricAuthStatus.NotAvailable,
-    val savedEmail: String? = null,
-    val fallbackPasswordInput: String = "",
-    val isVerifyingFallback: Boolean = false,
-    val fallbackVerifyResult: String? = null,
-    val fallbackVerifyError: String? = null,
+    val isAuthenticated: Boolean = false,
     val userNotice: String? = null
 )
 
@@ -30,99 +29,109 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val biometricPromptHelper: BiometricPromptHelper,
     private val biometricStorage: BiometricStorage,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     val biometricHelper: BiometricPromptHelper
         get() = biometricPromptHelper
 
-    private val _uiState = MutableStateFlow(
-
-        SettingsUiState(
-            isBiometricEnabled = biometricStorage.isBiometricEnabled(),
-            biometricStatus = biometricPromptHelper.getBiometricStatus(),
-            savedEmail = biometricStorage.getSavedEmail()
-        )
-    )
+    private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            sessionManager.state.collect { refreshState() }
+        }
+    }
+
     fun refreshState() {
+        val user = (sessionManager.state.value as? SessionState.Authenticated)?.user
         _uiState.value = _uiState.value.copy(
-            isBiometricEnabled = biometricStorage.isBiometricEnabled(),
+            isBiometricEnabled = user?.let { biometricStorage.isBiometricEnabledForUser(it.id) } ?: false,
             biometricStatus = biometricPromptHelper.getBiometricStatus(),
-            savedEmail = biometricStorage.getSavedEmail()
+            isAuthenticated = user != null
         )
     }
 
     fun setBiometricEnabled(enabled: Boolean) {
-        if (!enabled) {
-            biometricStorage.clearBiometricCredentials()
+        val user = (sessionManager.state.value as? SessionState.Authenticated)?.user
+        if (user == null) {
             _uiState.value = _uiState.value.copy(
                 isBiometricEnabled = false,
-                savedEmail = null,
-                userNotice = "Biometric authentication disabled."
+                isAuthenticated = false,
+                userNotice = "Sign in before enabling biometric session unlock."
             )
-        } else {
-            // When enabling, requires saving credentials on next login or setting status
-            _uiState.value = _uiState.value.copy(
-                isBiometricEnabled = true,
-                userNotice = "Biometric sign-in activated. Sign in to link your biometric credentials."
-            )
+            return
         }
-    }
-
-    fun setFallbackPasswordInput(input: String) {
+        if (enabled && biometricPromptHelper.getBiometricStatus() !is BiometricAuthStatus.Ready) {
+            _uiState.value = _uiState.value.copy(
+                isBiometricEnabled = false,
+                userNotice = "Biometrics are not available on this device."
+            )
+            return
+        }
+        if (!sessionManager.setBiometricPreference(user.id, enabled)) {
+            refreshState()
+            _uiState.value = _uiState.value.copy(
+                userNotice = "Your session changed. Sign in again before changing biometric settings."
+            )
+            return
+        }
         _uiState.value = _uiState.value.copy(
-            fallbackPasswordInput = input,
-            fallbackVerifyError = null,
-            fallbackVerifyResult = null
+            isBiometricEnabled = enabled,
+            isAuthenticated = true,
+            userNotice = if (enabled) {
+                "Biometric unlock is enabled for this account on this device."
+            } else {
+                "Biometric unlock is disabled."
+            }
         )
     }
 
-    fun verifyFallbackPassword(email: String) {
-        val password = _uiState.value.fallbackPasswordInput
-        if (password.isBlank()) {
-            _uiState.value = _uiState.value.copy(fallbackVerifyError = "Enter your password to verify fallback.")
+    fun revalidateBiometricSession() {
+        val expectedUser = (sessionManager.state.value as? SessionState.Authenticated)?.user
+        if (expectedUser == null || !biometricStorage.isBiometricEnabledForUser(expectedUser.id)) {
+            _uiState.value = _uiState.value.copy(
+                userNotice = "There is no active biometric-enabled session to verify."
+            )
+            refreshState()
             return
         }
-
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isVerifyingFallback = true, fallbackVerifyError = null)
-            when (val result = authRepository.login(email.trim(), password)) {
+            when (val result = authRepository.revalidateSession(expectedUser.id)) {
                 is NetworkResult.Success -> {
-                    // Update biometric storage with verified credentials
-                    biometricStorage.saveBiometricCredentials(email.trim(), password)
                     _uiState.value = _uiState.value.copy(
-                        isVerifyingFallback = false,
                         isBiometricEnabled = true,
-                        savedEmail = email.trim(),
-                        fallbackPasswordInput = "",
-                        fallbackVerifyResult = "Fallback authentication verified successfully! Biometrics linked."
+                        isAuthenticated = true,
+                        userNotice = "The active server session was verified."
                     )
                 }
                 is NetworkResult.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isVerifyingFallback = false,
-                        fallbackVerifyError = result.message
-                    )
+                    refreshState()
+                    _uiState.value = _uiState.value.copy(userNotice = result.message)
                 }
-                NetworkResult.Loading -> {
-                    _uiState.value = _uiState.value.copy(isVerifyingFallback = false)
-                }
+                NetworkResult.Loading -> Unit
             }
         }
     }
 
     fun clearStoredBiometricData() {
-        biometricStorage.clearBiometricCredentials()
+        biometricStorage.clearBiometricPreference()
         _uiState.value = _uiState.value.copy(
             isBiometricEnabled = false,
-            savedEmail = null,
-            userNotice = "Stored biometric credentials cleared from device."
+            userNotice = "Biometric session unlock was disabled."
         )
     }
 
-    fun openSystemBiometricSettings(context: Context) {
+    fun onBiometricError(error: BiometricError) {
+        refreshState()
+        if (error !is BiometricError.UserCanceled) {
+            _uiState.value = _uiState.value.copy(userNotice = error.message)
+        }
+    }
+
+    fun openSystemBiometricSettings(context: android.content.Context) {
         biometricPromptHelper.openBiometricEnrollment(context)
     }
 

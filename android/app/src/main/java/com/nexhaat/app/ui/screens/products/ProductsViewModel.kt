@@ -6,6 +6,8 @@ import com.nexhaat.app.data.remote.NetworkResult
 import com.nexhaat.app.data.remote.dto.ProductDto
 import com.nexhaat.app.data.repository.CatalogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,8 +19,34 @@ data class ProductsUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val currentPage: Int = 1,
-    val hasMore: Boolean = true
+    val hasMore: Boolean = true,
+    val hasUnexpectedResult: Boolean = false
 )
+
+internal fun ProductsUiState.withResult(
+    result: NetworkResult<Pair<List<ProductDto>, com.nexhaat.app.data.remote.dto.Pagination?>>,
+    page: Int,
+    refresh: Boolean
+): ProductsUiState = when (result) {
+    is NetworkResult.Success -> copy(
+        products = if (refresh) result.data.first else products + result.data.first,
+        isLoading = false,
+        error = null,
+        currentPage = page + 1,
+        hasMore = result.data.second?.let { page < (it.total + it.limit - 1) / it.limit } ?: false,
+        hasUnexpectedResult = false
+    )
+    is NetworkResult.Error -> copy(
+        isLoading = false,
+        error = result.message,
+        hasUnexpectedResult = false
+    )
+    NetworkResult.Loading -> copy(
+        isLoading = false,
+        error = null,
+        hasUnexpectedResult = true
+    )
+}
 
 @HiltViewModel
 class ProductsViewModel @Inject constructor(
@@ -26,40 +54,42 @@ class ProductsViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProductsUiState())
     val uiState: StateFlow<ProductsUiState> = _uiState.asStateFlow()
+    private var productsJob: Job? = null
+    private var currentRequestKey: Pair<Int?, String?>? = null
 
     fun loadProducts(categoryId: Int? = null, query: String? = null, refresh: Boolean = false) {
-        viewModelScope.launch {
-            if (refresh) {
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null, currentPage = 1)
-            } else {
-                if (_uiState.value.isLoading) return@launch
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            }
-            
-            val page = if (refresh) 1 else _uiState.value.currentPage
-            val result = if (query != null) {
-                repository.searchProducts(query, page)
-            } else {
-                repository.getProducts(page = page, categoryId = categoryId)
-            }
-            
-            when (result) {
-                is NetworkResult.Success -> {
-                    val newProducts = if (refresh) result.data.first else _uiState.value.products + result.data.first
-                    _uiState.value = _uiState.value.copy(
-                        products = newProducts,
-                        isLoading = false,
-                        currentPage = page + 1,
-                        hasMore = result.data.second?.let { page < (it.total + it.limit - 1) / it.limit } ?: false
-                    )
+        val requestKey = categoryId to query
+        if (productsJob?.isActive == true) {
+            if (!refresh) return
+            productsJob?.cancel()
+        }
+        val requestKeyChanged = requestKey != currentRequestKey
+        currentRequestKey = requestKey
+
+        val page = if (refresh) 1 else _uiState.value.currentPage
+        _uiState.value = _uiState.value.copy(
+            products = if (refresh && requestKeyChanged) emptyList() else _uiState.value.products,
+            isLoading = true,
+            error = null,
+            currentPage = if (refresh) 1 else _uiState.value.currentPage,
+            hasUnexpectedResult = false
+        )
+        productsJob = viewModelScope.launch {
+            try {
+                val result = if (query != null) {
+                    repository.searchProducts(query, page)
+                } else {
+                    repository.getProducts(page = page, categoryId = categoryId)
                 }
-                is NetworkResult.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        error = result.message,
-                        isLoading = false
-                    )
-                }
-                NetworkResult.Loading -> {}
+                _uiState.value = _uiState.value.withResult(result, page, refresh)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = null,
+                    hasUnexpectedResult = true
+                )
             }
         }
     }

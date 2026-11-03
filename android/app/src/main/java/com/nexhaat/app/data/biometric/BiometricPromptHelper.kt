@@ -4,23 +4,26 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
-import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.nexhaat.app.R
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.IOException
+import java.security.GeneralSecurityException
+import java.security.ProviderException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class BiometricPromptHelper @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val biometricStorage: BiometricStorage
+    private val biometricSessionCrypto: BiometricSessionCrypto
 ) {
-    val authenticators = BIOMETRIC_STRONG or BIOMETRIC_WEAK
+    val authenticators = BIOMETRIC_STRONG
 
     fun getBiometricStatus(): BiometricAuthStatus {
         val manager = BiometricManager.from(context)
@@ -33,13 +36,6 @@ class BiometricPromptHelper @Inject constructor(
         }
     }
 
-    fun canUseBiometricSignIn(): Boolean {
-        return getBiometricStatus() is BiometricAuthStatus.Ready &&
-            biometricStorage.isBiometricEnabled() &&
-            !biometricStorage.getSavedEmail().isNullOrBlank() &&
-            !biometricStorage.getSavedSecret().isNullOrBlank()
-    }
-
     fun showBiometricPrompt(
         activity: FragmentActivity,
         title: String = activity.getString(R.string.biometric_prompt_title),
@@ -50,6 +46,30 @@ class BiometricPromptHelper @Inject constructor(
         onError: (biometricError: BiometricError) -> Unit,
         onFailed: () -> Unit
     ) {
+        val cryptoObject = try {
+            biometricSessionCrypto.createPromptCryptoObject()
+        } catch (_: KeyPermanentlyInvalidatedException) {
+            biometricSessionCrypto.disableAfterEnrollmentChange()
+            onError(BiometricError.EnrollmentChanged)
+            return
+        } catch (_: BiometricSessionKeyMissingException) {
+            biometricSessionCrypto.disableAfterEnrollmentChange()
+            onError(BiometricError.SetupRequired)
+            return
+        } catch (_: GeneralSecurityException) {
+            onError(BiometricError.CryptoUnavailable)
+            return
+        } catch (_: IOException) {
+            onError(BiometricError.CryptoUnavailable)
+            return
+        } catch (_: SecurityException) {
+            onError(BiometricError.CryptoUnavailable)
+            return
+        } catch (_: ProviderException) {
+            onError(BiometricError.CryptoUnavailable)
+            return
+        }
+
         val executor = ContextCompat.getMainExecutor(activity)
         val prompt = BiometricPrompt(
             activity,
@@ -57,7 +77,25 @@ class BiometricPromptHelper @Inject constructor(
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
-                    onSuccess()
+                    try {
+                        if (biometricSessionCrypto.completeAuthenticatedOperation(
+                                result.cryptoObject?.cipher
+                            )
+                        ) {
+                            onSuccess()
+                        } else {
+                            onError(BiometricError.CryptoUnavailable)
+                        }
+                    } catch (_: KeyPermanentlyInvalidatedException) {
+                        biometricSessionCrypto.disableAfterEnrollmentChange()
+                        onError(BiometricError.EnrollmentChanged)
+                    } catch (_: GeneralSecurityException) {
+                        onError(BiometricError.CryptoUnavailable)
+                    } catch (_: SecurityException) {
+                        onError(BiometricError.CryptoUnavailable)
+                    } catch (_: ProviderException) {
+                        onError(BiometricError.CryptoUnavailable)
+                    }
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -81,7 +119,7 @@ class BiometricPromptHelper @Inject constructor(
             .setAllowedAuthenticators(authenticators)
             .build()
 
-        prompt.authenticate(promptInfo)
+        prompt.authenticate(promptInfo, cryptoObject)
     }
 
     fun openBiometricEnrollment(targetContext: Context = context) {

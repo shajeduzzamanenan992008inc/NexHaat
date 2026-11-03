@@ -4,6 +4,15 @@ import androidx.biometric.BiometricPrompt
 
 sealed class BiometricError(val message: String) {
     object UserCanceled : BiometricError("Authentication was canceled by user.")
+    object EnrollmentChanged : BiometricError(
+        "Biometric enrollment changed. Sign in with your password and enable biometric unlock again."
+    )
+    object SetupRequired : BiometricError(
+        "Biometric setup needs refreshing. Sign in with your password and enable biometric unlock again."
+    )
+    object CryptoUnavailable : BiometricError(
+        "Secure biometric verification is unavailable. Sign in with your password."
+    )
     data class TemporaryLockout(val reason: String) : BiometricError(reason)
     data class PermanentLockout(val reason: String) : BiometricError(reason)
     data class NoneEnrolled(val reason: String) : BiometricError(reason)
@@ -11,7 +20,13 @@ sealed class BiometricError(val message: String) {
     data class Generic(val errorCode: Int, val reason: String) : BiometricError(reason)
 
     val requiresFallbackPassword: Boolean
-        get() = this is TemporaryLockout || this is PermanentLockout || this is NoneEnrolled || this is HardwareUnavailable
+        get() = this is TemporaryLockout ||
+            this is PermanentLockout ||
+            this is NoneEnrolled ||
+            this is HardwareUnavailable ||
+            this is EnrollmentChanged ||
+            this is SetupRequired ||
+            this is CryptoUnavailable
 
     companion object {
         fun fromErrorCode(errorCode: Int, errString: CharSequence?): BiometricError {

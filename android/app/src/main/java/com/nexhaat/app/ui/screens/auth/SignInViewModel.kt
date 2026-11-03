@@ -1,14 +1,15 @@
 package com.nexhaat.app.ui.screens.auth
 
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexhaat.app.data.biometric.BiometricAuthStatus
+import com.nexhaat.app.data.biometric.BiometricError
 import com.nexhaat.app.data.biometric.BiometricPromptHelper
 import com.nexhaat.app.data.biometric.BiometricStorage
 import com.nexhaat.app.data.remote.NetworkResult
 import com.nexhaat.app.data.remote.dto.UserDto
 import com.nexhaat.app.data.repository.AuthRepository
+import com.nexhaat.app.data.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,19 +25,19 @@ data class SignInUiState(
     val signedInUser: UserDto? = null,
     val canUseBiometric: Boolean = false,
     val isBiometricSupported: Boolean = false,
-    val saveBiometricForFuture: Boolean = true
+    val saveBiometricForFuture: Boolean = false
 )
 
 @HiltViewModel
 class SignInViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val biometricPromptHelper: BiometricPromptHelper,
-    private val biometricStorage: BiometricStorage
+    private val biometricStorage: BiometricStorage,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         SignInUiState(
-            email = biometricStorage.getSavedEmail() ?: "",
-            canUseBiometric = biometricPromptHelper.canUseBiometricSignIn(),
+            canUseBiometric = biometricStorage.isBiometricEnabled(),
             isBiometricSupported = biometricPromptHelper.getBiometricStatus() is BiometricAuthStatus.Ready
         )
     )
@@ -67,14 +68,22 @@ class SignInViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             when (val result = authRepository.login(cleanEmail, plainPassword)) {
                 is NetworkResult.Success -> {
-                    if (state.saveBiometricForFuture && _uiState.value.isBiometricSupported) {
-                        biometricStorage.saveBiometricCredentials(cleanEmail, plainPassword)
+                    val biometricEnabled = state.saveBiometricForFuture &&
+                        _uiState.value.isBiometricSupported &&
+                        sessionManager.setBiometricPreference(result.data.id, true)
+                    if (!biometricEnabled) {
+                        biometricStorage.clearBiometricPreference()
                     }
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         password = "",
                         signedInUser = result.data,
-                        canUseBiometric = biometricPromptHelper.canUseBiometricSignIn()
+                        canUseBiometric = biometricStorage.isBiometricEnabledForUser(result.data.id),
+                        error = if (state.saveBiometricForFuture && !biometricEnabled) {
+                            "Biometric unlock could not be enabled. You can enable it later in Settings."
+                        } else {
+                            null
+                        }
                     )
                 }
                 is NetworkResult.Error -> _uiState.value = _uiState.value.copy(
@@ -89,38 +98,41 @@ class SignInViewModel @Inject constructor(
     val biometricHelper: BiometricPromptHelper
         get() = biometricPromptHelper
 
-    fun signInWithBiometric(activity: FragmentActivity, onError: ((BiometricError) -> Unit)? = null) {
-        if (!_uiState.value.canUseBiometric) return
-        val savedEmail = biometricStorage.getSavedEmail() ?: return
-        val savedSecret = biometricStorage.getSavedSecret() ?: return
-
-        biometricPromptHelper.showBiometricPrompt(
-            activity = activity,
-            onSuccess = {
-                viewModelScope.launch {
-                    _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-                    when (val result = authRepository.login(savedEmail, savedSecret)) {
-                        is NetworkResult.Success -> _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            signedInUser = result.data
-                        )
-                        is NetworkResult.Error -> _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = result.message
-                        )
-                        NetworkResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = false)
-                    }
+    fun revalidateBiometricSession() {
+        if (!_uiState.value.canUseBiometric || _uiState.value.isLoading) return
+        val expectedUserId = biometricStorage.getBiometricUserId() ?: run {
+            biometricStorage.clearBiometricPreference()
+            _uiState.value = _uiState.value.copy(
+                canUseBiometric = false,
+                error = "Biometric session is unavailable. Sign in with your password."
+            )
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            when (val result = authRepository.revalidateSession(expectedUserId)) {
+                is NetworkResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        signedInUser = result.data
+                    )
                 }
-            },
-            onError = { biometricError ->
-                if (biometricError !is BiometricError.UserCanceled) {
-                    _uiState.value = _uiState.value.copy(error = biometricError.message)
+                is NetworkResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message,
+                        canUseBiometric = biometricStorage.isBiometricEnabled()
+                    )
                 }
-                onError?.invoke(biometricError)
-            },
-            onFailed = {
-                _uiState.value = _uiState.value.copy(error = "Biometric authentication failed. Please try again or use your password.")
+                NetworkResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = false)
             }
+        }
+    }
+
+    fun onBiometricError(error: BiometricError) {
+        _uiState.value = _uiState.value.copy(
+            canUseBiometric = biometricStorage.isBiometricEnabled(),
+            error = if (error is BiometricError.UserCanceled) null else error.message
         )
     }
 

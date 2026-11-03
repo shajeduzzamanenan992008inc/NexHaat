@@ -21,6 +21,12 @@ class BiometricErrorTest {
     }
 
     @Test
+    fun enrollmentChangeAndCryptoFailure_requirePasswordSignIn() {
+        assertTrue(BiometricError.EnrollmentChanged.requiresFallbackPassword)
+        assertTrue(BiometricError.CryptoUnavailable.requiresFallbackPassword)
+    }
+
+    @Test
     fun lockout_mapsToTemporaryLockout() {
         val error = BiometricError.fromErrorCode(BiometricPrompt.ERROR_LOCKOUT, "Too many attempts")
 

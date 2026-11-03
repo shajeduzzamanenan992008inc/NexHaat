@@ -7,6 +7,8 @@ import com.nexhaat.app.data.remote.dto.ProductDto
 import com.nexhaat.app.data.repository.CartRepository
 import com.nexhaat.app.data.repository.CatalogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,8 +22,31 @@ data class ProductDetailUiState(
     val selectedVariantId: Int? = null,
     val isAddingToCart: Boolean = false,
     val cartMessage: String? = null,
-    val requiresSignIn: Boolean = false
+    val requiresSignIn: Boolean = false,
+    val hasUnexpectedResult: Boolean = false
 )
+
+internal fun ProductDetailUiState.withProductResult(
+    result: NetworkResult<ProductDto>
+): ProductDetailUiState = when (result) {
+    is NetworkResult.Success -> copy(
+        product = result.data,
+        isLoading = false,
+        error = null,
+        selectedVariantId = null,
+        hasUnexpectedResult = false
+    )
+    is NetworkResult.Error -> copy(
+        isLoading = false,
+        error = result.message,
+        hasUnexpectedResult = false
+    )
+    NetworkResult.Loading -> copy(
+        isLoading = false,
+        error = null,
+        hasUnexpectedResult = true
+    )
+}
 
 @HiltViewModel
 class ProductDetailViewModel @Inject constructor(
@@ -30,25 +55,35 @@ class ProductDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProductDetailUiState())
     val uiState: StateFlow<ProductDetailUiState> = _uiState.asStateFlow()
+    private var productJob: Job? = null
+    private var requestedProductId: Int? = null
 
     fun loadProduct(productId: Int) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = repository.getProductDetail(productId)) {
-                is NetworkResult.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        product = result.data,
-                        isLoading = false,
-                        selectedVariantId = null
-                    )
-                }
-                is NetworkResult.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        error = result.message,
-                        isLoading = false
-                    )
-                }
-                NetworkResult.Loading -> {}
+        if (productJob?.isActive == true) {
+            if (requestedProductId == productId) return
+            productJob?.cancel()
+        }
+        requestedProductId = productId
+        _uiState.value = _uiState.value.copy(
+            product = null,
+            isLoading = true,
+            error = null,
+            selectedVariantId = null,
+            cartMessage = null,
+            requiresSignIn = false,
+            hasUnexpectedResult = false
+        )
+        productJob = viewModelScope.launch {
+            try {
+                _uiState.value = _uiState.value.withProductResult(repository.getProductDetail(productId))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = null,
+                    hasUnexpectedResult = true
+                )
             }
         }
     }

@@ -19,14 +19,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexhaat.app.R
 import com.nexhaat.app.data.remote.dto.CartItemDto
 import com.nexhaat.app.ui.components.EmptyState
@@ -44,7 +46,7 @@ fun CartScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToSignIn: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.loadCart() }
 
     Scaffold(
@@ -66,14 +68,19 @@ fun CartScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) { CircularProgressIndicator() }
-            uiState.error != null && uiState.cart == null -> Column(
+            (uiState.error != null || uiState.hasUnexpectedResult) && uiState.cart == null -> Column(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(uiState.error.orEmpty(), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    uiState.error ?: stringResource(R.string.request_did_not_complete),
+                    style = MaterialTheme.typography.bodyLarge
+                )
                 Spacer(Modifier.padding(8.dp))
-                Button(onClick = onNavigateToSignIn) { Text(stringResource(R.string.sign_in)) }
+                if (uiState.errorCode == "401" || uiState.errorCode == "403") {
+                    Button(onClick = onNavigateToSignIn) { Text(stringResource(R.string.sign_in)) }
+                }
                 TextButton(onClick = viewModel::loadCart) { Text(stringResource(R.string.retry)) }
             }
             uiState.cart != null -> {
@@ -138,18 +145,28 @@ private fun CartLine(
     ) {
         Text(item.name, style = MaterialTheme.typography.titleMedium)
         item.variantLabel?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        Text(formatMoney(item.subtotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.End
         ) {
-            Text(formatMoney(item.subtotal), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDecrease, enabled = enabled) { Text("−") }
+                // The symbol glyphs alone are not a useful screen-reader label, so each
+                // 48dp control exposes an explicit localized description.
+                val decreaseLabel = stringResource(R.string.decrease_quantity)
+                val increaseLabel = stringResource(R.string.increase_quantity)
+                IconButton(
+                    onClick = onDecrease,
+                    enabled = enabled,
+                    modifier = Modifier.semantics { contentDescription = decreaseLabel }
+                ) { Text("−") }
                 Text(item.quantity.toString(), style = MaterialTheme.typography.titleMedium)
-                IconButton(onClick = onIncrease, enabled = enabled && item.quantity < item.availableStock && item.quantity < 20) {
-                    Text("+")
-                }
+                IconButton(
+                    onClick = onIncrease,
+                    enabled = enabled && item.quantity < item.availableStock && item.quantity < 20,
+                    modifier = Modifier.semantics { contentDescription = increaseLabel }
+                ) { Text("+") }
                 TextButton(onClick = onRemove, enabled = enabled) { Text(stringResource(R.string.remove)) }
             }
         }

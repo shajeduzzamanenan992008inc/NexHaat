@@ -6,6 +6,8 @@ import com.nexhaat.app.data.remote.NetworkResult
 import com.nexhaat.app.data.remote.dto.CartDto
 import com.nexhaat.app.data.repository.CartRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,8 +17,26 @@ import javax.inject.Inject
 data class CartUiState(
     val cart: CartDto? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val errorCode: String? = null,
+    val hasUnexpectedResult: Boolean = false
 )
+
+internal fun CartUiState.withResult(result: NetworkResult<CartDto>): CartUiState = when (result) {
+    is NetworkResult.Success -> CartUiState(cart = result.data)
+    is NetworkResult.Error -> copy(
+        isLoading = false,
+        error = result.message,
+        errorCode = result.code,
+        hasUnexpectedResult = false
+    )
+    NetworkResult.Loading -> copy(
+        isLoading = false,
+        error = null,
+        errorCode = null,
+        hasUnexpectedResult = true
+    )
+}
 
 @HiltViewModel
 class CartViewModel @Inject constructor(
@@ -24,6 +44,7 @@ class CartViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CartUiState())
     val uiState: StateFlow<CartUiState> = _uiState.asStateFlow()
+    private var cartJob: Job? = null
 
     fun loadCart() = runCartRequest { repository.getCart() }
 
@@ -36,16 +57,40 @@ class CartViewModel @Inject constructor(
         runCartRequest { repository.add(productId, variantId, quantity) }
 
     private fun runCartRequest(action: suspend () -> NetworkResult<CartDto>) {
-        if (_uiState.value.isLoading) return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = action()) {
-                is NetworkResult.Success -> _uiState.value = CartUiState(cart = result.data)
-                is NetworkResult.Error -> _uiState.value = _uiState.value.copy(
+        if (cartJob?.isActive == true) return
+        cartJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                error = null,
+                errorCode = null,
+                hasUnexpectedResult = false
+            )
+            try {
+                _uiState.value = _uiState.value.withResult(action())
+            } catch (error: CancellationException) {
+                _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = result.message
+                    error = null,
+                    errorCode = null,
+                    hasUnexpectedResult = false
                 )
-                NetworkResult.Loading -> _uiState.value = _uiState.value.copy(isLoading = false)
+                throw error
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = null,
+                    errorCode = null,
+                    hasUnexpectedResult = true
+                )
+            } finally {
+                if (_uiState.value.isLoading) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = null,
+                        errorCode = null,
+                        hasUnexpectedResult = true
+                    )
+                }
             }
         }
     }

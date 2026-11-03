@@ -10,6 +10,7 @@
     <string name="search_prompt">আপনার পছন্দের পণ্য খুঁজতে মার্কেটপ্লেসে অনুসন্ধান করুন।</string>
     <string name="loading">লোড হচ্ছে...</string>
     <string name="error_occurred">একটি ত্রুটি ঘটেছে</string>
+    <string name="request_did_not_complete">অনুরোধটি সম্পন্ন হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।</string>
     <string name="retry">পুনরায় চেষ্টা করুন</string>
     <string name="no_products_found">কোন পণ্য পাওয়া যায়নি</string>
     <string name="empty_categories">কোন বিভাগ উপলব্ধ নেই</string>
@@ -51,23 +52,25 @@
     <string name="subtotal">উপমোট</string>
     <string name="total">মোট</string>
     <string name="remove">সরান</string>
+    <string name="decrease_quantity">পরিমাণ কমান</string>
+    <string name="increase_quantity">পরিমাণ বাড়ান</string>
     <string name="sign_in">সাইন ইন</string>
     <string name="sign_in_to_cart">কার্ট ব্যবহার করতে আপনার নেক্সহাট গ্রাহক অ্যাকাউন্টে সাইন ইন করুন।</string>
     <string name="email">ইমেইল</string>
     <string name="password">পাসওয়ার্ড</string>
     <string name="view_cart">কার্ট দেখুন</string>
     <string name="checkout_not_available">অ্যান্ড্রয়েড অ্যাপে এখনো চেকআউট নেই। আপনার কার্টের মোট সার্ভারে হিসাব করা হয়।</string>
-    <string name="biometric_sign_in">বায়োমেট্রিক দিয়ে সাইন ইন করুন</string>
-    <string name="biometric_prompt_title">বায়োমেট্রিক সাইন ইন</string>
-    <string name="biometric_prompt_subtitle">সাইন ইন করতে আপনার আঙুলের ছাপ বা মুখ ব্যবহার করুন</string>
-    <string name="biometric_prompt_description">আপনার নেক্সহাট অ্যাকাউন্টে নিরাপদে প্রবেশ করতে পরিচয় নিশ্চিত করুন।</string>
-    <string name="enable_biometric_sign_in">পরবর্তী লগইনের জন্য ফিঙ্গারপ্রিন্ট / ফেস আনলক সংরক্ষণ করুন</string>
+    <string name="biometric_sign_in">বর্তমান সেশন বায়োমেট্রিক দিয়ে আনলক করুন</string>
+    <string name="biometric_prompt_title">বর্তমান সেশন যাচাই করুন</string>
+    <string name="biometric_prompt_subtitle">চালিয়ে যেতে আঙুলের ছাপ বা মুখ ব্যবহার করুন</string>
+    <string name="biometric_prompt_description">বায়োমেট্রিক এই ডিভাইসের ব্যবহারকারীকে যাচাই করবে; নেক্সহাট আলাদাভাবে সক্রিয় সার্ভার সেশন পরীক্ষা করবে।</string>
+    <string name="enable_biometric_sign_in">সাইন ইন করার পর বায়োমেট্রিক সেশন আনলক চালু করুন</string>
     <string name="biometric_auth_failed">বায়োমেট্রিক যাচাই ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন বা পাসওয়ার্ড ব্যবহার করুন।</string>
     <string name="cancel">বাতিল</string>
     <string name="settings">সেটিংস</string>
     <string name="security_settings">নিরাপত্তা ও প্রমাণীকরণ</string>
-    <string name="biometric_auth_title">বায়োমেট্রিক সাইন-ইন</string>
-    <string name="biometric_auth_desc">দ্রুত ও নিরাপদ প্রবেশের জন্য ফিঙ্গারপ্রিন্ট বা ফেস আনলক ব্যবহার করুন</string>
+    <string name="biometric_auth_title">বায়োমেট্রিক সেশন আনলক</string>
+    <string name="biometric_auth_desc">নেক্সহাট সক্রিয় সার্ভার সেশন পরীক্ষা করার আগে বায়োমেট্রিক আপনাকে যাচাই করবে। কোনো পাসওয়ার্ড সংরক্ষণ করা হয় না; সাইন আউট বা মেয়াদোত্তীর্ণ সেশন এটি পুনরুদ্ধার করতে পারে না।</string>
     <string name="biometric_lockout_title">সেন্সর সাময়িকভাবে লক হয়েছে</string>
     <string name="biometric_permanent_lockout_title">বায়োমেট্রিক সেন্সর লক হয়েছে</string>
     <string name="biometric_none_enrolled_title">কোন বায়োমেট্রিক নিবন্ধিত নেই</string>
@@ -75,18 +78,13 @@
     <string name="biometric_error_title">প্রমাণীকরণ বিজ্ঞপ্তি</string>
     <string name="open_settings">সেটিংস খুলুন</string>
     <string name="use_password">পাসওয়ার্ড ব্যবহার করুন</string>
-    <string name="fallback_auth_title">বিকল্প পাসওয়ার্ড প্রমাণীকরণ</string>
-    <string name="fallback_auth_desc">বায়োমেট্রিক অনুপলব্ধ হলে আপনার নেক্সহাট অ্যাকাউন্টের পাসওয়ার্ড দিয়ে পরিচয় নিশ্চিত করুন।</string>
-    <string name="verify_fallback_password">বিকল্প পাসওয়ার্ড যাচাই করুন</string>
-    <string name="clear_biometric_data">সংরক্ষিত বায়োমেট্রিক তথ্য মুছুন</string>
-    <string name="biometric_cleared_msg">বায়োমেট্রিক প্রমাণপত্রের তথ্য মুছে ফেলা হয়েছে।</string>
+    <string name="disable_biometric_unlock">বায়োমেট্রিক সেশন আনলক বন্ধ করুন</string>
+    <string name="sign_out">সাইন আউট</string>
     <string name="device_biometric_status">ডিভাইস সেন্সর অবস্থা</string>
     <string name="status_ready">প্রস্তুত (নিবন্ধিত ও সমর্থিত)</string>
     <string name="status_not_available">এই ডিভাইসে অনুপলব্ধ</string>
     <string name="status_none_enrolled">আঙুলের ছাপ বা মুখ নিবন্ধিত নেই</string>
     <string name="status_hardware_unavailable">সেন্সর সাময়িকভাবে অনুপলব্ধ</string>
     <string name="setup_biometrics_in_settings">অ্যান্ড্রয়েড সেটিংসে বায়োমেট্রিক সেট করুন</string>
-    <string name="test_biometrics">বায়োমেট্রিক আনলক পরীক্ষা করুন</string>
+    <string name="verify_active_session">সক্রিয় সেশন যাচাই করুন</string>
 </resources>
-
-

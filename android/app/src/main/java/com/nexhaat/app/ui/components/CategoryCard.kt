@@ -3,6 +3,7 @@ package com.nexhaat.app.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -23,11 +24,12 @@ import com.nexhaat.app.data.remote.dto.CategoryDto
 fun CategoryCard(
     category: CategoryDto,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fillWidth: Boolean = false
 ) {
     Card(
         modifier = modifier
-            .width(152.dp)
+            .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier.width(152.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -38,13 +40,13 @@ fun CategoryCard(
                 imageUrl = category.imageReference,
                 contentDescription = category.name,
                 modifier = Modifier
-                    .width(152.dp)
+                    .fillMaxWidth()
                     .height(96.dp)
             )
             Column(
                 modifier = Modifier
-                    .height(48.dp)
                     .padding(horizontal = 12.dp)
+                    .padding(vertical = 8.dp)
             ) {
                 Text(
                     category.name,

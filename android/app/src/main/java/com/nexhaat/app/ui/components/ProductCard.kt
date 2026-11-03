@@ -17,26 +17,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nexhaat.app.data.remote.dto.ProductDto
-import com.nexhaat.app.ui.components.ProductImage
-import com.nexhaat.app.ui.theme.NexHaatColors
 import com.nexhaat.app.ui.theme.NexHaatTypography
 
 @Composable
@@ -64,15 +61,19 @@ fun ProductCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(NexHaatColors.surface())
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(
                     bounded = true,
-                    color = NexHaatColors.onSurface().copy(alpha = 0.18f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
                 ),
                 onClick = onClick
             )
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
@@ -83,7 +84,7 @@ fun ProductCard(
                 .fillMaxWidth()
                 .height(96.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .background(NexHaatColors.surfaceVariant())
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             ProductImage(
                 imageUrl = product.imageReference,
@@ -98,7 +99,7 @@ fun ProductCard(
                         .align(Alignment.TopEnd)
                         .padding(6.dp)
                         .background(
-                            NexHaatColors.error(),
+                            MaterialTheme.colorScheme.error,
                             RoundedCornerShape(4.dp)
                         )
                         .padding(horizontal = 6.dp, vertical = 2.dp),
@@ -107,7 +108,7 @@ fun ProductCard(
                     Text(
                         text = "SALE",
                         style = NexHaatTypography.labelSmall,
-                        color = NexHaatColors.onError(),
+                        color = MaterialTheme.colorScheme.onError,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -119,14 +120,15 @@ fun ProductCard(
         Text(
             text = product.brandName ?: "",
             style = NexHaatTypography.bodySmall,
-            color = NexHaatColors.onSurfaceVariant()
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Text(
             text = product.name.ifBlank { "Product name" },
             style = NexHaatTypography.bodyMedium,
-            color = NexHaatColors.onSurface(),
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Start,
             modifier = Modifier.fillMaxWidth()
         )
@@ -134,13 +136,17 @@ fun ProductCard(
         Spacer(modifier = Modifier.height(4.dp))
 
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = product.displayPrice ?: "0.00",
                 style = NexHaatTypography.bodyLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (discounted) NexHaatColors.error() else NexHaatColors.onSurface()
+                color = if (discounted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
 
             if (showPrevious) {
@@ -148,8 +154,9 @@ fun ProductCard(
                 Text(
                     text = String.format("%.2f", previous!!),
                     style = NexHaatTypography.bodySmall,
-                    color = NexHaatColors.onSurfaceVariant(),
-                    textDecoration = TextDecoration.LineThrough
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textDecoration = TextDecoration.LineThrough,
+                    maxLines = 1
                 )
             }
         }
@@ -159,8 +166,11 @@ fun ProductCard(
         Text(
             text = if (product.stock != null && product.stock > 0) "In stock" else "Out of stock",
             style = NexHaatTypography.bodySmall,
-            color = if ((product.stock ?: 0) > 0) NexHaatColors.onSurface() else NexHaatColors.onSurfaceVariant()
+            color = if ((product.stock ?: 0) > 0) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
         )
     }
 }
-

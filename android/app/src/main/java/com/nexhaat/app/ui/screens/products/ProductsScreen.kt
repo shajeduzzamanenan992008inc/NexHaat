@@ -1,6 +1,7 @@
 package com.nexhaat.app.ui.screens.products
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -15,12 +16,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexhaat.app.R
 import com.nexhaat.app.ui.components.EmptyState
 import com.nexhaat.app.ui.components.ErrorState
@@ -42,7 +43,7 @@ fun ProductsScreen(
     onNavigateToSearch: () -> Unit = {},
     onNavigateToCart: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(categoryId, query) {
         viewModel.loadProducts(categoryId = categoryId, query = query, refresh = true)
@@ -69,8 +70,8 @@ fun ProductsScreen(
                     .padding(horizontal = 16.dp),
                 cardHeight = 220.dp
             )
-            uiState.error != null && uiState.products.isEmpty() -> ErrorState(
-                message = uiState.error ?: stringResource(R.string.error_occurred),
+            (uiState.error != null || uiState.hasUnexpectedResult) && uiState.products.isEmpty() -> ErrorState(
+                message = uiState.error ?: stringResource(R.string.request_did_not_complete),
                 onRetry = { viewModel.loadProducts(categoryId = categoryId, query = query, refresh = true) },
                 modifier = Modifier.padding(paddingValues)
             )
@@ -104,13 +105,34 @@ fun ProductsScreen(
                             onClick = { onNavigateToProductDetail(product.id) }
                         )
                     }
+                    if (uiState.error != null || uiState.hasUnexpectedResult) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Column {
+                                Text(
+                                    uiState.error ?: stringResource(R.string.request_did_not_complete),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                TextButton(
+                                    onClick = {
+                                        viewModel.loadProducts(
+                                            categoryId = categoryId,
+                                            query = query,
+                                            refresh = true
+                                        )
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.retry))
+                                }
+                            }
+                        }
+                    }
                     if (uiState.isLoading) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             CircularProgressIndicator(
                                 modifier = Modifier.padding(18.dp)
                             )
                         }
-                    } else if (uiState.hasMore) {
+                    } else if (uiState.hasMore && uiState.error == null && !uiState.hasUnexpectedResult) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             TextButton(
                                 onClick = { viewModel.loadMore(categoryId = categoryId, query = query) },

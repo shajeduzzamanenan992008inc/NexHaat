@@ -23,15 +23,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexhaat.app.R
 import com.nexhaat.app.data.remote.dto.ProductDto
 import com.nexhaat.app.data.remote.dto.VariantDto
@@ -53,7 +54,9 @@ fun ProductDetailScreen(
     onNavigateToSearch: () -> Unit = {},
     onNavigateToCart: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val productImageHeight = (LocalConfiguration.current.screenHeightDp.dp * 0.35f)
+        .coerceIn(120.dp, 310.dp)
 
     LaunchedEffect(productId) {
         viewModel.loadProduct(productId)
@@ -85,8 +88,8 @@ fun ProductDetailScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) { CircularProgressIndicator() }
-            uiState.error != null && uiState.product == null -> ErrorState(
-                message = uiState.error ?: stringResource(R.string.error_occurred),
+            (uiState.error != null || uiState.hasUnexpectedResult) && uiState.product == null -> ErrorState(
+                message = uiState.error ?: stringResource(R.string.request_did_not_complete),
                 onRetry = { viewModel.loadProduct(productId) },
                 modifier = Modifier.padding(paddingValues)
             )
@@ -103,7 +106,7 @@ fun ProductDetailScreen(
                         contentDescription = product.localizedName ?: product.name,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(310.dp),
+                            .height(productImageHeight),
                         contentScale = ContentScale.Crop
                     )
                     Column(
