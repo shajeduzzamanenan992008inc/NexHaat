@@ -232,18 +232,38 @@ def test_api_lists_approved_reviews(client, app):
         product = make_product(slug="api-pizza")
         user = make_customer(email="api@example.com")
         order = make_order(user, product, number="RVW-9")
-        add_review(
+        verified_review = add_review(
             product, user, order, rating=5, comment="API good",
             status="approved", author="Api Fan",
         )
+        legacy_user = make_customer(email="api-legacy@example.com")
+        unverified_review = Review(
+            product_id=product.id,
+            user_id=legacy_user.id,
+            order_id=None,
+            rating=4,
+            comment="Legacy review",
+            author_name="Legacy Fan",
+            status="approved",
+        )
+        db.session.add(unverified_review)
+        db.session.commit()
         product_id = product.id
+        verified_review_id = verified_review.id
+        unverified_review_id = unverified_review.id
 
     response = client.get(f"/api/v1/products/{product_id}/reviews")
     assert response.status_code == 200
     body = response.get_json()
     assert body["success"] is True
-    assert body["data"]["summary"] == {"count": 1, "average": 5.0}
-    assert body["data"]["reviews"][0]["comment"] == "API good"
+    assert body["data"]["summary"] == {"count": 2, "average": 4.5}
+    assert any(review["comment"] == "API good" for review in body["data"]["reviews"])
+    catalog_reviews = {
+        review["id"]: review["verified_purchase"]
+        for review in body["data"]["reviews"]
+    }
+    assert catalog_reviews[verified_review_id] is True
+    assert catalog_reviews[unverified_review_id] is False
 
 
 def test_api_review_requires_customer_login(client, app):

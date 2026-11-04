@@ -17,21 +17,21 @@ export const RiderPortalPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-16">
       {/* Header */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-emerald-950 text-white shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-navy via-primary to-[#1748A8] text-white shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-xs mb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-blue-100 font-bold text-xs mb-2">
             <Truck className="w-4 h-4" />
             <span>{t('NEXHAAT EXPRESS RIDER HUB', 'নেক্সহাট এক্সপ্রেস রাইডার হাব')}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">
             {currentUser.name || 'Kamal Hossain'}
           </h1>
-          <p className="text-xs sm:text-sm text-emerald-200 mt-1">
+          <p className="text-xs sm:text-sm text-blue-100 mt-1">
             Mirpur Hub 10, Dhaka • Rider ID: NH-RDR-4402 • Status: Active on Duty
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md text-emerald-300 text-xs font-bold self-start sm:self-auto">
+        <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md text-white text-xs font-bold self-start sm:self-auto">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
           <span>GPS Live Tracking Online</span>
         </div>
@@ -162,7 +162,7 @@ export const RiderPortalPage: React.FC = () => {
                   {ord.status === 'shipped' && (
                     <button
                       onClick={() => updateOrderStatus(ord.order_number, 'delivered')}
-                      className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-sm flex items-center gap-1.5"
+                      className="px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-sm flex items-center gap-1.5"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>{t('Mark Delivered & Settle', 'ডেলিভারি সম্পন্ন')}</span>

@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   CheckCircle2, Package, Truck, Clock, ArrowRight, 
-  Printer, ShoppingBag, ShieldCheck, Phone, MapPin 
+  Printer, ShoppingBag, ShieldCheck, Phone, MapPin, Sparkles
 } from 'lucide-react';
+import { triggerCelebrationConfetti } from '../lib/motionTokens';
 
 export const OrderConfirmationPage: React.FC = () => {
   const { lastConfirmedOrder, setCurrentView, formatPrice, t, language } = useApp();
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+
+  useEffect(() => {
+    // Trigger celebratory confetti burst on order confirmation mount
+    triggerCelebrationConfetti();
+  }, []);
 
   if (!lastConfirmedOrder) {
     return (
@@ -28,19 +34,18 @@ export const OrderConfirmationPage: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-16">
       {/* Success Banner */}
-      <div className="text-center p-8 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-card space-y-3">
-        <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
-          <CheckCircle2 className="w-10 h-10" />
+      <div className="text-center p-8 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-card space-y-3 relative overflow-hidden bg-aurora-mesh">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner animate-cart-bounce">
+          <CheckCircle2 className="w-10 h-10 animate-checkmark-draw" />
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-emerald-950">
           {t('Order Placed Successfully!', 'আপনার অর্ডার নিশ্চিত করা হয়েছে!')}
         </h1>
         <p className="text-xs sm:text-sm text-emerald-800 max-w-md mx-auto">
           {t(
-            'Thank you for shopping on NexHaat. We have sent an SMS confirmation to',
-            'নেক্সহাটে কেনাকাটার জন্য ধন্যবাদ। নিশ্চিতকরণ বার্তা পাঠানো হয়েছে:'
-          )}{' '}
-          <strong>{order.customer_phone}</strong>
+            'Thank you for shopping on NexHaat. Your order details are available below; check My Orders for status updates.',
+            'NexHaat-এ কেনাকাটার জন্য ধন্যবাদ। অর্ডারের তথ্য নিচে আছে; স্ট্যাটাস আপডেট My Orders-এ দেখুন।'
+          )}
         </p>
 
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-white border border-emerald-200 text-xs font-mono font-bold text-emerald-900 mt-2">
@@ -49,42 +54,19 @@ export const OrderConfirmationPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Live Delivery Tracker Timeline */}
+      {/* Latest server-reported order status */}
       <div className="p-6 rounded-3xl bg-white border border-border shadow-card space-y-4">
         <h3 className="font-bold text-sm text-ink flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary" />
-          <span>{t('Live Order Progress', 'লাইভ অর্ডার অগ্রগতি')}</span>
+          <span>{t('Order status', 'অর্ডারের অবস্থা')}</span>
         </h3>
-
-        <div className="relative flex items-center justify-between pt-2">
-          {/* Progress track line */}
-          <div className="absolute left-6 right-6 top-6 h-1 bg-slate-100 -z-0">
-            <div className="h-full bg-primary w-2/5 transition-all duration-700" />
-          </div>
-
-          {[
-            { title: t('Placed', 'অর্ডার প্লেসড'), desc: t('Received', 'গৃহীত'), active: true, done: true },
-            { title: t('Confirmed', 'নিশ্চিত'), desc: t('Accepted', 'গৃহীত'), active: true, done: true },
-            { title: t('Packaging', 'প্যাকেজিং'), desc: t('At Store', 'দোকানে'), active: true, done: false },
-            { title: t('Out with Rider', 'রাইডারের কাছে'), desc: t('In Transit', 'চলমান'), active: false, done: false },
-            { title: t('Delivered', 'পৌঁছেছে'), desc: t('Completed', 'সম্পন্ন'), active: false, done: false },
-          ].map((step, idx) => (
-            <div key={idx} className="relative z-10 flex flex-col items-center text-center">
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${
-                  step.done
-                    ? 'bg-primary text-white ring-4 ring-primary-light'
-                    : step.active
-                    ? 'bg-amber-500 text-white ring-4 ring-amber-100 animate-pulse'
-                    : 'bg-white border-2 border-slate-200 text-slate-400'
-                }`}
-              >
-                {idx + 1}
-              </div>
-              <span className="text-xs font-bold text-ink mt-2">{step.title}</span>
-              <span className="text-[10px] text-muted">{step.desc}</span>
-            </div>
-          ))}
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-primary/5 border border-primary/10 p-4">
+          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold capitalize text-primary shadow-xs">
+            {order.status.replace(/[_-]/g, ' ')}
+          </span>
+          <p className="text-xs text-muted">
+            {t('This status came from the marketplace response. Later updates are shown in My Orders.', 'এই স্ট্যাটাস মার্কেটপ্লেসের response থেকে এসেছে। পরের আপডেট My Orders-এ দেখুন।')}
+          </p>
         </div>
       </div>
 
@@ -172,6 +154,7 @@ export const OrderConfirmationPage: React.FC = () => {
             </p>
           )}
         </div>
+
       </div>
 
       {/* Action Buttons */}

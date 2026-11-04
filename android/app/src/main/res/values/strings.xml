@@ -204,4 +204,12 @@
     <string name="backup_codes_desc">Save these one-time recovery codes in a safe place. You will need them if you lose access to your authenticator app.</string>
     <string name="copy_backup_codes">Copy All Backup Codes</string>
     <string name="codes_copied">Backup codes copied to clipboard</string>
+
+    <!-- International & Digital Commerce -->
+    <string name="instant_digital_delivery">Instant Digital Delivery</string>
+    <string name="instant_digital_delivery_desc">Zero waiting time. Tokens and digital credentials activate immediately.</string>
+    <string name="global_air_cargo">Global Air Cargo Express</string>
+    <string name="global_air_cargo_desc">Worldwide delivery via DHL &amp; FedEx with phytosanitary inspection.</string>
+    <string name="multi_currency_hub">Multi-Currency &amp; Global Exchange</string>
+    <string name="cold_chain_iot">Cold-Chain IoT Protected</string>
 </resources>

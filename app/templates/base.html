@@ -4,18 +4,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#e7ebf0">
+  <meta name="theme-color" content="#1769FF">
+  <meta name="color-scheme" content="light dark">
   <meta name="description"
     content="{% block meta_description %}{{ _('Discover neighborhood food, groceries, and local stores on NexHaat.') }}{% endblock %}">
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="canonical" href="{% block canonical_url %}{{ request.base_url }}{% endblock %}">
   <link rel="icon" type="image/gif" sizes="48x48"
-    data-static-href="{{ url_for('static', filename='logo.svg', v='20261005') }}"
-    href="{{ url_for('static', filename='favicon.gif', v='20261005') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css', v='20261001_linkhover1') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/marketplace.css', v='20261001_aug3') }}">
+    data-static-href="{{ url_for('static', filename='logo.svg', v='20261104_signature_blue') }}"
+    href="{{ url_for('static', filename='favicon.gif', v='20261104_signature_blue') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css', v='20261104_signature_blue') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/marketplace.css', v='20261104_signature_blue') }}">
   {% block extra_head %}{% endblock %}
-  <script src="{{ url_for('static', filename='js/site.js', v='20261005') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/site.js', v='20261104_signature_blue') }}" defer></script>
   <script src="{{ url_for('static', filename='js/search-suggestions.js', v='20261010') }}" defer></script>
 </head>
 
@@ -51,6 +52,12 @@
         {% endif %}
       </nav>
       <div class="header-actions">
+        <button class="theme-toggle" type="button" data-theme-toggle
+          data-theme-label-dark="{{ _('Switch to dark theme') }}"
+          data-theme-label-light="{{ _('Switch to light theme') }}"
+          aria-label="{{ _('Switch to dark theme') }}" title="{{ _('Switch to dark theme') }}">
+          <span data-theme-icon aria-hidden="true">☾</span>
+        </button>
         <form class="language-picker" method="post" action="{{ url_for('main.set_language') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">

@@ -6,7 +6,10 @@ and explicit key versioning. TOTP secrets are never persisted in plaintext.
 
 import base64
 import os
+<<<<<<< HEAD
 from typing import Optional, Tuple
+=======
+>>>>>>> d5fb7ab (Fix)
 
 try:
     from flask import current_app
@@ -20,15 +23,25 @@ try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     HAS_CRYPTOGRAPHY = True
 except ImportError:
+<<<<<<< HEAD
+=======
+    AESGCM = None
+>>>>>>> d5fb7ab (Fix)
     HAS_CRYPTOGRAPHY = False
 
 
 class TwoFactorCryptoError(Exception):
     """Raised when encryption, decryption, or key resolution fails."""
+<<<<<<< HEAD
     pass
 
 
 def resolve_encryption_key(key_input: Optional[bytes | str] = None) -> bytes:
+=======
+
+
+def resolve_encryption_key(key_input: bytes | str | None = None) -> bytes:
+>>>>>>> d5fb7ab (Fix)
     """Resolve and validate a 32-byte (256-bit) AES key.
 
     Accepts raw 32-byte string/bytes, 64-character hex string, or base64-encoded 32-byte string.
@@ -83,9 +96,15 @@ def resolve_encryption_key(key_input: Optional[bytes | str] = None) -> bytes:
 
 def encrypt_totp_secret(
     secret: str,
+<<<<<<< HEAD
     key_input: Optional[bytes | str] = None,
     version: int = 1
 ) -> Tuple[bytes, int]:
+=======
+    key_input: bytes | str | None = None,
+    version: int = 1
+) -> tuple[bytes, int]:
+>>>>>>> d5fb7ab (Fix)
     """Encrypt a TOTP secret using AES-256-GCM.
 
     Returns:
@@ -94,10 +113,17 @@ def encrypt_totp_secret(
     if not secret or not isinstance(secret, str):
         raise TwoFactorCryptoError("A non-empty string secret is required for encryption.")
 
+<<<<<<< HEAD
+=======
+    if not HAS_CRYPTOGRAPHY or AESGCM is None:
+        raise TwoFactorCryptoError("The cryptography package is required to encrypt TOTP secrets safely.")
+
+>>>>>>> d5fb7ab (Fix)
     key = resolve_encryption_key(key_input)
     nonce = os.urandom(12)
     plaintext_bytes = secret.encode("utf-8")
 
+<<<<<<< HEAD
     if HAS_CRYPTOGRAPHY:
         aesgcm = AESGCM(key)
         ciphertext_and_tag = aesgcm.encrypt(nonce, plaintext_bytes, None)
@@ -111,11 +137,20 @@ def encrypt_totp_secret(
     ciphertext = bytes(b ^ stream_key[i % len(stream_key)] for i, b in enumerate(plaintext_bytes))
     tag = hmac.new(key, b"tag" + nonce + ciphertext, hashlib.sha256).digest()
     return (nonce + tag + ciphertext, version)
+=======
+    aesgcm = AESGCM(key)
+    ciphertext_and_tag = aesgcm.encrypt(nonce, plaintext_bytes, None)
+    return (nonce + ciphertext_and_tag, version)
+>>>>>>> d5fb7ab (Fix)
 
 
 def decrypt_totp_secret(
     encrypted_data: bytes,
+<<<<<<< HEAD
     key_input: Optional[bytes | str] = None,
+=======
+    key_input: bytes | str | None = None,
+>>>>>>> d5fb7ab (Fix)
     version: int = 1
 ) -> str:
     """Decrypt a TOTP secret from AES-256-GCM encrypted payload.
@@ -125,6 +160,7 @@ def decrypt_totp_secret(
     if not isinstance(encrypted_data, (bytes, bytearray)):
         raise TwoFactorCryptoError("Encrypted payload must be bytes.")
 
+<<<<<<< HEAD
     key = resolve_encryption_key(key_input)
 
     if HAS_CRYPTOGRAPHY:
@@ -153,3 +189,20 @@ def decrypt_totp_secret(
     stream_key = hmac.new(key, b"stream" + nonce, hashlib.sha256).digest()
     plaintext_bytes = bytes(b ^ stream_key[i % len(stream_key)] for i, b in enumerate(ciphertext))
     return plaintext_bytes.decode("utf-8")
+=======
+    if not HAS_CRYPTOGRAPHY or AESGCM is None:
+        raise TwoFactorCryptoError("The cryptography package is required to decrypt TOTP secrets safely.")
+
+    key = resolve_encryption_key(key_input)
+
+    if len(encrypted_data) < 28:  # 12-byte nonce + at least 16-byte tag
+        raise TwoFactorCryptoError("Encrypted payload is too short.")
+    nonce = encrypted_data[:12]
+    ciphertext_and_tag = encrypted_data[12:]
+    try:
+        aesgcm = AESGCM(key)
+        plaintext = aesgcm.decrypt(nonce, ciphertext_and_tag, None)
+        return plaintext.decode("utf-8")
+    except Exception as exc:
+        raise TwoFactorCryptoError("Failed to decrypt secret: invalid key, tampered data, or corrupted tag.") from exc
+>>>>>>> d5fb7ab (Fix)

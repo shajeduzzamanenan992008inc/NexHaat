@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { X, Check, Star, ShoppingBag, ArrowRight } from 'lucide-react';
+import { X, Star, ShoppingBag, ArrowRight } from 'lucide-react';
 
 export const CompareModal: React.FC = () => {
   const { 
@@ -29,7 +29,7 @@ export const CompareModal: React.FC = () => {
               {t('Side-by-Side Product Comparison', 'পণ্যের পাশাপাশি তুলনা')}
             </h2>
             <p className="text-xs text-muted">
-              {t('Compare specifications, prices, halal quality, and vendor ratings', 'বৈশিষ্ট্য, দাম ও রেটিং মিলিয়ে দেখুন')}
+              {t('Compare listing details, prices, and customer ratings when available.', 'পণ্যের তথ্য, দাম ও থাকলে ক্রেতার রেটিং তুলনা করুন।')}
             </p>
           </div>
 
@@ -89,11 +89,13 @@ export const CompareModal: React.FC = () => {
                   <td className="py-3 px-3 font-semibold text-slate-500">Customer Rating</td>
                   {compareItems.map(item => (
                     <td key={item.id} className="py-3 px-3">
-                      <div className="flex items-center gap-1 text-amber-500 font-bold">
-                        <Star className="w-4 h-4 fill-current" />
-                        <span>{item.rating}</span>
-                        <span className="text-slate-400 font-normal">({item.review_count})</span>
-                      </div>
+                      {item.review_count !== undefined && item.review_count > 0 && item.rating !== undefined ? (
+                        <div className="flex items-center gap-1 text-amber-500 font-bold">
+                          <Star className="w-4 h-4 fill-current" />
+                          <span>{item.rating}</span>
+                          <span className="text-slate-400 font-normal">({item.review_count})</span>
+                        </div>
+                      ) : <span className="text-slate-400">{t('No ratings listed', 'রেটিং দেওয়া হয়নি')}</span>}
                     </td>
                   ))}
                 </tr>
@@ -109,30 +111,17 @@ export const CompareModal: React.FC = () => {
                   ))}
                 </tr>
 
-                {/* Halal / Quality */}
+                {/* Seller-provided food information */}
                 <tr>
-                  <td className="py-3 px-3 font-semibold text-slate-500">Halal Certified</td>
+                  <td className="py-3 px-3 font-semibold text-slate-500">{t('Food details', 'খাদ্যপণ্যের তথ্য')}</td>
                   {compareItems.map(item => (
                     <td key={item.id} className="py-3 px-3">
-                      {item.food_details?.isHalal ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
-                          <Check className="w-3.5 h-3.5" />
-                          <span>100% Halal</span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">Standard Product</span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-
-                {/* Prime Eligible */}
-                <tr>
-                  <td className="py-3 px-3 font-semibold text-slate-500">NexHaat Prime</td>
-                  {compareItems.map(item => (
-                    <td key={item.id} className="py-3 px-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-primary">
-                        Free Express Shipping
+                      <span className="text-slate-600">
+                        {item.food_details?.isHalal
+                          ? t('Seller indicates halal; not independently verified', 'বিক্রেতা হালাল বলেছেন; আলাদাভাবে যাচাই হয়নি')
+                          : item.food_details
+                            ? t('Seller details listed', 'বিক্রেতার তথ্য দেওয়া আছে')
+                            : t('Not listed', 'তথ্য নেই')}
                       </span>
                     </td>
                   ))}
@@ -144,7 +133,7 @@ export const CompareModal: React.FC = () => {
                   {compareItems.map(item => (
                     <td key={item.id} className="py-3 px-3 text-slate-700">
                       <p className="font-semibold">{item.unit}</p>
-                      <p className="text-[11px] text-muted">{item.food_details?.shelfLife || 'Standard'}</p>
+                      <p className="text-[11px] text-muted">{item.food_details?.shelfLife || t('Not listed', 'তথ্য নেই')}</p>
                     </td>
                   ))}
                 </tr>

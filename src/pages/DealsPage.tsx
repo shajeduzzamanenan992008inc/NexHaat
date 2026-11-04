@@ -1,27 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCard } from '../components/ProductCard';
 import { INITIAL_PROMOTIONS } from '../data/mockData';
-import { Tag, Sparkles, Clock, Copy, Check, Percent } from 'lucide-react';
+import { Tag, Sparkles, Copy, Check, Percent } from 'lucide-react';
 
 export const DealsPage: React.FC = () => {
   const { products, applyCoupon, activeCoupon, t, formatPrice } = useApp();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-
-  // Countdown timer
-  const [timeLeft, setTimeLeft] = useState({ hours: 14, minutes: 35, seconds: 40 });
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: 59, seconds: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 24, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const dealProducts = products.filter(p => p.discount_price && p.is_available);
 
@@ -39,27 +24,19 @@ export const DealsPage: React.FC = () => {
         <div className="relative z-10 max-w-xl">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold mb-3">
             <Percent className="w-4 h-4" />
-            <span>{t('NEXHAAT MEGA HAAT DISCOUNTS', 'নেক্সহাট মেগা হাট বিশেষ ছাড়')}</span>
+            <span>{t('MARKETPLACE DEALS', 'মার্কেটপ্লেসের ছাড়')}</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-black mb-3">
-            {t('Daily Flash Deals & Exclusive Vouchers', 'দৈনিক ফ্ল্যাশ ডিল ও ডিসকাউন্ট ভাউচার')}
+            {t('Current product discounts', 'বর্তমান পণ্যের ছাড়')}
           </h1>
 
           <p className="text-sm text-amber-100 leading-relaxed mb-6">
             {t(
-              'Save big on freshly harvested fruits, wild river fish, pure kitchen spices, and electronics. Exclusive coupons apply directly at checkout.',
-              'তাজা মৌসুমি ফল, পদ্মার ইলিশ, মশলা ও গ্যাজেটে পান দারুণ মূল্যছাড়। কুপন কোড ব্যবহার করে নিন অতিরিক্ত ক্যাশব্যাক।'
+              'Browse listings currently marked with a discount. The marketplace checks promotion eligibility during checkout.',
+              'যেসব পণ্যে ছাড় দেখানো আছে সেগুলো দেখুন। চেকআউটে মার্কেটপ্লেস কুপনের যোগ্যতা যাচাই করবে।'
             )}
           </p>
-
-          <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-4 py-2 rounded-2xl w-fit">
-            <Clock className="w-4 h-4 text-amber-300" />
-            <span className="text-xs font-semibold text-slate-200">{t('Offer expires in:', 'অফারের সময় বাকি:')}</span>
-            <span className="font-mono text-sm font-extrabold text-amber-300">
-              {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s
-            </span>
-          </div>
         </div>
       </div>
 
@@ -67,8 +44,11 @@ export const DealsPage: React.FC = () => {
       <section className="space-y-3">
         <h3 className="text-lg font-bold text-ink flex items-center gap-2">
           <Tag className="w-5 h-5 text-accent" />
-          <span>{t('Active Marketplace Coupons', 'সক্রিয় ডিসকাউন্ট কুপনসমূহ')}</span>
+          <span>{t('Coupon examples', 'কুপনের উদাহরণ')}</span>
         </h3>
+        <p className="text-xs text-muted">
+          {t('These codes are local preview examples. Checkout validates any entered code against current marketplace promotions.', 'এগুলো স্থানীয় প্রিভিউ কুপন। চেকআউটে বর্তমান মার্কেটপ্লেস প্রচারের সঙ্গে কোড যাচাই হবে।')}
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {INITIAL_PROMOTIONS.map((promo) => {
@@ -106,17 +86,17 @@ export const DealsPage: React.FC = () => {
                   {isApplied ? (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      <span>{t('Applied to Cart', 'কার্টে সক্রিয় রয়েছে')}</span>
+                      <span>{t('Applied in preview', 'প্রিভিউতে প্রয়োগ হয়েছে')}</span>
                     </>
                   ) : copiedCode === promo.code ? (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      <span>{t('Applied & Copied!', 'কুপন প্রয়োগ হয়েছে!')}</span>
+                      <span>{t('Preview updated & copied', 'প্রিভিউ বদলেছে ও কপি হয়েছে')}</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      <span>{t('Apply Coupon', 'কুপন প্রয়োগ করুন')}</span>
+                      <span>{t('Apply preview code', 'প্রিভিউ কোড প্রয়োগ করুন')}</span>
                     </>
                   )}
                 </button>

@@ -100,13 +100,13 @@ export const PriceTrendChart: React.FC<PriceTrendChartProps> = ({ product }) => 
               <TrendingDown className="w-4 h-4" />
             </span>
             <h3 className="text-base sm:text-lg font-bold text-ink">
-              {t('Price Trend & Historical Analysis', 'মূল্য পরিবর্তন ও ঐতিহাসিক ট্রেন্ড')}
+              {t('Illustrative price trend', 'দামের নমুনা চিত্র')}
             </h3>
           </div>
           <p className="text-xs text-muted mt-0.5">
             {t(
-              'Visual price history chart powered by Recharts to identify optimal buying opportunities.',
-              'স্বচ্ছ ও যৌক্তিক ক্রয়ের জন্য রিখার্টস চার্টের মাধ্যমে অতীতের মূল্য বিশ্লেষণ।'
+              'This illustration uses the current listing price. Historical marketplace prices are not connected.',
+              'এই চিত্রে বর্তমান তালিকাভুক্ত দাম ব্যবহার করা হয়েছে। মার্কেটপ্লেসের অতীতের দাম সংযুক্ত নয়।'
             )}
           </p>
         </div>
@@ -158,7 +158,7 @@ export const PriceTrendChart: React.FC<PriceTrendChartProps> = ({ product }) => 
             <div className="flex items-center gap-2">
               <h4 className="text-sm font-extrabold">
                 {trendData.isAtLowest
-                  ? t('Great Deal: Lowest Price Recorded in 30 Days!', 'দারুণ অফার: বিগত ৩০ দিনের সর্বনিম্ন দর!')
+                  ? t('Lowest point in this price illustration', 'এই নমুনা চিত্রের সর্বনিম্ন বিন্দু')
                   : trendData.trendDirection === 'falling'
                   ? t('Price Dropping: Recommended Time to Buy', 'দর কমতির দিকে: ক্রয়ের জন্য অনুকূল সময়')
                   : t('Stable Market Price', 'স্থিতিশীল স্বাভাবিক বাজার দর')}
@@ -297,8 +297,8 @@ export const PriceTrendChart: React.FC<PriceTrendChartProps> = ({ product }) => 
             >
               <defs>
                 <linearGradient id="nexhaatPriceGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0a66c2" stopOpacity={0.32} />
-                  <stop offset="95%" stopColor="#0a66c2" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="#1769FF" stopOpacity={0.32} />
+                  <stop offset="95%" stopColor="#1769FF" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
 
@@ -342,11 +342,11 @@ export const PriceTrendChart: React.FC<PriceTrendChartProps> = ({ product }) => 
               <Area
                 type="monotone"
                 dataKey="price"
-                stroke="#0a66c2"
+                stroke="#1769FF"
                 strokeWidth={2.5}
                 fillOpacity={1}
                 fill="url(#nexhaatPriceGrad)"
-                activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, fill: '#0a66c2' }}
+                activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, fill: '#1769FF' }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -354,8 +354,8 @@ export const PriceTrendChart: React.FC<PriceTrendChartProps> = ({ product }) => 
 
         <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800">
           <span className="flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            {t('Verified authentic marketplace pricing data', 'যাচাইকৃত রিয়েল-টাইম মার্কেটপ্লেস দর')}
+            <Info className="w-3.5 h-3.5 text-primary" />
+            {t('Illustrative only — not verified price history', 'শুধু নমুনা — যাচাইকৃত মূল্য ইতিহাস নয়')}
           </span>
           <span>{t('Currency: BDT (৳)', 'মুদ্রা: টাকা (৳)')}</span>
         </div>

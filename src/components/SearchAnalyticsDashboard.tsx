@@ -171,7 +171,7 @@ const SEARCH_VOLUME_HISTORY = [
 ];
 
 const CATEGORY_SHARE_DATA = [
-  { name: 'Meat & Seafood', searches: 13220, percentage: 32, color: '#2563eb' },
+  { name: 'Meat & Seafood', searches: 13220, percentage: 32, color: '#1769FF' },
   { name: 'Rice & Grains', searches: 10130, percentage: 24, color: '#10b981' },
   { name: 'Fruits & Veg', searches: 8170, percentage: 20, color: '#f59e0b' },
   { name: 'Dairy & Sweets', searches: 5270, percentage: 13, color: '#8b5cf6' },
@@ -191,7 +191,7 @@ const HOURLY_PEAK_DATA = [
 ];
 
 export const SearchAnalyticsDashboard: React.FC = () => {
-  const { formatPrice, t } = useApp();
+  const { formatPrice, t, showToast } = useApp();
 
   const [selectedRange, setSelectedRange] = useState<DateRange>(() => getDateRangePreset('last7days'));
   const [keywordFilter, setKeywordFilter] = useState('');
@@ -429,8 +429,8 @@ export const SearchAnalyticsDashboard: React.FC = () => {
               <AreaChart data={trendPoints} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="searchGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#1769FF" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#1769FF" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="conversionGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
@@ -454,7 +454,7 @@ export const SearchAnalyticsDashboard: React.FC = () => {
                   type="monotone"
                   dataKey="searches"
                   name="Total Searches"
-                  stroke="#2563eb"
+                  stroke="#1769FF"
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#searchGradient)"
@@ -564,7 +564,7 @@ export const SearchAnalyticsDashboard: React.FC = () => {
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                <Bar dataKey="searches" name="Search Volume" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="searches" name="Search Volume" fill="#1769FF" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="conversions" name="Orders Completed" fill="#10b981" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -769,15 +769,15 @@ export const SearchAnalyticsDashboard: React.FC = () => {
           <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
             <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
             <span>
-              <strong>Smart Merchant Notification:</strong> 3 unmet product queries detected with over 2,800 monthly searches. You can broadcast catalog sourcing requests to regional sellers.
+              <strong>Search demand preview:</strong> Example search trends are shown here. Live demand analytics and seller outreach are not connected.
             </span>
           </div>
           <button
             type="button"
-            onClick={() => alert('Broadcasting sourcing request to 48 verified merchants across Dhaka & Chittagong...')}
+            onClick={() => showToast(t('Seller outreach is a preview only; no request was sent.', 'বিক্রেতাকে যোগাযোগের সুবিধাটি শুধু প্রিভিউ; কোনো অনুরোধ পাঠানো হয়নি।'), 'info')}
             className="px-3.5 py-1.5 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary-hover shrink-0 transition-colors shadow-xs"
           >
-            Broadcast to Sellers
+            Preview seller outreach
           </button>
         </div>
       </div>

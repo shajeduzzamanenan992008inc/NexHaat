@@ -44,3 +44,30 @@
 3. **Applet Compilation & Lint:**
    - `compile_applet`: Build succeeded cleanly.
    - `lint_applet`: `tsc --noEmit` completed with 0 errors.
+<<<<<<< HEAD
+=======
+
+---
+
+## Audit correction — 2026-11-03
+
+This correction supersedes any PASS or live-runtime claim above unless that claim has matching, reproducible evidence for the current local commit. The document's header date (2026-11-04) is later than this audit date. Its described browser session, Android build, and tests were not reproduced during the current audit.
+
+- **Checkout:** The unauthenticated local-order fallback and client-side `paid` assignment have been removed. Checkout now requires a Flask customer session and submits COD/SSLCommerz through Flask; hosted payment completion and callbacks remain NOT TESTED.
+- **Social login:** Flask `/api/v1/auth/social-login` currently fails closed with `SOCIAL_LOGIN_UNAVAILABLE`. Firebase web sign-in is not an exchange into a Flask marketplace session. Do not mark social login end-to-end PASS.
+- **Android seller portal:** Fabricated success data on API failure has been removed. Seller loading failures now show an error/retry state; Android build/device behavior is NOT TESTED. Rider and Support tabs remain informational/static.
+- **Seller, rider, admin, support, reviews, and device parity:** Several client paths retain demo/local state or lack an API adapter. Each journey remains PARTIAL until its current client-to-Flask contract and runtime behavior are verified.
+- **Motion/accessibility:** Source review found only partial shared-token usage and incomplete Android reduced-motion coverage. See `ANIMATION_AND_MOTION_STANDARD.md`; cross-platform runtime and accessibility checks remain NOT TESTED.
+- **Test status:** No current-task browser or Android runtime test is implied by this matrix. Remote CI evidence is tied to the specific SHA and run documented in `NEXHAAT_PHASE0_REA_AND_SYSTEM_AUDIT.md`.
+
+## Verification correction — 2026-11-04
+
+This update records the current local source and automated-test evidence. It does not validate the older PASS matrix or any production/provider runtime.
+
+- **Web checkout:** Guest checkout/local order creation and client-side payment success were removed. A Flask customer session is required. COD and SSLCommerz checkout submission use Flask; hosted payment completion remains NOT TESTED.
+- **Web reviews:** Approved reviews are fetched from Flask; new reviews are submitted to Flask for delivered-order validation and moderation. Helpful-vote toggles and viewer vote state also use Flask. Review APIs passed 20 targeted tests. Browser rendering and live-session behavior remain NOT TESTED.
+- **Web AI chat:** The drawer now appends the actual Express Gemini response instead of leaving a mock reply. Chat roles and safe instructions are server-controlled, request history/output are bounded, and search/maps responses and HTTPS source links are rendered. No provider-backed runtime test was run.
+- **Android:** API failures no longer render fabricated seller data. Auth/2FA and existing call sites compile. `:app:testDebugUnitTest` passed 67 tests with no failures, but no emulator/device or instrumentation flow was run. Android reviews, seller/admin parity, and support parity remain PARTIAL or NOT IMPLEMENTED.
+- **Social login, payments, Firebase, motion, and accessibility:** Provider handshakes, hosted payment callbacks, Firebase emulator behavior, and browser/device accessibility remain NOT TESTED. Local Firebase rule changes were not deployed.
+- **Current verification:** `npm.cmd run lint`, `npm.cmd run build`, full Ruff, 20 review/trust tests, 67 Android unit tests, `node --test tests-node/server-security.test.ts` (9 passed), and `git diff --check` passed. The `npm.cmd test` wrapper still fails before test discovery because Node v26/`tsx` fails at `os.userInfo()`; see the Phase 0 audit for the exact error and repository-structure blocker.
+>>>>>>> d5fb7ab (Fix)

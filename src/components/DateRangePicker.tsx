@@ -242,7 +242,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
         <div
           role="dialog"
           aria-label="Select Date Range"
-          className={`absolute top-full mt-2 z-50 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-4 sm:p-5 w-[92vw] max-w-[620px] max-h-[calc(100vh-140px)] overflow-y-auto ${
+          className={`absolute top-full mt-2 z-50 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-4 sm:p-5 w-[92vw] max-w-[620px] max-h-[calc(100vh-140px)] overflow-y-auto motion-popover-enter ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >

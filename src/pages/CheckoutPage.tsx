@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { OrderItem } from '../types';
-import { 
-  ShieldCheck, Truck, CreditCard, Banknote, MapPin, 
-  Phone, User, ArrowRight, Tag, AlertCircle, CheckCircle2 
+import {
+  ShieldCheck,
+  Truck,
+  CreditCard,
+  Banknote,
+  MapPin,
+  ArrowRight,
+  Tag,
+  AlertCircle,
 } from 'lucide-react';
+import { FlaskAuthPanel } from '../components/FlaskAuthPanel';
+import { createMarketplaceCheckout } from '../lib/marketplaceApi';
 
 export const CheckoutPage: React.FC = () => {
   const {
     cart,
     cartSubtotal,
-    currentUser,
-    placeOrder,
     setCurrentView,
     formatPrice,
     activeCoupon,
@@ -20,26 +25,31 @@ export const CheckoutPage: React.FC = () => {
     removeCoupon,
     t,
     flaskUser,
+    isFlaskAuthLoading,
     submitMarketplaceCheckout,
     showToast,
   } = useApp();
 
   // Form States
-  const [fullName, setFullName] = useState(currentUser.name || 'Tanvir Rahman');
-  const [phone, setPhone] = useState(currentUser.phone || '+8801711223344');
-  const [email, setEmail] = useState(currentUser.email || 'tanvir.rahman@example.com');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [division, setDivision] = useState('Dhaka');
   const [district, setDistrict] = useState('Dhaka');
   const [thana, setThana] = useState('Dhanmondi');
-  const [streetAddress, setStreetAddress] = useState(currentUser.address || 'Flat 4B, House 18, Road 7');
-  const [deliveryNotes, setDeliveryNotes] = useState('Please call before delivery');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
 
   const [deliverySpeed, setDeliverySpeed] = useState<'standard' | 'express'>('standard');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'bkash' | 'nagad' | 'card'>('cod');
-  const [bkashNumber, setBkashNumber] = useState('01711223344');
-  const [bkashPin, setBkashPin] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'sslcommerz'>('cod');
   const [couponCode, setCouponCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAuthPanelOpen, setIsAuthPanelOpen] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [orderNeedsPaymentFollowup, setOrderNeedsPaymentFollowup] = useState(false);
+
+  useEffect(() => {
+    if (flaskUser?.role === 'customer') setIsAuthPanelOpen(false);
+  }, [flaskUser]);
 
   if (cart.length === 0) {
     return (
@@ -63,97 +73,123 @@ export const CheckoutPage: React.FC = () => {
     );
   }
 
-  // Delivery fee calculation
-  const baseDeliveryFee = division === 'Dhaka' ? 60 : 120;
-  const expressFee = deliverySpeed === 'express' ? 50 : 0;
-  const isFreeDeliveryCoupon = activeCoupon?.code === 'FREESHIP' || cartSubtotal >= 1500;
-  const deliveryFee = isFreeDeliveryCoupon ? expressFee : baseDeliveryFee + expressFee;
+  if (flaskUser?.role !== 'customer') {
+    const gateMessage = flaskUser
+      ? t(
+          'Checkout requires a customer account. Sign out of the current account, then sign in as a customer.',
+          'চেকআউট করতে কাস্টমার অ্যাকাউন্ট দরকার। বর্তমান অ্যাকাউন্ট থেকে সাইন আউট করে কাস্টমার হিসেবে সাইন ইন করুন।',
+        )
+      : t(
+          'Sign in with your NexHaat customer account to continue to checkout.',
+          'চেকআউট চালিয়ে যেতে NexHaat কাস্টমার অ্যাকাউন্টে সাইন ইন করুন।',
+        );
 
-  const grandTotal = Math.max(0, cartSubtotal - appliedPromoDiscount + deliveryFee);
+    return (
+      <section className="mx-auto max-w-lg rounded-3xl border border-border bg-white p-8 text-center shadow-card" aria-labelledby="checkout-sign-in-title">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
+          <ShieldCheck className="h-7 w-7" aria-hidden="true" />
+        </div>
+        <h1 id="checkout-sign-in-title" className="text-xl font-black text-ink">
+          {t('Sign in to checkout', 'চেকআউট করতে সাইন ইন করুন')}
+        </h1>
+        <p
+          className="mt-2 text-sm text-muted"
+          role={isFlaskAuthLoading ? 'status' : undefined}
+          aria-live={isFlaskAuthLoading ? 'polite' : undefined}
+        >
+          {isFlaskAuthLoading
+            ? t('Checking your NexHaat session…', 'আপনার NexHaat সেশন যাচাই করা হচ্ছে…')
+            : gateMessage}
+        </p>
+        {!isFlaskAuthLoading && (
+          <button
+            type="button"
+            onClick={() => setIsAuthPanelOpen(true)}
+            className="mt-6 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            {flaskUser ? t('Open account options', 'অ্যাকাউন্টের বিকল্প খুলুন') : t('Sign in', 'সাইন ইন')}
+          </button>
+        )}
+        {isAuthPanelOpen && <FlaskAuthPanel onClose={() => setIsAuthPanelOpen(false)} />}
+      </section>
+    );
+  }
+
+  const estimatedItemsTotal = Math.max(0, cartSubtotal - appliedPromoDiscount);
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    if (flaskUser?.role === 'customer' && paymentMethod !== 'cod') {
-      showToast(
+    setCheckoutError(null);
+    if (flaskUser?.role !== 'customer') {
+      setCheckoutError(
         t(
-          'Only cash-on-delivery is enabled for the safe marketplace bridge. Online payment requires approved staging configuration.',
-          'এই নিরাপদ marketplace bridge-এ শুধু cash-on-delivery চালু আছে। Online payment-এর জন্য অনুমোদিত staging configuration প্রয়োজন।',
+          'Sign in with a customer account before placing an order.',
+          'অর্ডার দেওয়ার আগে কাস্টমার অ্যাকাউন্টে সাইন ইন করুন।',
         ),
-        'warning',
       );
-      setIsSubmitting(false);
+      setIsAuthPanelOpen(true);
       return;
     }
 
-    const orderItems: OrderItem[] = cart.map(item => {
-      const price = item.product.discount_price ?? item.product.price;
-      const modifier = item.selectedVariant?.priceModifier || 0;
-      const unit = price + modifier;
-      return {
-        product_id: item.product.id,
-        product_name: item.product.name,
-        product_name_bn: item.product.name_bn,
-        seller_id: item.product.seller_id,
-        seller_name: item.product.seller_name,
-        image: item.product.image,
-        unit_price: unit,
-        quantity: item.quantity,
-        variant_name: item.selectedVariant?.name,
-        total_price: unit * item.quantity,
-      };
-    });
+    setIsSubmitting(true);
+    const checkoutInput = {
+      customerName: fullName,
+      phone,
+      address: [streetAddress, thana, district, division, deliveryNotes].filter(Boolean).join(', '),
+      city: district,
+      promotionCode: activeCoupon?.code,
+    };
 
-    if (flaskUser?.role === 'customer') {
-      try {
-        await submitMarketplaceCheckout({
-          customerName: fullName,
-          phone,
-          address: [streetAddress, thana, district, division, deliveryNotes].filter(Boolean).join(', '),
-          city: district,
-          promotionCode: activeCoupon?.code,
-        });
+    try {
+      if (paymentMethod === 'cod') {
+        await submitMarketplaceCheckout(checkoutInput);
         setIsSubmitting(false);
         setCurrentView('order-confirmation');
-      } catch (error) {
-        showToast(
-          error instanceof Error ? error.message : t('The server rejected this checkout.', 'সার্ভার চেকআউটটি গ্রহণ করেনি।'),
-          'error',
-        );
-        setIsSubmitting(false);
+        return;
       }
-      return;
-    }
 
-    setTimeout(() => {
-      const confirmedOrder = placeOrder({
-        customer_name: fullName,
-        customer_phone: phone,
-        customer_email: email,
-        delivery_address: {
-          division,
-          district,
-          thana,
-          street: streetAddress,
-          notes: deliveryNotes,
-        },
-        delivery_speed: deliverySpeed,
-        payment_method: paymentMethod,
-        payment_status: paymentMethod === 'cod' ? 'pending' : 'paid',
-        items: orderItems,
-        subtotal: cartSubtotal,
-        delivery_fee: deliveryFee,
-        discount_amount: appliedPromoDiscount,
-        promo_code: activeCoupon?.code,
-        total_amount: grandTotal,
+      const checkout = await createMarketplaceCheckout({
+        ...checkoutInput,
+        paymentMethod: 'sslcommerz',
       });
+      if (checkout.orders.length === 0) {
+        throw new Error(t('The server did not return an order.', 'সার্ভার কোনো অর্ডার ফেরত দেয়নি।'));
+      }
+      setOrderNeedsPaymentFollowup(true);
+      if (!checkout.checkout_url) {
+        throw new Error(
+          t(
+            'The order was created, but the payment provider did not return a checkout link. Do not submit again; check your orders or contact support.',
+            'অর্ডার তৈরি হয়েছে, কিন্তু পেমেন্ট সেবার checkout link পাওয়া যায়নি। আবার submit করবেন না; অর্ডার দেখুন বা support-এ যোগাযোগ করুন।',
+          ),
+        );
+      }
 
+      let checkoutUrl: URL;
+      try {
+        checkoutUrl = new URL(checkout.checkout_url);
+      } catch {
+        throw new Error(
+          t('The payment provider returned an invalid checkout link.', 'পেমেন্ট সেবা একটি অবৈধ checkout link দিয়েছে।'),
+        );
+      }
+      const allowedPaymentHosts = new Set(['sandbox.sslcommerz.com', 'securepay.sslcommerz.com']);
+      if (checkoutUrl.protocol !== 'https:' || !allowedPaymentHosts.has(checkoutUrl.hostname)) {
+        throw new Error(
+          t('The payment provider returned an invalid checkout link.', 'পেমেন্ট সেবা একটি অবৈধ checkout link দিয়েছে।'),
+        );
+      }
+
+      window.location.assign(checkoutUrl.toString());
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : t('The server rejected this checkout.', 'সার্ভার checkout অনুরোধটি গ্রহণ করেনি।');
+      setCheckoutError(message);
+      showToast(message, 'error');
       setIsSubmitting(false);
-      setCurrentView('order-confirmation');
-    }, 700);
+    }
   };
-
   return (
     <div className="space-y-6 pb-16">
       {/* Title */}
@@ -162,11 +198,26 @@ export const CheckoutPage: React.FC = () => {
           {t('Secure Checkout', 'নিরাপদ চেকআউট')}
         </h1>
         <p className="text-xs sm:text-sm text-muted mt-0.5">
-          {t('Complete your order with verified vendor escrow protection', 'নিরাপদ পেমেন্ট ও ডোরস্টেপ এক্সপ্রেস ডেলিভারি')}
+          {t('Review your address and payment choice. The marketplace validates order details before creation.', 'ঠিকানা ও পেমেন্ট পদ্ধতি দেখুন। অর্ডার তৈরির আগে মার্কেটপ্লেস তথ্য যাচাই করবে।')}
         </p>
       </div>
 
-      <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {checkoutError && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+        >
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <p>{checkoutError}</p>
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmitOrder}
+        aria-busy={isSubmitting}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+      >
         {/* Left Column: Form Details */}
         <div className="lg:col-span-7 space-y-6">
           {/* 1. Customer & Delivery Address */}
@@ -286,7 +337,7 @@ export const CheckoutPage: React.FC = () => {
           <section className="p-6 rounded-3xl bg-white border border-border shadow-card space-y-4">
             <h3 className="font-bold text-sm text-ink flex items-center gap-2 pb-3 border-b border-slate-100">
               <Truck className="w-4 h-4 text-primary" />
-              <span>{t('2. Delivery Speed Option', '২. ডেলিভারির গতি ও মাধ্যম')}</span>
+              <span>{t('2. Delivery option', '২. ডেলিভারির বিকল্প')}</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -309,43 +360,33 @@ export const CheckoutPage: React.FC = () => {
                     <span className="font-bold text-xs text-ink">
                       {t('Standard Delivery', 'স্ট্যান্ডার্ড ডেলিভারি')}
                     </span>
-                    <span className="text-xs font-bold text-primary">
-                      {isFreeDeliveryCoupon ? t('FREE', 'ফ্রি') : formatPrice(baseDeliveryFee)}
-                    </span>
+                    <span className="text-[10px] font-bold text-primary">{t('Confirmed at checkout', 'চেকআউটে নিশ্চিত হবে')}</span>
                   </div>
                   <p className="text-[11px] text-muted mt-1">
-                    {division === 'Dhaka'
-                      ? t('Delivered within 24 hours inside Dhaka', '২৪ ঘণ্টার মধ্যে পৌঁছে যাবে')
-                      : t('Delivered in 2-3 business days', '২-৩ কার্যদিবসের মধ্যে ডেলিভারি')}
+                    {t('Availability, timing, and the final fee are confirmed by the marketplace.', 'ডেলিভারির সুযোগ, সময় ও চূড়ান্ত ফি মার্কেটপ্লেস নিশ্চিত করবে।')}
                   </p>
                 </div>
               </label>
 
               <label
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                  deliverySpeed === 'express'
-                    ? 'border-primary bg-primary-light/40 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                className="p-4 rounded-2xl border border-border bg-surface-raised opacity-70 flex items-start gap-3 cursor-not-allowed"
               >
                 <input
                   type="radio"
                   name="speed"
-                  checked={deliverySpeed === 'express'}
-                  onChange={() => setDeliverySpeed('express')}
+                  checked={false}
+                  disabled
                   className="mt-0.5 accent-primary"
                 />
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-xs text-ink">
-                      {t('3-Hour Hyper Express', '৩ ঘণ্টা এক্সপ্রেস ডেলিভারি')}
+                      {t('Express delivery preview', 'এক্সপ্রেস ডেলিভারি প্রিভিউ')}
                     </span>
-                    <span className="text-xs font-bold text-accent">
-                      {formatPrice((isFreeDeliveryCoupon ? 0 : baseDeliveryFee) + 50)}
-                    </span>
+                    <span className="text-[10px] font-bold text-muted">{t('Unavailable', 'চালু নেই')}</span>
                   </div>
                   <p className="text-[11px] text-muted mt-1">
-                    {t('Direct dispatch by nearest dedicated NexHaat rider', 'নিকটস্থ রাইডারের মাধ্যমে দ্রুত ডেলিভারি')}
+                    {t('Express service is not connected to the current checkout.', 'বর্তমান চেকআউটে এক্সপ্রেস সেবা সংযুক্ত নয়।')}
                   </p>
                 </div>
               </label>
@@ -359,12 +400,20 @@ export const CheckoutPage: React.FC = () => {
               <span>{t('3. Payment Method', '৩. পেমেন্ট মাধ্যম')}</span>
             </h3>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
-                { id: 'cod', label: 'Cash on Delivery', label_bn: 'ক্যাশ অন ডেলিভারি', icon: <Banknote className="w-5 h-5" /> },
-                { id: 'bkash', label: 'bKash Wallet', label_bn: 'বিকাশ', icon: <span className="font-bold text-pink-600 text-sm">bKash</span> },
-                { id: 'nagad', label: 'Nagad Wallet', label_bn: 'নগদ', icon: <span className="font-bold text-orange-600 text-sm">Nagad</span> },
-                { id: 'card', label: 'SSLCommerz (Card)', label_bn: 'কার্ড / ব্যাংকিং', icon: <CreditCard className="w-5 h-5 text-blue-600" /> },
+                {
+                  id: 'cod' as const,
+                  label: 'Cash on Delivery',
+                  label_bn: 'ক্যাশ অন ডেলিভারি',
+                  icon: <Banknote className="w-5 h-5" />,
+                },
+                {
+                  id: 'sslcommerz' as const,
+                  label: 'Online Payment (SSLCommerz)',
+                  label_bn: 'অনলাইন পেমেন্ট (SSLCommerz)',
+                  icon: <CreditCard className="w-5 h-5 text-blue-600" />,
+                },
               ].map((pm) => (
                 <label
                   key={pm.id}
@@ -379,7 +428,7 @@ export const CheckoutPage: React.FC = () => {
                     name="paymentMethod"
                     value={pm.id}
                     checked={paymentMethod === pm.id}
-                    onChange={() => setPaymentMethod(pm.id as any)}
+                    onChange={() => setPaymentMethod(pm.id)}
                     className="sr-only"
                   />
                   <div className="h-6 flex items-center justify-center">{pm.icon}</div>
@@ -390,36 +439,13 @@ export const CheckoutPage: React.FC = () => {
               ))}
             </div>
 
-            {/* bKash Payment Box Simulation */}
-            {paymentMethod === 'bkash' && (
-              <div className="p-4 rounded-2xl bg-pink-50 border border-pink-200 text-xs space-y-2.5">
-                <div className="flex items-center gap-2 font-bold text-pink-900">
-                  <CheckCircle2 className="w-4 h-4 text-pink-600" />
-                  <span>{t('bKash Instant Gateway Simulation', 'বিকাশ সরাসরি পেমেন্ট')}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-slate-600 mb-1">{t('bKash Number', 'বিকাশ নম্বর')}</label>
-                    <input
-                      type="text"
-                      value={bkashNumber}
-                      onChange={(e) => setBkashNumber(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-pink-300 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 mb-1">{t('PIN (Sandbox Demo)', 'পিন নম্বর')}</label>
-                    <input
-                      type="password"
-                      maxLength={5}
-                      value={bkashPin}
-                      onChange={(e) => setBkashPin(e.target.value)}
-                      placeholder="•••••"
-                      className="w-full p-2 rounded-lg border border-pink-300 bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
+            {paymentMethod === 'sslcommerz' && (
+              <p className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs text-blue-900">
+                {t(
+                  'You will continue to SSLCommerz to complete payment. NexHaat will not ask for your payment PIN here.',
+                  'পেমেন্ট সম্পন্ন করতে আপনাকে SSLCommerz-এ নেওয়া হবে। NexHaat এখানে আপনার পেমেন্ট PIN চাইবে না।',
+                )}
+              </p>
             )}
           </section>
         </div>
@@ -511,29 +537,30 @@ export const CheckoutPage: React.FC = () => {
                 </div>
               )}
               <div className="flex justify-between">
-                <span>{t('Delivery Charge', 'ডেলিভারি চার্জ')}</span>
-                <span className="font-semibold text-ink">
-                  {deliveryFee === 0 ? (
-                    <span className="text-emerald-600 font-bold">{t('FREE', 'ফ্রি')}</span>
-                  ) : (
-                    formatPrice(deliveryFee)
-                  )}
-                </span>
+                <span>{t('Delivery charge', 'ডেলিভারি চার্জ')}</span>
+                <span className="font-semibold text-ink">{t('Confirmed by marketplace', 'মার্কেটপ્લেস নিশ্চিত করবে')}</span>
               </div>
               <div className="flex justify-between text-base font-black text-ink pt-2 border-t border-slate-200">
-                <span>{t('Grand Total', 'সর্বমোট প্রদেয় মূল্য')}</span>
-                <span className="text-primary">{formatPrice(grandTotal)}</span>
+                <span>{t('Items total before delivery', 'ডেলিভারির আগের পণ্য মূল্য')}</span>
+                <span className="text-primary">{formatPrice(estimatedItemsTotal)}</span>
               </div>
+              <p className="text-[11px] text-muted pt-1">
+                {t('The marketplace recalculates product prices, promotion eligibility, delivery fees, and the final total before accepting the order.', 'অর্ডার গ্রহণের আগে মার্কেটপ্লেস পণ্যের দাম, কুপনের যোগ্যতা, ডেলিভারি ফি ও চূড়ান্ত মোট পুনরায় হিসাব করবে।')}
+              </p>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || orderNeedsPaymentFollowup}
               className="neu-button w-full py-4 rounded-2xl bg-primary text-white font-black text-sm shadow-md hover:bg-primary-hover disabled:bg-slate-300 flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
-                <span>{t('Confirming Order...', 'অর্ডার প্রক্রিয়াধীন...')}</span>
+                <span role="status" aria-live="polite">
+                  {t('Confirming Order...', 'অর্ডার প্রক্রিয়াধীন...')}
+                </span>
+              ) : orderNeedsPaymentFollowup ? (
+                <span>{t('Order created — check your orders', 'অর্ডার তৈরি হয়েছে—অর্ডার তালিকা দেখুন')}</span>
               ) : (
                 <>
                   <span>{t('Confirm & Place Order', 'অর্ডার সম্পন্ন করুন')}</span>
@@ -544,7 +571,7 @@ export const CheckoutPage: React.FC = () => {
 
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 text-center pt-1">
               <ShieldCheck className="w-4 h-4 text-success" />
-              <span>{t('Encrypted checkout & 100% money-back guarantee', 'এনক্রিপ্টেড পেমেন্ট ও শতভাগ রিফান্ড নিশ্চয়তা')}</span>
+              <span>{t('Review the payment method and order terms shown before placing your order.', 'অর্ডার দেওয়ার আগে দেখানো পেমেন্ট পদ্ধতি ও শর্ত দেখে নিন।')}</span>
             </div>
           </div>
         </div>

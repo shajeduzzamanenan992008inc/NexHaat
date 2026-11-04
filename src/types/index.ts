@@ -1,3 +1,6 @@
+export type AppLanguage = 'en' | 'bn' | 'ar' | 'hi';
+export type AppCurrency = 'BDT' | 'USD' | 'EUR' | 'AED' | 'INR';
+
 export type UserRole = 'customer' | 'seller' | 'rider' | 'admin';
 
 export interface User {
@@ -72,8 +75,8 @@ export interface Product {
   is_best_seller?: boolean;
   is_sponsored?: boolean;
   prime_eligible?: boolean;
-  rating: number;
-  review_count: number;
+  rating?: number;
+  review_count?: number;
   unit: string;
   unit_bn: string;
   food_details?: FoodDetails;
@@ -81,6 +84,11 @@ export interface Product {
   bulk_discounts?: BulkDiscountTier[];
   variants?: ProductVariant[];
   moderation_status?: 'approved' | 'pending' | 'rejected';
+  is_digital?: boolean;
+  digital_type?: 'instant_download' | 'software_license' | 'gift_voucher' | 'e_book';
+  digital_download_url?: string;
+  international_shipping?: boolean;
+  estimated_international_days?: number;
 }
 
 export interface CartItem {
@@ -144,6 +152,7 @@ export interface Review {
   created_at: string;
   verified_purchase: boolean;
   helpful_count: number;
+  viewer_helpful?: boolean;
 }
 
 export interface ProductQuestion {

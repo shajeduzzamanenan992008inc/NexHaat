@@ -46,6 +46,7 @@ class NotificationsViewModel @Inject constructor(
                 is NetworkResult.Error -> {
                     _uiState.value = NotificationsUiState.Error(result.message)
                 }
+                NetworkResult.Loading -> Unit
             }
         }
     }

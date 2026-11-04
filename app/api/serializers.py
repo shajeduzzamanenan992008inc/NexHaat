@@ -37,9 +37,16 @@ def category_to_dict(category):
     }
 
 
-def product_to_dict(product, locale=None):
+def product_to_dict(product, locale=None, rating_summary=None, seller_name=None):
+    """Serialize one public product.
+
+    Rating metrics are emitted only when the caller supplies a summary built from
+    real approved reviews, so a product without reviews never shows a fabricated
+    rating or review count. The store name is emitted only when the caller
+    resolves it, so clients never receive a placeholder seller identity.
+    """
     locale = locale or _current_locale()
-    return {
+    payload = {
         "id": product.id,
         "name": product.name,
         "slug": product.slug,
@@ -76,6 +83,12 @@ def product_to_dict(product, locale=None):
         "created_at": _iso(product.created_at),
         "updated_at": _iso(product.updated_at),
     }
+    if rating_summary:
+        payload["rating"] = rating_summary["average"]
+        payload["review_count"] = rating_summary["count"]
+    if seller_name:
+        payload["seller_name"] = seller_name
+    return payload
 
 
 def order_item_to_dict(item):
@@ -161,6 +174,7 @@ def review_to_dict(review):
         "comment": review.comment,
         "author_name": review.author_name,
         "status": review.status,
+        "verified_purchase": review.order_id is not None,
         "created_at": _iso(review.created_at),
     }
 

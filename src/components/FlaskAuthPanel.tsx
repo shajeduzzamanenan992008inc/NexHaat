@@ -13,7 +13,13 @@ import {
   TwoFactorStatus,
 } from '../lib/flaskAuth';
 import { useApp } from '../context/AppContext';
+<<<<<<< HEAD
 import { Shield, ShieldAlert, ShieldCheck, Key, Copy, Check, RefreshCw, Lock, ArrowLeft } from 'lucide-react';
+=======
+import { Shield, ShieldAlert, ShieldCheck, Key, Copy, Check, RefreshCw, Lock, ArrowLeft, ScanLine } from 'lucide-react';
+import { evaluatePasswordStrength } from '../lib/motionTokens';
+import type { UserRole } from '../types';
+>>>>>>> d5fb7ab (Fix)
 
 interface FlaskAuthPanelProps {
   onClose: () => void;
@@ -25,7 +31,9 @@ type AuthenticatedTab = 'overview' | 'security';
 export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
   const {
     flaskUser,
+    currentUser,
     isFlaskAuthLoading,
+    setUserRole,
     loginWithFlask,
     verifyTwoFactorChallenge,
     logoutFlask,
@@ -230,7 +238,11 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
         </div>
 
         {error && (
+<<<<<<< HEAD
           <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900 flex items-start gap-2" role="alert">
+=======
+          <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900 flex items-start gap-2 animate-error-shake" role="alert">
+>>>>>>> d5fb7ab (Fix)
             <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -296,8 +308,14 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
                 <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
+<<<<<<< HEAD
                       <div className={`w-9 h-9 rounded-full flex items-center justify-center ${tfStatus?.enabled ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60' : 'bg-slate-200 text-slate-600 dark:bg-slate-800'}`}>
                         {tfStatus?.enabled ? <ShieldCheck className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
+=======
+                      <div className={`relative overflow-hidden w-10 h-10 rounded-xl flex items-center justify-center ${tfStatus?.enabled ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60' : 'bg-slate-200 text-slate-600 dark:bg-slate-800'}`}>
+                        {tfStatus?.enabled ? <ShieldCheck className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
+                        <span className="animate-radar-scan" />
+>>>>>>> d5fb7ab (Fix)
                       </div>
                       <div>
                         <p className="font-bold text-sm text-ink dark:text-white">
@@ -624,6 +642,28 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
                 placeholder={t('Password', 'পাসওয়ার্ড')}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
               />
+<<<<<<< HEAD
+=======
+
+              {/* Dynamic Animated Password Strength Indicator in Register mode */}
+              {mode === 'register' && password.length > 0 && (() => {
+                const strength = evaluatePasswordStrength(password);
+                return (
+                  <div className="space-y-1 pt-1 animate-view-enter">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-slate-500 font-semibold">{t('Password Security:', 'পাসওয়ার্ড নিরাপত্তা:')}</span>
+                      <span className="font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">{strength.label}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${strength.colorClass} transition-all duration-300 ease-out`}
+                        style={{ width: `${strength.widthPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+>>>>>>> d5fb7ab (Fix)
               <p className="text-xs text-slate-500">
                 {mode === 'register'
                   ? t('After registration, the existing secure Flask OTP screen will open.', 'রেজিস্ট্রেশনের পর বিদ্যমান নিরাপদ Flask OTP স্ক্রিন খুলবে।')
@@ -632,12 +672,60 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
               <button
                 type="submit"
                 disabled={isSubmitting || isFlaskAuthLoading}
+<<<<<<< HEAD
                 className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-60 transition-colors shadow-sm"
+=======
+                className="marketplace-action-button w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-60 transition-colors shadow-sm"
+>>>>>>> d5fb7ab (Fix)
               >
                 {isSubmitting ? t('Please wait…', 'অপেক্ষা করুন…') : mode === 'login' ? t('Sign in to NexHaat', 'NexHaat-এ সাইন ইন') : t('Continue to OTP verification', 'OTP verification-এ যান')}
               </button>
             </form>
           </>
+        )}
+
+        {!flaskUser && mode === 'login' && (
+          <section className="mt-5 border-t border-border pt-4" aria-labelledby="preview-workspaces-title">
+            <div className="flex items-center justify-between gap-3">
+              <h3 id="preview-workspaces-title" className="text-xs font-extrabold uppercase tracking-wide text-navy dark:text-blue-100">
+                {t('Local preview workspaces', 'লোকাল প্রিভিউ ওয়ার্কস্পেস')}
+              </h3>
+              <span className="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-bold text-primary dark:bg-blue-950 dark:text-blue-200">
+                {t('Preview only', 'শুধু প্রিভিউ')}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              {t(
+                'These local views do not sign you in or grant marketplace permissions.',
+                'এগুলো স্থানীয় view; সাইন-ইন বা marketplace permission দেয় না।',
+              )}
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {([
+                ['customer', 'Customer', 'ক্রেতা'],
+                ['seller', 'Seller', 'বিক্রেতা'],
+                ['rider', 'Rider', 'রাইডার'],
+                ['admin', 'Admin', 'অ্যাডমিন'],
+              ] as Array<[UserRole, string, string]>).map(([role, label, labelBn]) => (
+                <button
+                  key={role}
+                  type="button"
+                  aria-pressed={currentUser.role === role}
+                  onClick={() => {
+                    setUserRole(role);
+                    onClose();
+                  }}
+                  className={`marketplace-action-button rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+                    currentUser.role === role
+                      ? 'border-primary bg-primary-light text-primary dark:border-sky-400/50 dark:bg-blue-950 dark:text-blue-100'
+                      : 'border-border bg-white text-navy hover:border-primary/50 hover:bg-primary-light/60 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {t(label, labelBn)}
+                </button>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>

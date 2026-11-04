@@ -171,7 +171,7 @@ private fun WishlistItemCard(
                         .clip(RoundedCornerShape(8.dp))
                 ) {
                     ProductImage(
-                        imageReference = product.imageReference,
+                        imageUrl = product.imageReference,
                         contentDescription = product.name,
                         modifier = Modifier.fillMaxSize()
                     )

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -240,7 +241,7 @@ fun SettingsScreen(
                         Spacer(Modifier.height(16.dp))
                         BiometricPromptButton(
                             biometricPromptHelper = biometricPromptHelper,
-                            buttonText = stringResource(R.string.verify_active_session),
+                            buttonText = stringResource(R.string.biometric_prompt_title),
                             onSuccess = {
                                 viewModel.revalidateBiometricSession()
                             },

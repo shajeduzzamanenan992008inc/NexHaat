@@ -64,7 +64,7 @@ export const SellerPortalPage: React.FC = () => {
       name,
       name_bn: nameBn || name,
       slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4),
-      description: description || 'Fresh farm-sourced product with guaranteed quality.',
+      description: description || 'Product details supplied by the seller.',
       description_bn: 'খামারের তাজা সংগৃহীত উন্নতমানের পণ্য।',
       image: image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80',
       price: Number(price) || 100,
@@ -601,7 +601,7 @@ export const SellerPortalPage: React.FC = () => {
                   onChange={(e) => setIsHalal(e.target.checked)}
                   className="accent-primary"
                 />
-                <span>100% Halal Verified</span>
+                <span>Seller declares halal (verification not connected)</span>
               </label>
             </div>
 

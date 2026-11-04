@@ -43,6 +43,22 @@ def get_public_store(slug):
             return profile
     return None
 
+def store_names_for_sellers(seller_ids):
+    """Map seller user IDs to their published store names in one query.
+
+    Catalog serializers use this to expose real seller information without an
+    N+1 lookup per product. A seller without a profile simply has no entry.
+    """
+    ids = {int(seller_id) for seller_id in seller_ids if seller_id}
+    if not ids:
+        return {}
+    rows = db.session.execute(
+        select(SellerProfile.user_id, SellerProfile.store_name).where(
+            SellerProfile.user_id.in_(ids)
+        )
+    ).all()
+    return dict(rows)
+
 def store_listing(seller_id, limit=12):
     """Public listings for one store, featured and recently updated first."""
     return db.session.scalars(

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  Sparkles, Check, X, Truck, DollarSign, 
-  Clock, ShieldCheck, Heart, Award, ArrowRight 
+  Sparkles, X, Truck, DollarSign, Clock, ShieldCheck, ArrowRight
 } from 'lucide-react';
 
 export const PrimeModal: React.FC = () => {
@@ -11,11 +10,8 @@ export const PrimeModal: React.FC = () => {
     setIsPrimeModalOpen, 
     isPrimeMember, 
     togglePrimeMembership, 
-    formatPrice, 
     t 
   } = useApp();
-
-  const [plan, setPlan] = useState<'monthly' | 'yearly'>('yearly');
 
   if (!isPrimeModalOpen) return null;
 
@@ -37,96 +33,66 @@ export const PrimeModal: React.FC = () => {
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-xs shadow-xs">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>NEXHAAT PRIME</span>
+            <span>NEXHAAT MEMBERSHIP PREVIEW</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black text-ink">
-            {isPrimeMember ? t('Manage NexHaat Prime', 'নেক্সহাট প্রাইম মেম্বারশিপ') : t('Unlock Free Express Delivery & Cashback', 'আনলিমিটেড ফ্রি ডেলিভারি ও ক্যাশব্যাক')}
+            {t('Preview the membership badge', 'মেম্বারশিপ ব্যাজ প্রিভিউ করুন')}
           </h2>
 
           <p className="text-xs sm:text-sm text-muted max-w-md mx-auto">
             {t(
-              'Enjoy Bangladesh’s most rewarding shopping subscription with zero delivery fees and exclusive VIP discounts.',
-              'বাংলাদেশের সেরা শপিং সাবস্ক্রিপশন: শূন্য ডেলিভারি ফি এবং বিশেষ ক্যাশব্যাক সুবিধা।'
+              'This control only changes a preview badge on this device. Membership billing, delivery benefits, cashback, and account permissions are not connected.',
+              'এই নিয়ন্ত্রণ শুধু এই ডিভাইসে প্রিভিউ ব্যাজ বদলায়। মেম্বারশিপ বিলিং, ডেলিভারি সুবিধা, ক্যাশব্যাক বা অ্যাকাউন্টের অনুমতি এর সঙ্গে যুক্ত নয়।'
             )}
           </p>
         </div>
 
-        {/* Benefits Grid */}
+        {/* Current preview capability status */}
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/60 space-y-1">
             <div className="flex items-center gap-2 font-bold text-amber-900">
               <Truck className="w-4 h-4 text-accent" />
-              <span>{t('Free Express Delivery', 'ফ্রি ৩-ঘণ্টা এক্সপ্রেস')}</span>
+              <span>{t('Delivery benefits', 'ডেলিভারি সুবিধা')}</span>
             </div>
             <p className="text-[11px] text-slate-600">
-              {t('Unlimited free 3-hour doorstep delivery across Dhaka.', 'ঢাকায় আনলিমিটেড ফ্রি ডেলিভারি।')}
+              {t('Not connected to delivery or checkout.', 'ডেলিভারি বা চেকআউটের সঙ্গে যুক্ত নয়।')}
             </p>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/60 space-y-1">
             <div className="flex items-center gap-2 font-bold text-emerald-900">
               <DollarSign className="w-4 h-4 text-emerald-600" />
-              <span>{t('5% Wallet Cashback', '৫% ওয়ালেট ক্যাশব্যাক')}</span>
+              <span>{t('Cashback', 'ক্যাশব্যাক')}</span>
             </div>
             <p className="text-[11px] text-slate-600">
-              {t('Earn 5% back on all purchases into your Haat balance.', 'প্রতি অর্ডারে ৫% ক্যাশব্যাক।')}
+              {t('No wallet credit is issued by this preview.', 'এই প্রিভিউতে ওয়ালেটে অর্থ যোগ হয় না।')}
             </p>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/60 space-y-1">
             <div className="flex items-center gap-2 font-bold text-blue-900">
               <Clock className="w-4 h-4 text-primary" />
-              <span>{t('Early Access to Deals', 'আগে ভাগে ফ্ল্যাশ ডিল')}</span>
+              <span>{t('Deal access', 'অফারে প্রবেশ')}</span>
             </div>
             <p className="text-[11px] text-slate-600">
-              {t('Shop mega Eid and festival discounts 2 hours early.', 'উৎসবের অফারগুলোতে প্রথম সুযোগ।')}
+              {t('No early-access rules are configured.', 'আগাম প্রবেশের নিয়ম যুক্ত নেই।')}
             </p>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/60 space-y-1">
             <div className="flex items-center gap-2 font-bold text-purple-900">
               <ShieldCheck className="w-4 h-4 text-purple-600" />
-              <span>{t('VIP Priority Support', 'ভিআইপি অগ্রাধিকার')}</span>
+              <span>{t('Priority support', 'অগ্রাধিকার সহায়তা')}</span>
             </div>
             <p className="text-[11px] text-slate-600">
-              {t('Dedicated customer agent line with zero wait time.', 'সরাসরি ডেডিকেটেড এজেন্ট হটলাইন।')}
+              {t('No priority support channel is configured.', 'অগ্রাধিকার সহায়তার চ্যানেল যুক্ত নেই।')}
             </p>
           </div>
         </div>
 
-        {/* Plan Selector */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setPlan('monthly')}
-            className={`p-4 rounded-2xl border text-left transition-all relative ${
-              plan === 'monthly'
-                ? 'border-primary bg-primary-light/40 ring-2 ring-primary/20'
-                : 'border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            <span className="block text-xs font-bold text-slate-700">{t('Monthly Plan', 'মাসিক প্ল্যান')}</span>
-            <span className="block text-lg font-black text-ink mt-0.5">৳199 / mo</span>
-            <span className="block text-[10px] text-slate-500 mt-1">{t('Billed monthly, cancel anytime', 'যেকোনো সময় বাতিলযোগ্য')}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPlan('yearly')}
-            className={`p-4 rounded-2xl border text-left transition-all relative ${
-              plan === 'yearly'
-                ? 'border-primary bg-primary-light/40 ring-2 ring-primary/20'
-                : 'border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[10px] font-black bg-accent text-slate-900">
-              {t('SAVE 16%', '১৬% ছাড়')}
-            </span>
-            <span className="block text-xs font-bold text-slate-700">{t('Yearly Plan', 'বার্ষিক প্ল্যান')}</span>
-            <span className="block text-lg font-black text-ink mt-0.5">৳1,999 / yr</span>
-            <span className="block text-[10px] text-emerald-600 font-semibold mt-1">{t('Only ৳166/month equivalent', 'মাসে মাত্র ৳১৬৬')}</span>
-          </button>
+        <div className="rounded-2xl border border-border bg-surface-raised px-4 py-3 text-xs leading-relaxed text-muted" role="note">
+          {t('No payment is collected and no marketplace benefit changes when you use this preview.', 'এই প্রিভিউ ব্যবহার করলে পেমেন্ট নেওয়া হয় না বা মার্কেটপ্লেসের কোনো সুবিধা বদলায় না।')}
         </div>
 
         {/* CTA Button */}
@@ -141,10 +107,10 @@ export const PrimeModal: React.FC = () => {
             }`}
           >
             {isPrimeMember ? (
-              <span>{t('Cancel Prime Membership', 'প্রাইম মেম্বারশিপ বাতিল করুন')}</span>
+                <span>{t('Clear preview badge', 'প্রিভিউ ব্যাজ সরান')}</span>
             ) : (
               <>
-                <span>{t('Join NexHaat Prime Now', 'এখনই প্রাইমে যোগ দিন')}</span>
+                <span>{t('Enable preview badge', 'প্রিভিউ ব্যাজ চালু করুন')}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

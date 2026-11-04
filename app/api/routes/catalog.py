@@ -15,12 +15,14 @@ from ...services.reviews import (
     create_review,
     helpful_counts,
     open_report_counts,
+    rating_summaries,
     rating_summary,
     report_review,
     reviews_for_product,
     toggle_helpful_vote,
+    viewer_helpful_review_ids,
 )
-from ...services.stores import get_public_store, store_slug, store_summary
+from ...services.stores import get_public_store, store_names_for_sellers, store_slug, store_summary
 from ..errors import ApiError
 from ..responses import created_response, paginated_response, success_response
 from ..serializers import category_to_dict, product_to_dict, review_to_dict
@@ -100,8 +102,17 @@ def _listing(category_id_override=None, *, deals_only=False):
         variant_value=variant_value, deals_only=deals_only,
         min_rating=min_rating, discount_only=discount_only,
     )
+    summaries = rating_summaries([product.id for product in products])
+    seller_names = store_names_for_sellers(product.seller_id for product in products)
     return paginated_response(
-        [product_to_dict(product) for product in products],
+        [
+            product_to_dict(
+                product,
+                rating_summary=summaries.get(product.id),
+                seller_name=seller_names.get(product.seller_id),
+            )
+            for product in products
+        ],
         page=pagination["page"],
         limit=limit,
         total=pagination["total"],
@@ -132,7 +143,13 @@ def product_detail(product_id):
     )
     if product is None:
         raise ApiError("Product not found.", "NOT_FOUND", 404)
-    return success_response(product_to_dict(product))
+    return success_response(
+        product_to_dict(
+            product,
+            rating_summary=rating_summaries([product.id]).get(product.id),
+            seller_name=store_names_for_sellers([product.seller_id]).get(product.seller_id),
+        )
+    )
 
 
 @catalog_api.get("/products/<int:product_id>/recommendations")
@@ -251,6 +268,7 @@ def list_product_reviews(product_id):
     review_ids = [review.id for review in reviews]
     helpful = helpful_counts(review_ids)
     reports = open_report_counts(review_ids)
+    viewer_helpful = viewer_helpful_review_ids(current_session_user(), review_ids)
     return success_response(
         {
             "product_id": product_id,
@@ -260,6 +278,7 @@ def list_product_reviews(product_id):
                     **review_to_dict(review),
                     "helpful_count": helpful.get(review.id, 0),
                     "open_reports": reports.get(review.id, 0),
+                    "viewer_helpful": review.id in viewer_helpful,
                 }
                 for review in reviews
             ],

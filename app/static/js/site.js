@@ -15,6 +15,38 @@
     reducedMotion.addEventListener?.("change", applyFaviconMotion);
   }
 
+  const themeToggle = document.querySelector("[data-theme-toggle]");
+  let selectedTheme = "light";
+  try {
+    selectedTheme = localStorage.getItem("nexhaat_theme") || "";
+  } catch {
+    selectedTheme = "";
+  }
+  if (selectedTheme !== "light" && selectedTheme !== "dark") {
+    selectedTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  const applyTheme = (theme) => {
+    document.documentElement.dataset.theme = theme;
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    themeColor?.setAttribute("content", theme === "dark" ? "#07182B" : "#1769FF");
+    if (!themeToggle) return;
+    const nextLabel = themeToggle.dataset[`themeLabel${theme === "dark" ? "Light" : "Dark"}`];
+    themeToggle.setAttribute("aria-label", nextLabel || "Toggle color theme");
+    themeToggle.title = nextLabel || "Toggle color theme";
+    const icon = themeToggle.querySelector("[data-theme-icon]");
+    if (icon) icon.textContent = theme === "dark" ? "☼" : "☾";
+  };
+  applyTheme(selectedTheme);
+  themeToggle?.addEventListener("click", () => {
+    const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    try {
+      localStorage.setItem("nexhaat_theme", nextTheme);
+    } catch {
+      // Keep the current page usable when storage is disabled.
+    }
+    applyTheme(nextTheme);
+  });
+
   const syncFloatingField = (field, control) => {
     const hasValue = control.type === "date" || control.type === "datetime-local"
       ? Boolean(control.value)

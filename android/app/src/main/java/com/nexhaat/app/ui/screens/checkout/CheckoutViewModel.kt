@@ -55,6 +55,7 @@ class CheckoutViewModel @Inject constructor(
                 is NetworkResult.Error -> {
                     _uiState.value = CheckoutUiState.Error(cartResult.message)
                 }
+                NetworkResult.Loading -> Unit
             }
         }
     }
@@ -77,6 +78,7 @@ class CheckoutViewModel @Inject constructor(
                         error = if (promoCode != null) previewResult.message else null
                     )
                 }
+                NetworkResult.Loading -> Unit
             }
         }
     }
@@ -108,11 +110,17 @@ class CheckoutViewModel @Inject constructor(
 
             when (val result = orderRepository.checkout(request)) {
                 is NetworkResult.Success -> {
-                    val firstOrderNumber = result.data.orders.firstOrNull()?.orderNumber ?: "NEX-${System.currentTimeMillis() % 100000}"
-                    _uiState.value = CheckoutUiState.Completed(
-                        orderNumber = firstOrderNumber,
-                        checkoutResponse = result.data
-                    )
+                    val firstOrderNumber = result.data.orders.firstOrNull()?.orderNumber
+                    if (firstOrderNumber == null) {
+                        _uiState.value = CheckoutUiState.Error(
+                            "Checkout returned no order details. Review your orders before trying again."
+                        )
+                    } else {
+                        _uiState.value = CheckoutUiState.Completed(
+                            orderNumber = firstOrderNumber,
+                            checkoutResponse = result.data
+                        )
+                    }
                 }
                 is NetworkResult.Error -> {
                     _uiState.value = CheckoutUiState.Ready(
@@ -122,6 +130,7 @@ class CheckoutViewModel @Inject constructor(
                         error = result.message
                     )
                 }
+                NetworkResult.Loading -> Unit
             }
         }
     }

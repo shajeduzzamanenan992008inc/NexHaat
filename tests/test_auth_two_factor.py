@@ -19,11 +19,20 @@ import struct
 import time
 from datetime import UTC, datetime, timedelta
 
+<<<<<<< HEAD
 from sqlalchemy import select
 
 from app.extensions import db
 from app.models import User, UserBackupCode, UserTwoFactor
 from app.services.two_factor import generate_totp_secret, verify_totp_code
+=======
+import pytest
+from sqlalchemy import select, update
+
+from app.extensions import db
+from app.models import User, UserBackupCode, UserTwoFactor
+from app.services.two_factor import generate_totp_secret
+>>>>>>> d5fb7ab (Fix)
 from app.services.two_factor_crypto import (
     TwoFactorCryptoError,
     decrypt_totp_secret,
@@ -69,22 +78,32 @@ def test_crypto_tampering_rejected():
     encrypted, version = encrypt_totp_secret(secret, key_input=TEST_ENCRYPTION_KEY)
     tampered = bytearray(encrypted)
     tampered[-1] ^= 0x01
+<<<<<<< HEAD
     try:
         decrypt_totp_secret(bytes(tampered), key_input=TEST_ENCRYPTION_KEY)
         assert False, "Tampered ciphertext must fail decryption"
     except TwoFactorCryptoError:
         pass
+=======
+    with pytest.raises(TwoFactorCryptoError):
+        decrypt_totp_secret(bytes(tampered), key_input=TEST_ENCRYPTION_KEY)
+>>>>>>> d5fb7ab (Fix)
 
 
 def test_crypto_wrong_key_rejected():
     secret = "JBSWY3DPEHPK3PXP"
     encrypted, _ = encrypt_totp_secret(secret, key_input=TEST_ENCRYPTION_KEY)
     wrong_key = b"wrongkeywrongkeywrongkeywrongkey"
+<<<<<<< HEAD
     try:
         decrypt_totp_secret(encrypted, key_input=wrong_key)
         assert False, "Decryption with wrong key must fail"
     except TwoFactorCryptoError:
         pass
+=======
+    with pytest.raises(TwoFactorCryptoError):
+        decrypt_totp_secret(encrypted, key_input=wrong_key)
+>>>>>>> d5fb7ab (Fix)
 
 
 def test_crypto_fresh_nonce_per_encryption():
@@ -126,7 +145,11 @@ def test_totp_setup_and_confirm_flow(client, app):
     assert tf.encrypted_secret != secret.encode()
 
     # Confirm with valid TOTP code
+<<<<<<< HEAD
     valid_code = _generate_totp_code(secret)
+=======
+    valid_code = _generate_totp_code(secret, step_offset=1)
+>>>>>>> d5fb7ab (Fix)
     res = client.post("/api/v1/auth/2fa/confirm", json={"code": valid_code})
     assert res.status_code == 200
     assert res.get_json()["data"]["two_factor_enabled"] is True
@@ -136,6 +159,14 @@ def test_totp_setup_and_confirm_flow(client, app):
     assert tf.enabled is True
     assert tf.confirmed_at is not None
 
+<<<<<<< HEAD
+=======
+    # Enrollment confirmation is also single-use for this TOTP time step.
+    repeated = client.post("/api/v1/auth/2fa/confirm", json={"code": valid_code})
+    assert repeated.status_code == 400
+    assert repeated.get_json()["error"]["code"] == "INVALID_CODE"
+
+>>>>>>> d5fb7ab (Fix)
 
 def test_login_enforces_2fa_challenge(client, app):
     app.config.update(WTF_CSRF_ENABLED=False)
@@ -256,6 +287,46 @@ def test_2fa_challenge_replay_attack_rejected(client, app):
     assert res_replay.get_json()["error"]["code"] == "INVALID_CODE"
 
 
+<<<<<<< HEAD
+=======
+def test_server_rendered_2fa_challenge_rejects_replayed_step(client, app):
+    app.config.update(WTF_CSRF_ENABLED=False)
+    user = _create_user(email="html_replay@example.com", password="Password123!")
+    secret = generate_totp_secret()
+    encrypted, version = encrypt_totp_secret(secret, key_input=TEST_ENCRYPTION_KEY)
+    db.session.add(UserTwoFactor(
+        user_id=user.id,
+        encrypted_secret=encrypted,
+        encryption_key_version=version,
+        enabled=True,
+        confirmed_at=datetime.now(UTC),
+    ))
+    db.session.commit()
+
+    code = _generate_totp_code(secret, step_offset=1)
+    with client.session_transaction() as sess:
+        sess["pending_2fa_user_id"] = user.id
+        sess["pending_2fa_expires_at"] = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
+        sess["pending_2fa_attempts"] = 0
+
+    first = client.post("/auth/login/2fa", data={"code": code})
+    assert first.status_code == 302
+
+    # Simulate another pending login for this account using the same current code.
+    with client.session_transaction() as sess:
+        sess.clear()
+        sess["pending_2fa_user_id"] = user.id
+        sess["pending_2fa_expires_at"] = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
+        sess["pending_2fa_attempts"] = 0
+
+    replay = client.post("/auth/login/2fa", data={"code": code})
+    assert replay.status_code == 200
+    with client.session_transaction() as sess:
+        assert sess.get("user_id") is None
+        assert sess.get("pending_2fa_attempts") == 1
+
+
+>>>>>>> d5fb7ab (Fix)
 def test_2fa_challenge_lockout_after_five_attempts(client, app):
     app.config.update(WTF_CSRF_ENABLED=False)
     user = _create_user(email="lockout@example.com", password="Password123!")
@@ -284,3 +355,100 @@ def test_2fa_challenge_lockout_after_five_attempts(client, app):
     assert res_locked.status_code == 429
     assert res_locked.get_json()["error"]["code"] == "CODE_LOCKED"
 
+<<<<<<< HEAD
+=======
+
+def test_backup_code_consumption_loses_a_competing_claim(client, app, monkeypatch):
+    """A code read before another consumer claims it cannot be consumed twice."""
+    from app.services import two_factor as two_factor_service
+
+    user = _create_user(email="backup_race@example.com")
+    two_factor_service.save_backup_codes(user.id, ["12345678"])
+    backup = db.session.scalar(select(UserBackupCode).where(UserBackupCode.user_id == user.id))
+
+    def competing_consumer(_code_hash, _candidate):
+        db.session.execute(
+            update(UserBackupCode)
+            .where(UserBackupCode.id == backup.id, UserBackupCode.used_at.is_(None))
+            .values(used_at=datetime.now(UTC))
+        )
+        db.session.commit()
+        return True
+
+    monkeypatch.setattr(two_factor_service, "check_password_hash", competing_consumer)
+
+    assert two_factor_service.verify_and_consume_backup_code(user.id, "12345678") is False
+    assert two_factor_service.get_backup_codes_remaining_count(user.id) == 0
+
+
+def test_regenerate_backup_codes_consumes_totp_step_once(client, app):
+    app.config.update(WTF_CSRF_ENABLED=False)
+    user = _create_user(email="backup_regenerate_replay@example.com")
+    secret = generate_totp_secret()
+    encrypted, version = encrypt_totp_secret(secret, key_input=TEST_ENCRYPTION_KEY)
+    db.session.add(UserTwoFactor(
+        user_id=user.id,
+        encrypted_secret=encrypted,
+        encryption_key_version=version,
+        enabled=True,
+        confirmed_at=datetime.now(UTC),
+    ))
+    db.session.commit()
+
+    with client.session_transaction() as sess:
+        sess["user_id"] = user.id
+        sess["role"] = user.role
+        sess["auth_version"] = user.auth_version
+
+    code = _generate_totp_code(secret, step_offset=1)
+    first = client.post("/api/v1/auth/2fa/regenerate-backup-codes", json={"code": code})
+    assert first.status_code == 200
+    assert len(first.get_json()["data"]["backup_codes"]) == 8
+
+    replay = client.post("/api/v1/auth/2fa/regenerate-backup-codes", json={"code": code})
+    assert replay.status_code == 403
+    assert replay.get_json()["error"]["code"] == "REAUTH_REQUIRED"
+
+
+def test_disable_2fa_accepts_totp_once(client, app):
+    app.config.update(WTF_CSRF_ENABLED=False)
+    user = _create_user(email="disable_totp_once@example.com")
+    secret = generate_totp_secret()
+    encrypted, version = encrypt_totp_secret(secret, key_input=TEST_ENCRYPTION_KEY)
+    db.session.add(UserTwoFactor(
+        user_id=user.id,
+        encrypted_secret=encrypted,
+        encryption_key_version=version,
+        enabled=True,
+        confirmed_at=datetime.now(UTC),
+    ))
+    db.session.commit()
+
+    with client.session_transaction() as sess:
+        sess["user_id"] = user.id
+        sess["role"] = user.role
+        sess["auth_version"] = user.auth_version
+
+    code = _generate_totp_code(secret, step_offset=1)
+    first = client.post("/api/v1/auth/2fa/disable", json={"code": code})
+    assert first.status_code == 200
+    assert db.session.scalar(select(UserTwoFactor).where(UserTwoFactor.user_id == user.id)) is None
+
+    replay = client.post("/api/v1/auth/2fa/disable", json={"code": code})
+    assert replay.status_code == 400
+    assert replay.get_json()["error"]["code"] == "PRECONDITION_REQUIRED"
+
+
+def test_crypto_fails_closed_without_cryptography(monkeypatch):
+    from app.services import two_factor_crypto
+
+    encrypted, _ = encrypt_totp_secret("JBSWY3DPEHPK3PXP", key_input=TEST_ENCRYPTION_KEY)
+    monkeypatch.setattr(two_factor_crypto, "HAS_CRYPTOGRAPHY", False)
+
+    with pytest.raises(TwoFactorCryptoError):
+        encrypt_totp_secret("JBSWY3DPEHPK3PXP", key_input=TEST_ENCRYPTION_KEY)
+
+    with pytest.raises(TwoFactorCryptoError):
+        decrypt_totp_secret(encrypted, key_input=TEST_ENCRYPTION_KEY)
+
+>>>>>>> d5fb7ab (Fix)

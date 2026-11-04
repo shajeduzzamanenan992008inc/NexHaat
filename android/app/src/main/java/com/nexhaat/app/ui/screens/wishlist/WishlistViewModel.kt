@@ -41,6 +41,7 @@ class WishlistViewModel @Inject constructor(
             when (val result = wishlistRepository.getWishlist()) {
                 is NetworkResult.Success -> _uiState.value = WishlistUiState.Success(result.data)
                 is NetworkResult.Error -> _uiState.value = WishlistUiState.Error(result.message)
+                NetworkResult.Loading -> Unit
             }
         }
     }
@@ -53,6 +54,7 @@ class WishlistViewModel @Inject constructor(
                     loadWishlist()
                 }
                 is NetworkResult.Error -> _actionMessage.value = result.message
+                NetworkResult.Loading -> Unit
             }
         }
     }
@@ -66,6 +68,7 @@ class WishlistViewModel @Inject constructor(
                     loadWishlist()
                 }
                 is NetworkResult.Error -> _actionMessage.value = result.message
+                NetworkResult.Loading -> Unit
             }
         }
     }

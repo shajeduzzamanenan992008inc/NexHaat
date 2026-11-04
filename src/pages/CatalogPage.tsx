@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCard } from '../components/ProductCard';
+import { fetchMarketplaceCatalogPage } from '../lib/marketplaceApi';
+import { Product } from '../types';
 import { 
   Filter, SlidersHorizontal, ArrowUpDown, X, Check, 
   RotateCcw, Sparkles, ShoppingBag 
@@ -8,7 +10,6 @@ import {
 
 export const CatalogPage: React.FC = () => {
   const { 
-    products, 
     categories, 
     activeCategorySlug, 
     setActiveCategorySlug, 
@@ -17,68 +18,86 @@ export const CatalogPage: React.FC = () => {
     t, 
     language,
     isMarketplaceCatalogLoading,
-    marketplaceCatalogError,
+    isMarketplaceCatalogReady,
   } = useApp();
 
-  // Filter States
+  // Filter and server-pagination state
   const [minPrice, setMinPrice] = useState<number | ''>('');
   const [maxPrice, setMaxPrice] = useState<number | ''>('');
   const [minRating, setMinRating] = useState<number>(0);
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
   const [discountOnly, setDiscountOnly] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<'relevance' | 'price-asc' | 'price-desc' | 'rating'>('relevance');
+  const [sortBy, setSortBy] = useState<'featured' | 'relevance' | 'price_asc' | 'price_desc' | 'newest'>('featured');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState<boolean>(false);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [catalogTotal, setCatalogTotal] = useState(0);
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogRetryKey, setCatalogRetryKey] = useState(0);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery.trim());
 
-  // Active category object
   const currentCategory = categories.find(c => c.slug === activeCategorySlug);
 
-  // Filter & Sort Logic
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      // Category filter
-      if (activeCategorySlug && product.category_slug !== activeCategorySlug) {
-        return false;
-      }
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearchQuery(searchQuery.trim()), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
 
-      // Search query filter
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
-        const matchesName = product.name.toLowerCase().includes(query);
-        const matchesBnName = product.name_bn?.includes(query);
-        const matchesBrand = product.brand_name?.toLowerCase().includes(query);
-        const matchesSeller = product.seller_name.toLowerCase().includes(query);
-        const matchesCategory = product.category_slug.toLowerCase().includes(query);
-        const matchesDesc = product.description.toLowerCase().includes(query);
-        if (!matchesName && !matchesBnName && !matchesBrand && !matchesSeller && !matchesCategory && !matchesDesc) {
-          return false;
+  useEffect(() => {
+    setCatalogPage(1);
+  }, [activeCategorySlug, debouncedSearchQuery, minPrice, maxPrice, minRating, inStockOnly, discountOnly, sortBy]);
+
+  useEffect(() => {
+    if (!isMarketplaceCatalogReady) return undefined;
+
+    const controller = new AbortController();
+    const requestedPage = catalogPage;
+    setCatalogLoading(true);
+    setCatalogError(null);
+    fetchMarketplaceCatalogPage({
+      page: requestedPage,
+      limit: 24,
+      query: debouncedSearchQuery,
+      categorySlug: activeCategorySlug,
+      minPrice: minPrice === '' ? undefined : minPrice,
+      maxPrice: maxPrice === '' ? undefined : maxPrice,
+      minRating: minRating || undefined,
+      inStockOnly,
+      discountOnly,
+      sort: sortBy,
+    }, categories, controller.signal)
+      .then(({ products: results, total }) => {
+        setCatalogProducts(current => requestedPage === 1 ? results : [...current, ...results]);
+        setCatalogTotal(total);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setCatalogError(error instanceof Error ? error.message : 'Marketplace catalog is unavailable.');
+        if (requestedPage === 1) {
+          setCatalogProducts([]);
+          setCatalogTotal(0);
         }
-      }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCatalogLoading(false);
+      });
 
-      // Price filter
-      const effectivePrice = product.discount_price ?? product.price;
-      if (minPrice !== '' && effectivePrice < Number(minPrice)) return false;
-      if (maxPrice !== '' && effectivePrice > Number(maxPrice)) return false;
-
-      // Rating filter
-      if (minRating > 0 && product.rating < minRating) return false;
-
-      // In-stock filter
-      if (inStockOnly && product.stock_quantity <= 0) return false;
-
-      // Discount only filter
-      if (discountOnly && !product.discount_price) return false;
-
-      return true;
-    }).sort((a, b) => {
-      const priceA = a.discount_price ?? a.price;
-      const priceB = b.discount_price ?? b.price;
-
-      if (sortBy === 'price-asc') return priceA - priceB;
-      if (sortBy === 'price-desc') return priceB - priceA;
-      if (sortBy === 'rating') return b.rating - a.rating;
-      return 0; // relevance / default
-    });
-  }, [products, activeCategorySlug, searchQuery, minPrice, maxPrice, minRating, inStockOnly, discountOnly, sortBy]);
+    return () => controller.abort();
+  }, [
+    isMarketplaceCatalogReady,
+    catalogPage,
+    categories,
+    activeCategorySlug,
+    debouncedSearchQuery,
+    minPrice,
+    maxPrice,
+    minRating,
+    inStockOnly,
+    discountOnly,
+    sortBy,
+    catalogRetryKey,
+  ]);
 
   const resetFilters = () => {
     setActiveCategorySlug(null);
@@ -88,7 +107,7 @@ export const CatalogPage: React.FC = () => {
     setMinRating(0);
     setInStockOnly(false);
     setDiscountOnly(false);
-    setSortBy('relevance');
+    setSortBy('featured');
   };
 
   const hasActiveFilters = 
@@ -101,15 +120,10 @@ export const CatalogPage: React.FC = () => {
     discountOnly;
 
   return (
-    <div className="space-y-6 pb-12">
-    {isMarketplaceCatalogLoading && (
+    <div className="marketplace-catalog space-y-6 pb-12">
+    {(isMarketplaceCatalogLoading || !isMarketplaceCatalogReady || catalogLoading) && (
       <div className="rounded-xl border border-primary/20 bg-primary-light px-4 py-2 text-xs font-semibold text-primary" role="status">
         {t('Loading the live marketplace catalog…', 'লাইভ মার্কেটপ্লেস ক্যাটালগ লোড হচ্ছে…')}
-      </div>
-    )}
-    {marketplaceCatalogError && !isMarketplaceCatalogLoading && (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800" role="status">
-        {t('Live catalog is unavailable; showing the saved preview catalog.', 'লাইভ ক্যাটালগ পাওয়া যায়নি; সংরক্ষিত প্রিভিউ ক্যাটালগ দেখানো হচ্ছে।')}
       </div>
     )}
       {/* Header Banner */}
@@ -128,13 +142,13 @@ export const CatalogPage: React.FC = () => {
             }
           </h1>
           <p className="text-xs sm:text-sm text-muted mt-1">
-            {currentCategory?.description || t('Verified regional products with doorstep express delivery', 'যাচাইকৃত মানসম্মত পণ্য ও এক্সপ্রেস ডেলিভারি')}
+            {currentCategory?.description || t('Browse the products currently available in the catalog.', 'ক্যাটালগে বর্তমানে থাকা পণ্যগুলো দেখুন।')}
           </p>
         </div>
 
         {/* Total found badge */}
         <div className="self-start sm:self-auto px-4 py-2 bg-primary-light text-primary font-bold text-xs rounded-xl">
-          {filteredProducts.length} {t('products available', 'টি পণ্য পাওয়া গেছে')}
+          {catalogTotal} {t('products available', 'টি পণ্য পাওয়া গেছে')}
         </div>
       </div>
 
@@ -154,13 +168,14 @@ export const CatalogPage: React.FC = () => {
 
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="py-2.5 px-3 rounded-xl bg-white border border-border text-xs font-semibold text-ink"
           >
-            <option value="relevance">{t('Sort: Featured', 'সাজান: সেরা')}</option>
-            <option value="price-asc">{t('Price: Low to High', 'দাম: কম থেকে বেশি')}</option>
-            <option value="price-desc">{t('Price: High to Low', 'দাম: বেশি থেকে কম')}</option>
-            <option value="rating">{t('Highest Rated', 'সর্বোচ্চ রেটিং')}</option>
+            <option value="featured">{t('Sort: Featured', 'সাজান: সেরা')}</option>
+            <option value="relevance">{t('Sort: Relevance', 'সাজান: প্রাসঙ্গিকতা')}</option>
+            <option value="newest">{t('Newest first', 'নতুন পণ্য আগে')}</option>
+            <option value="price_asc">{t('Price: Low to High', 'দাম: কম থেকে বেশি')}</option>
+            <option value="price_desc">{t('Price: High to Low', 'দাম: বেশি থেকে কম')}</option>
           </select>
         </div>
 
@@ -249,7 +264,7 @@ export const CatalogPage: React.FC = () => {
               {t('Minimum Rating', 'নূন্যতম রেটিং')}
             </h4>
             <div className="space-y-1.5">
-              {[4.8, 4.5, 4.0, 0].map((star) => (
+              {[5, 4, 3, 0].map((star) => (
                 <label key={star} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
                   <input
                     type="radio"
@@ -337,32 +352,50 @@ export const CatalogPage: React.FC = () => {
               <span className="text-xs text-muted font-medium">{t('Sort by:', 'সাজান:')}</span>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                 className="py-1.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-ink focus:outline-hidden focus:border-primary"
               >
-                <option value="relevance">{t('Featured / Recommended', 'বাছাইকৃত সেরা')}</option>
-                <option value="price-asc">{t('Price: Low to High', 'দাম: কম থেকে বেশি')}</option>
-                <option value="price-desc">{t('Price: High to Low', 'দাম: বেশি থেকে কম')}</option>
-                <option value="rating">{t('Highest Customer Rating', 'সর্বোচ্চ রেটিং')}</option>
+                <option value="featured">{t('Featured listings', 'বাছাইকৃত সেরা')}</option>
+                <option value="relevance">{t('Most relevant', 'সবচেয়ে প্রাসঙ্গিক')}</option>
+                <option value="newest">{t('Newest first', 'নতুন পণ্য আগে')}</option>
+                <option value="price_asc">{t('Price: Low to High', 'দাম: কম থেকে বেশি')}</option>
+                <option value="price_desc">{t('Price: High to Low', 'দাম: বেশি থেকে কম')}</option>
               </select>
             </div>
           </div>
 
           {/* Product Cards */}
-          {filteredProducts.length === 0 ? (
+          {catalogError ? (
+            <div className="rounded-3xl border border-danger/20 bg-red-50 p-8 text-center text-sm text-danger space-y-3" role="alert">
+              {t('Live product results could not be loaded. Please try again shortly.', 'লাইভ পণ্যের ফলাফল লোড করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।')}
+              <button
+                type="button"
+                onClick={() => setCatalogRetryKey((key) => key + 1)}
+                disabled={catalogLoading}
+                className="rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-primary-hover disabled:cursor-wait disabled:opacity-60"
+              >
+                {catalogLoading ? t('Retrying…', 'আবার চেষ্টা হচ্ছে…') : t('Retry', 'আবার চেষ্টা করুন')}
+              </button>
+            </div>
+          ) : catalogProducts.length === 0 && (catalogLoading || !isMarketplaceCatalogReady) ? (
+            <div className="rounded-3xl border border-primary/20 bg-white p-12 text-center text-sm font-semibold text-primary" role="status">
+              {t('Loading products from the live catalog…', 'লাইভ ক্যাটালগ থেকে পণ্য লোড হচ্ছে…')}
+            </div>
+          ) : catalogProducts.length === 0 ? (
             <div className="bg-white rounded-3xl border border-border p-12 text-center shadow-card space-y-4">
               <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                 <ShoppingBag className="w-8 h-8" />
               </div>
               <div>
                 <h3 className="font-bold text-ink text-lg">
-                  {t('No matching products found', 'কোনো পণ্য পাওয়া যায়নি')}
+                  {catalogTotal === 0 && !hasActiveFilters
+                    ? t('No published products are available yet', 'এখনও কোনো প্রকাশিত পণ্য নেই')
+                    : t('No matching products found', 'কোনো পণ্য পাওয়া যায়নি')}
                 </h3>
                 <p className="text-xs text-muted mt-1 max-w-md mx-auto">
-                  {t(
-                    'Try clearing some filters or searching for terms like "mango", "fish", "oil", or "rice".',
-                    'ফিল্টারগুলো পরিষ্কার করুন অথবা "আম", "মাছ", "তেল", "চাল" লিখে অনুসন্ধান করুন।'
-                  )}
+                  {catalogTotal === 0 && !hasActiveFilters
+                    ? t('Approved seller listings will appear here when they become available.', 'অনুমোদিত বিক্রেতার পণ্য যুক্ত হলে এখানে দেখা যাবে।')
+                    : t('Try changing your search or filters, or reset them to see all available listings.', 'অনুসন্ধান বা ফিল্টার পরিবর্তন করুন, অথবা সব পণ্য দেখতে রিসেট করুন।')}
                 </p>
               </div>
               <button
@@ -374,9 +407,21 @@ export const CatalogPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-              {filteredProducts.map(product => (
+              {catalogProducts.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}
+            </div>
+          )}
+          {!catalogError && catalogProducts.length > 0 && catalogProducts.length < catalogTotal && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setCatalogPage(current => current + 1)}
+                disabled={catalogLoading}
+                className="rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:cursor-wait disabled:opacity-60"
+              >
+                {catalogLoading ? t('Loading…', 'লোড হচ্ছে…') : t('Load more products', 'আরও পণ্য দেখুন')}
+              </button>
             </div>
           )}
         </main>

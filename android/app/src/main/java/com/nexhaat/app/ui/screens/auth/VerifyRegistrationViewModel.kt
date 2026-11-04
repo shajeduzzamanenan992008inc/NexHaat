@@ -57,9 +57,7 @@ class VerifyRegistrationViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             when (val result = authRepository.verifyRegistration(
-                email = state.email,
-                code = code,
-                challengeId = state.challengeId
+                code = code
             )) {
                 is NetworkResult.Success -> {
                     _uiState.value = _uiState.value.copy(

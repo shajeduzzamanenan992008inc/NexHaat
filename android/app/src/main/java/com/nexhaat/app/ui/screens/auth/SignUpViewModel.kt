@@ -84,7 +84,7 @@ class SignUpViewModel @Inject constructor(
                 email = state.email.trim(),
                 password = state.password,
                 role = state.role,
-                phone = state.phone.trim().takeIf(String::isNotEmpty)
+                phone = state.phone.trim()
             )) {
                 is NetworkResult.Success -> {
                     _uiState.value = _uiState.value.copy(

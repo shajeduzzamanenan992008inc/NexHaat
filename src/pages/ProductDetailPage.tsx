@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductVariant, Product } from '../types';
 import { ProductCard } from '../components/ProductCard';
@@ -7,17 +7,16 @@ import { PriceTrendChart } from '../components/PriceTrendChart';
 import { ProductReviewsSection } from '../components/ProductReviewsSection';
 import { PriceAlertModal } from '../components/PriceAlertModal';
 import { 
-  Star, Heart, ShoppingBag, Truck, ShieldCheck, 
+  Star, Heart, ShoppingBag, Truck,
   RotateCcw, CheckCircle2, ChevronRight, Share2, 
   Plus, Minus, ArrowLeft, MessageSquarePlus, Layers, 
-  Sparkles, HelpCircle, Send, Check, Eye, Clock, 
-  ThumbsUp, CheckSquare, Square, PackageCheck, Zap, RefreshCw, Store, Scale,
-  Bell, BellRing 
+  Sparkles, HelpCircle, Send, Check, Eye,
+  ThumbsUp, CheckSquare, Square, Zap, RefreshCw, Store, Scale,
+  Bell, BellRing, ImageOff
 } from 'lucide-react';
 import { 
   calculateBundlePrice, 
-  calculateReviewDistribution, 
-  calculateDeliveryPromise 
+  calculateReviewDistribution,
 } from '../lib/amazonFeatures';
 
 export const ProductDetailPage: React.FC = () => {
@@ -35,60 +34,38 @@ export const ProductDetailPage: React.FC = () => {
     getProductReviews,
     getProductQuestions,
     addQuestion,
-    isPrimeMember,
-    setIsPrimeModalOpen,
     getPriceAlert,
     showToast,
     t,
     language,
   } = useApp();
 
-  const product = products.find(p => p.slug === selectedProductSlug) || products[0];
-  const reviews = getProductReviews(product.id);
-  const questions = getProductQuestions(product.id);
+  const product = products.find(p => p.slug === selectedProductSlug);
+  const productId = product?.id ?? -1;
+  const reviews = productId > 0 ? getProductReviews(productId) : [];
+  const questions = productId > 0 ? getProductQuestions(productId) : [];
 
   // States
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(
-    product.variants && product.variants.length > 0 ? product.variants[0] : undefined
+    product?.variants && product.variants.length > 0 ? product.variants[0] : undefined
   );
   const [quantity, setQuantity] = useState<number>(1);
-  const [activeImage, setActiveImage] = useState<string>(product.image);
-
-  // Amazon Purchase Type: One-time vs Subscribe & Save (10% discount)
-  const [purchaseType, setPurchaseType] = useState<'one-time' | 'subscribe'>('one-time');
+  const [activeImage, setActiveImage] = useState<string>(product?.image || '');
+  const [zoomPos, setZoomPos] = useState<{ x: number; y: number; active: boolean }>({
+    x: 50,
+    y: 50,
+    active: false,
+  });
 
   // Price Drop Alert Modal State
   const [isPriceAlertModalOpen, setIsPriceAlertModalOpen] = useState(false);
-  const existingAlert = getPriceAlert(product.id);
-
-  // Amazon Delivery Promise Countdown
-  const [countdown, setCountdown] = useState<{ hours: number; minutes: number; seconds: number }>({
-    hours: 2,
-    minutes: 48,
-    seconds: 20,
-  });
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 };
-        } else if (prev.minutes > 0) {
-          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        } else if (prev.hours > 0) {
-          return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        }
-        return { hours: 3, minutes: 30, seconds: 0 };
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const existingAlert = productId > 0 ? getPriceAlert(productId) : undefined;
 
   // Amazon Frequently Bought Together bundle items
-  const complementaryProducts = products
-    .filter((p) => p.id !== product.id && p.category_slug === product.category_slug)
-    .slice(0, 2);
-  const bundlePool: Product[] = [product, ...complementaryProducts];
+  const complementaryProducts = product
+    ? products.filter((p) => p.id !== product.id && p.category_slug === product.category_slug).slice(0, 2)
+    : [];
+  const bundlePool: Product[] = product ? [product, ...complementaryProducts] : [];
   const [bundleSelectedIds, setBundleSelectedIds] = useState<number[]>(() =>
     bundlePool.map((p) => p.id)
   );
@@ -100,13 +77,36 @@ export const ProductDetailPage: React.FC = () => {
   };
 
   const selectedBundleProducts = bundlePool.filter((p) => bundleSelectedIds.includes(p.id));
-  const bundlePricing = calculateBundlePrice(selectedBundleProducts, 10);
+  const bundlePricing = calculateBundlePrice(selectedBundleProducts, 0);
 
   // Tabs: Details, Specs, Pricing, Reviews, Q&A
   const [activeTab, setActiveTab] = useState<'details' | 'specs' | 'pricing' | 'reviews' | 'qa'>('details');
 
   // Q&A Form
   const [questionInput, setQuestionInput] = useState('');
+
+  if (!product) {
+    return (
+      <div className="mx-auto max-w-lg space-y-4 rounded-3xl border border-border bg-white p-10 text-center shadow-card">
+        <h1 className="text-xl font-black text-ink">
+          {t('Product not available', 'পণ্যটি পাওয়া যাচ্ছে না')}
+        </h1>
+        <p className="text-sm text-muted">
+          {t(
+            'This listing is not in the current catalog. It may be unavailable, or the catalog may still be loading.',
+            'এই পণ্যটি বর্তমান ক্যাটালগে নেই। এটি অনুপলব্ধ হতে পারে, অথবা ক্যাটালগ এখনও লোড হচ্ছে।',
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={() => setCurrentView('catalog')}
+          className="rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-primary-hover"
+        >
+          {t('Back to catalog', 'ক্যাটালগে ফিরে যান')}
+        </button>
+      </div>
+    );
+  }
 
   const isFavorited = isInWishlist(product.id);
   const isCompared = comparedProductIds.includes(product.id);
@@ -127,44 +127,32 @@ export const ProductDetailPage: React.FC = () => {
     }
   }
 
-  const effectiveUnitPrice = purchaseType === 'subscribe'
-    ? Math.round(unitPrice * 0.90)
-    : unitPrice;
+  const effectiveUnitPrice = unitPrice;
   const totalItemPrice = effectiveUnitPrice * quantity;
   const availableStock = selectedVariant ? selectedVariant.stock : product.stock_quantity;
 
   const handleAddToCart = () => {
-    const itemToAdd = purchaseType === 'subscribe'
-      ? { ...product, discount_price: effectiveUnitPrice }
-      : product;
-    addToCart(itemToAdd, selectedVariant, quantity);
-    if (purchaseType === 'subscribe') {
-      showToast(t('Added monthly subscription with 10% discount to cart!', '১০% ছাড়সহ মাসিক সাবস্ক্রিপশন কার্টে যোগ হয়েছে!'), 'success');
-    }
+    addToCart(product, selectedVariant, quantity);
   };
 
   const handleBuyNow = () => {
-    const itemToAdd = purchaseType === 'subscribe'
-      ? { ...product, discount_price: effectiveUnitPrice }
-      : product;
-    addToCart(itemToAdd, selectedVariant, quantity);
+    addToCart(product, selectedVariant, quantity);
     setCurrentView('checkout');
   };
 
   const handleAddBundleToCart = () => {
     if (selectedBundleProducts.length === 0) return;
     selectedBundleProducts.forEach((p) => {
-      const discountedPrice = Math.round((p.discount_price ?? p.price) * 0.90);
       addToCart(
-        { ...p, discount_price: discountedPrice },
+        p,
         p.variants && p.variants.length > 0 ? p.variants[0] : undefined,
         1
       );
     });
     showToast(
       t(
-        `Added ${selectedBundleProducts.length} bundle items to cart! (10% Bundle Discount Applied)`,
-        `বান্ডেলের ${selectedBundleProducts.length}টি পণ্য কার্টে যোগ হয়েছে! (১০% বিশেষ ছাড়)`
+        `Added ${selectedBundleProducts.length} items. Checkout confirms available discounts.`,
+        `বান্ডেলের ${selectedBundleProducts.length}টি পণ্য যোগ হয়েছে। চেকআউটে প্রযোজ্য ছাড় নিশ্চিত হবে।`
       ),
       'success'
     );
@@ -183,7 +171,7 @@ export const ProductDetailPage: React.FC = () => {
     .slice(0, 4);
 
   return (
-    <div className="space-y-10 pb-16">
+    <div className="marketplace-product-page space-y-10 pb-16">
       {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-xs text-muted">
         <button onClick={() => setCurrentView('home')} className="hover:text-primary transition-colors">
@@ -200,20 +188,47 @@ export const ProductDetailPage: React.FC = () => {
       </div>
 
       {/* Main Product Showcase Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative">
+        {/* Ambient Category Glow Backdrop */}
+        <div className="absolute -top-10 -left-10 w-72 h-72 rounded-full bg-primary/10 blur-3xl pointer-events-none -z-10 animate-float-slow" />
+
         {/* Gallery Column */}
         <div className="lg:col-span-6 space-y-3">
-          <div className="relative aspect-square w-full rounded-3xl overflow-hidden bg-white border border-border shadow-card flex items-center justify-center p-4">
-            <img
-              src={activeImage}
-              alt={product.name}
-              className="w-full h-full object-cover rounded-2xl"
-            />
+          <div
+            className="relative aspect-square w-full rounded-3xl overflow-hidden bg-white border border-border shadow-card flex items-center justify-center p-4 cursor-crosshair group"
+            onMouseEnter={() => setZoomPos(prev => ({ ...prev, active: true }))}
+            onMouseLeave={() => setZoomPos(prev => ({ ...prev, active: false }))}
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = ((e.clientX - rect.left) / rect.width) * 100;
+              const y = ((e.clientY - rect.top) / rect.height) * 100;
+              setZoomPos({ x, y, active: true });
+            }}
+          >
+            {activeImage ? (
+              <img
+                src={activeImage}
+                alt={product.name}
+                style={{
+                  transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                }}
+                className={`w-full h-full object-cover rounded-2xl transition-transform duration-200 ${
+                  zoomPos.active ? 'scale-150' : 'scale-100'
+                }`}
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 p-6 text-center text-slate-400">
+                <ImageOff className="h-10 w-10" aria-hidden="true" />
+                <p className="text-xs font-semibold">
+                  {t('No product photo provided by the seller', 'বিক্রেতা কোনো পণ্যের ছবি দেননি')}
+                </p>
+              </div>
+            )}
 
             {/* Badges */}
-            <div className="absolute top-5 left-5 flex flex-col gap-1.5 items-start">
+            <div className="absolute top-5 left-5 flex flex-col gap-1.5 items-start pointer-events-none">
               {product.is_nexhaat_choice && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-black bg-slate-900 text-white shadow-sm">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-black bg-slate-900 text-white shadow-sm animate-pulse-soft">
                   <span>NexHaat's</span>
                   <span className="text-amber-400">Choice</span>
                 </span>
@@ -226,24 +241,26 @@ export const ProductDetailPage: React.FC = () => {
             </div>
 
             {/* 360 preview badge */}
-            <div className="absolute bottom-5 right-5 px-3 py-1 rounded-xl bg-slate-900/70 text-white backdrop-blur-md text-xs font-semibold flex items-center gap-1.5">
+            <div className="absolute bottom-5 right-5 px-3 py-1 rounded-xl bg-slate-900/80 text-white backdrop-blur-md text-xs font-semibold flex items-center gap-1.5 shadow-md pointer-events-none">
               <Eye className="w-3.5 h-3.5 text-amber-400" />
-              <span>Verified 360° Quality</span>
+              <span>{zoomPos.active ? t('Zoom 1.5x active', 'জুম সক্রিয়') : t('Product image', 'পণ্যের ছবি')}</span>
             </div>
           </div>
 
-          {/* Thumbnails */}
+          {/* Thumbnails with Polished Glow Ring */}
           {product.additionalImages && product.additionalImages.length > 1 && (
-            <div className="flex gap-2.5 overflow-x-auto pb-1">
+            <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
               {product.additionalImages.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setActiveImage(img)}
-                  className={`w-20 h-20 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
-                    activeImage === img ? 'border-primary ring-2 ring-primary/20' : 'border-border opacity-70 hover:opacity-100'
+                  className={`w-20 h-20 rounded-xl overflow-hidden border-2 shrink-0 transition-all duration-300 active:scale-95 ${
+                    activeImage === img
+                      ? 'border-primary ring-2 ring-primary/40 shadow-md scale-105'
+                      : 'border-border opacity-70 hover:opacity-100 hover:border-slate-300'
                   }`}
                 >
-                  <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
+                  <img src={img} alt="Thumbnail" className="w-full h-full object-cover transition-transform duration-300 hover:scale-110" />
                 </button>
               ))}
             </div>
@@ -256,15 +273,15 @@ export const ProductDetailPage: React.FC = () => {
             {/* Seller & Rating */}
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-primary-light text-primary">
-                Store: {product.seller_name}
+                Store: {product.seller_name || t('Marketplace seller', 'মার্কেটপ্লেস বিক্রেতা')}
               </span>
-              <div className="flex items-center gap-1.5 text-xs text-amber-500 font-bold">
+              {product.review_count !== undefined && product.review_count > 0 && product.rating !== undefined && <div className="flex items-center gap-1.5 text-xs text-amber-500 font-bold">
                 <Star className="w-4 h-4 fill-current" />
                 <span>{product.rating}</span>
                 <span className="text-slate-400 font-normal">
                   ({product.review_count} {t('ratings', 'টি রেটিং')} • {questions.length} {t('answered Q&As', 'টি প্রশ্নোত্তর')})
                 </span>
-              </div>
+              </div>}
             </div>
 
             {/* Product Title */}
@@ -273,8 +290,12 @@ export const ProductDetailPage: React.FC = () => {
             </h1>
 
             <div className="flex items-center gap-3 mt-1.5 text-xs text-muted">
-              <span>SKU: <strong className="font-mono text-ink">{product.sku}</strong></span>
-              <span>•</span>
+              {product.sku && (
+                <>
+                  <span>SKU: <strong className="font-mono text-ink">{product.sku}</strong></span>
+                  <span>•</span>
+                </>
+              )}
               <span>Unit: <strong className="text-ink">{language === 'bn' && product.unit_bn ? product.unit_bn : product.unit}</strong></span>
             </div>
           </div>
@@ -292,21 +313,14 @@ export const ProductDetailPage: React.FC = () => {
                       {formatPrice(product.price + modifier)}
                     </span>
                   )}
-                  {purchaseType === 'subscribe' ? (
-                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1">
-                      <RefreshCw className="w-3 h-3 text-amber-700 animate-spin" />
-                      <span>10% Subscribe & Save Discount</span>
+                  {bulkDiscountPercent > 0 && (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold">
+                      {bulkDiscountPercent}% {t('bulk discount applied', 'বাল্ক ছাড় প্রযোজ্য')}
                     </span>
-                  ) : (
-                    bulkDiscountPercent > 0 && (
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold">
-                        {bulkDiscountPercent}% Bulk Discount Applied!
-                      </span>
-                    )
                   )}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  {t('Inclusive of all VAT and platform escrow protection', 'ভ্যাট ও প্ল্যাটফর্ম সুরক্ষা অন্তর্ভুক্ত')}
+                  {t('Taxes, delivery, and payment details are confirmed at checkout.', 'কর, ডেলিভারি ও পেমেন্টের তথ্য চেকআউটে নিশ্চিত হবে।')}
                 </p>
               </div>
 
@@ -353,99 +367,43 @@ export const ProductDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Amazon-style Purchase Options: One-Time Purchase vs Subscribe & Save */}
+          {/* Supported one-time checkout and a clearly marked recurring-order preview */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={() => setPurchaseType('one-time')}
-              className={`p-3 rounded-2xl border text-left transition-all ${
-                purchaseType === 'one-time'
-                  ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
-              }`}
-            >
+            <div className="p-3 rounded-2xl border border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-ink">{t('One-time purchase', 'এককালীন ক্রয়')}</span>
-                <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                  purchaseType === 'one-time' ? 'border-primary bg-primary' : 'border-slate-300'
-                }`}>
-                  {purchaseType === 'one-time' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                <span className="w-3.5 h-3.5 rounded-full border border-primary bg-primary flex items-center justify-center" aria-hidden="true">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
                 </span>
               </div>
               <span className="text-sm font-black text-ink">{formatPrice(unitPrice)}</span>
               <p className="text-[10px] text-muted mt-0.5">{t('Standard one-time checkout', 'সাধারণ একক অর্ডার')}</p>
-            </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={() => setPurchaseType('subscribe')}
-              className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden ${
-                purchaseType === 'subscribe'
-                  ? 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-slate-900 text-[9px] font-black px-2 py-0.5 rounded-bl-lg">
-                SAVE 10%
-              </div>
+            <div className="p-3 rounded-2xl border border-border bg-surface-raised text-muted">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-ink flex items-center gap-1">
-                  <RefreshCw className="w-3 h-3 text-amber-600" />
-                  <span>{t('Subscribe & Save', 'সাবস্ক্রাইব ও সঞ্চয়')}</span>
-                </span>
-                <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                  purchaseType === 'subscribe' ? 'border-amber-600 bg-amber-600' : 'border-slate-300'
-                }`}>
-                  {purchaseType === 'subscribe' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  <RefreshCw className="w-3 h-3 text-muted" />
+                  <span>{t('Scheduled repeat orders', 'নির্ধারিত পুনরাবৃত্ত অর্ডার')}</span>
                 </span>
               </div>
-              <span className="text-sm font-black text-amber-700">{formatPrice(Math.round(unitPrice * 0.90))}</span>
-              <p className="text-[10px] text-slate-600 mt-0.5">{t('Auto-delivered every month. Cancel anytime.', 'প্রতি মাসে অটো ডেলিভারি। যেকোনো সময় বাতিলযোগ্য।')}</p>
-            </button>
+              <p className="text-xs font-semibold text-muted">{t('Preview only — recurring orders are not available in checkout.', 'শুধু প্রিভিউ — চেকআউটে পুনরাবৃত্ত অর্ডার চালু নেই।')}</p>
+            </div>
           </div>
 
-          {/* Amazon Prime Delivery Promise & Live Countdown Box */}
-          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/90 via-slate-50 to-amber-50/60 border border-blue-200/80 space-y-2.5">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className="font-black italic text-primary text-sm">prime</span>
-                <span className="font-bold text-slate-800">
-                  {t('Fastest Guaranteed Delivery', 'দ্রুততম গ্যারান্টিযুক্ত ডেলিভারি')}
-                </span>
-              </div>
-              <div className="flex items-center gap-1 font-mono text-[11px] font-bold bg-white px-2 py-0.5 rounded-lg border border-slate-200 text-slate-800 shadow-2xs">
-                <Clock className="w-3 h-3 text-amber-500" />
-                <span>
-                  {countdown.hours}h {countdown.minutes}m {countdown.seconds}s
-                </span>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600">
+          <div className="p-3.5 rounded-2xl bg-primary/5 border border-primary/15 space-y-2">
+            <h2 className="text-sm font-bold text-ink">{t('Before you order', 'অর্ডারের আগে')}</h2>
+            <p className="text-xs text-muted">
               {t(
-                `Order within ${countdown.hours} hrs ${countdown.minutes} mins and choose Prime Express for delivery by Today 8:00 PM!`,
-                `${countdown.hours} ঘণ্টা ${countdown.minutes} মিনিটের মধ্যে অর্ডার করলে আজ রাত ৮টার মধ্যে ডেলিভারি পাবেন!`
+                'Review delivery availability, fees, payment methods, and any applicable order terms at checkout before placing an order.',
+                'অর্ডার নিশ্চিত করার আগে চেকআউটে ডেলিভারি, ফি, পেমেন্ট পদ্ধতি এবং প্রযোজ্য শর্ত দেখে নিন।',
               )}
             </p>
-
-            <div className="pt-2 border-t border-slate-200/80 grid grid-cols-2 gap-2 text-[11px] text-slate-600">
-              <div className="flex items-center gap-1.5">
-                <PackageCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>NexHaat Hub Fulfillment</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span>7-Day Return Guarantee</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Store className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="truncate">Sold by {product.seller_name} (4.8 ★)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span>Secure Escrow Protection</span>
-              </div>
-            </div>
+            {(product.is_digital || product.international_shipping) && (
+              <p className="text-xs text-muted">
+                {t('Special fulfillment details are shown only when supported by the listing and checkout.', 'বিশেষ ডেলিভারির তথ্য পণ্য ও চেকআউটে সমর্থিত হলেই দেখানো হবে।')}
+              </p>
+            )}
           </div>
 
           {/* Bulk Buying / Wholesale Tier (Amazon B2B feature) */}
@@ -605,13 +563,10 @@ export const ProductDetailPage: React.FC = () => {
           <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-xs space-y-1.5">
             <div className="flex items-center gap-1.5 font-bold text-primary">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>{t('HaatAI Review Summary (Powered by Gemini)', 'রিভিউ সারাংশ (জেমিনাই এআই)')}</span>
+              <span>{t('HaatAI review summary', 'HaatAI রিভিউ সারাংশ')}</span>
             </div>
             <p className="text-slate-700 leading-relaxed">
-              {t(
-                `Customers praise this ${product.name} for its verified freshness, authentic regional taste, and secure cold-chain delivery. 96% of buyers reported zero spoilage. Ideal for family celebrations and daily dining.`,
-                `ক্রেতারা এই পণ্যের অসাধারণ সতেজতা, খাঁটি আঞ্চলিক স্বাদ এবং সুরক্ষিত প্যাকেজিংয়ের দারুণ প্রশংসা করেছেন। ৯৬% ক্রেতা সন্তোষ প্রকাশ করেছেন।`
-              )}
+              {t('AI review summaries are not connected for this listing. Read the customer reviews below.', 'এই পণ্যের AI রিভিউ সারাংশ এখনো সংযুক্ত নয়। নিচের ক্রেতা রিভিউ দেখুন।')}
             </p>
           </div>
         </div>
@@ -629,7 +584,7 @@ export const ProductDetailPage: React.FC = () => {
               activeTab === 'details' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-ink'
             }`}
           >
-            {t('Overview & Halal Safety', 'বিবরণ ও হালাল নিরাপত্তা')}
+            {t('Overview & product details', 'বিবরণ ও পণ্যের তথ্য')}
           </button>
           <button
             onClick={() => setActiveTab('specs')}
@@ -654,7 +609,7 @@ export const ProductDetailPage: React.FC = () => {
               activeTab === 'reviews' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-ink'
             }`}
           >
-            {t(`Verified Reviews (${reviews.length})`, `রিভিউ (${reviews.length})`)}
+            {t(`Customer Reviews (${reviews.length})`, `ক্রেতা রিভিউ (${reviews.length})`)}
           </button>
           <button
             onClick={() => setActiveTab('qa')}
@@ -677,8 +632,9 @@ export const ProductDetailPage: React.FC = () => {
               <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-xs space-y-2 mt-4">
                 <div className="flex items-center gap-2 font-bold text-emerald-900">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>{t('NexHaat Certified Food Standards', 'খাদ্যমান ও হালাল সনদ')}</span>
+                  <span>{t('Food details supplied with this listing', 'বিক্রেতার দেওয়া খাদ্যপণ্যের তথ্য')}</span>
                 </div>
+                <p className="text-slate-600">{t('Check the seller-provided details and any applicable terms before ordering.', 'অর্ডারের আগে বিক্রেতার দেওয়া তথ্য ও প্রযোজ্য শর্ত যাচাই করুন।')}</p>
                 <div className="grid grid-cols-2 gap-2 text-slate-700">
                   <div>
                     <span className="text-slate-500">Origin: </span>
@@ -699,17 +655,22 @@ export const ProductDetailPage: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left border-collapse">
               <tbody className="divide-y divide-slate-100">
-                <tr className="bg-slate-50">
-                  <td className="py-2.5 px-3 font-bold text-slate-600 w-48">SKU Code</td>
-                  <td className="py-2.5 px-3 text-ink font-mono">{product.sku}</td>
-                </tr>
+                {product.sku && (
+                  <tr className="bg-slate-50">
+                    <td className="py-2.5 px-3 font-bold text-slate-600 w-48">SKU Code</td>
+                    <td className="py-2.5 px-3 text-ink font-mono">{product.sku}</td>
+                  </tr>
+                )}
                 <tr>
                   <td className="py-2.5 px-3 font-bold text-slate-600">Category</td>
                   <td className="py-2.5 px-3 text-ink capitalize">{product.category_slug.replace('-', ' ')}</td>
                 </tr>
                 <tr className="bg-slate-50">
                   <td className="py-2.5 px-3 font-bold text-slate-600">Merchant / Seller</td>
-                  <td className="py-2.5 px-3 text-ink">{product.seller_name} ({product.seller_location})</td>
+                  <td className="py-2.5 px-3 text-ink">
+                    {product.seller_name || t('Marketplace seller', 'মার্কেটপ্লেস বিক্রেতা')}
+                    {product.seller_location ? ` (${product.seller_location})` : ''}
+                  </td>
                 </tr>
                 {product.specifications && Object.entries(product.specifications).map(([key, val], idx) => (
                   <tr key={key} className={idx % 2 === 1 ? 'bg-slate-50' : ''}>
@@ -730,7 +691,7 @@ export const ProductDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Tab: Customer Ratings & Verified Reviews */}
+        {/* Tab: Customer Ratings & Reviews */}
         {activeTab === 'reviews' && (
           <ProductReviewsSection product={product} />
         )}
@@ -783,7 +744,7 @@ export const ProductDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* Amazon-style Frequently Bought Together Interactive Bundle Box */}
+      {/* Frequently bought together items */}
       {complementaryProducts.length > 0 && (
         <section className="bg-white rounded-3xl border border-border shadow-card p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -792,11 +753,11 @@ export const ProductDetailPage: React.FC = () => {
                 {t('Frequently Bought Together', 'একত্রে বেশি বিক্রিত পণ্যসমূহ')}
               </h3>
               <p className="text-xs text-muted">
-                {t('Buy these items together and get an automatic 10% bundle discount', 'একসাথে কিনুন এবং পান অতিরিক্ত ১০% বান্ডেল ছাড়')}
+                {t('Select related items to add them together. Checkout confirms any eligible discounts.', 'একসাথে যোগ করার জন্য পছন্দের পণ্য বাছুন। চেকআউটে প্রযোজ্য ছাড় নিশ্চিত হবে।')}
               </p>
             </div>
             <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-100 text-amber-900">
-              Bundle Savings 10%
+              {t('Related products', 'সম্পর্কিত পণ্য')}
             </span>
           </div>
 
@@ -841,7 +802,7 @@ export const ProductDetailPage: React.FC = () => {
               <div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-xs font-bold text-slate-500 uppercase">
-                    {t('Bundle Price:', 'বান্ডেল মূল্য:')}
+                    {t('Selected items:', 'নির্বাচিত পণ্য:')}
                   </span>
                   <span className="text-2xl font-black text-ink">
                     {formatPrice(bundlePricing.discountedTotal)}

@@ -1,0 +1,191 @@
+# branch.oid 19d027eb53fec33d0f6e55407d6b3fb8b9c7e0e2
+# branch.head main
+# branch.upstream origin/main
+# branch.ab +0 -0
+1 .M N... 100644 100644 100644 b34969627add6a7f55a4de49d2b56b7e862489c5 b34969627add6a7f55a4de49d2b56b7e862489c5 .env.example
+1 .M N... 100644 100644 100644 44f0b7747604f303d8b165c42381153ea6614667 44f0b7747604f303d8b165c42381153ea6614667 .github/workflows/main_nexhaat.yml
+1 .M N... 100644 100644 100644 8f29762d422f7d3116a17655bf254b827ae0010c 8f29762d422f7d3116a17655bf254b827ae0010c .github/workflows/main_nexhut.yml
+1 .D N... 100644 100644 000000 4298c434e1bca1fa27ec6af3ff5243f856c4c5e6 4298c434e1bca1fa27ec6af3ff5243f856c4c5e6 .playwright-mcp/page-2026-11-01T02-46-45-301Z.yml
+1 .D N... 100644 100644 000000 b46d60d2fc714610f4832a6a9002260e8ad47d2b b46d60d2fc714610f4832a6a9002260e8ad47d2b .playwright-mcp/page-2026-11-01T02-48-13-267Z.yml
+1 .D N... 100644 100644 000000 c6bfe8655724a66516ee0ee1384c78f1c5d7b398 c6bfe8655724a66516ee0ee1384c78f1c5d7b398 .playwright-mcp/page-2026-11-01T02-52-38-721Z.yml
+1 .D N... 100644 100644 000000 a26f5af12b0bafae8d85a8950e322b4517a76511 a26f5af12b0bafae8d85a8950e322b4517a76511 .playwright-mcp/page-2026-11-01T02-53-13-874Z.yml
+1 .D N... 100644 100644 000000 800d2e11076028e97ee4c18943605886f5bc567e 800d2e11076028e97ee4c18943605886f5bc567e .playwright-mcp/page-2026-11-01T02-53-45-671Z.yml
+1 .D N... 100644 100644 000000 323b716e7f31392c6143b8543a578bf9762fce3b 323b716e7f31392c6143b8543a578bf9762fce3b .playwright-mcp/page-2026-11-01T02-54-29-013Z.yml
+1 .D N... 100644 100644 000000 d78eb148406dd1b721843f689258bd69a8577843 d78eb148406dd1b721843f689258bd69a8577843 .playwright-mcp/page-2026-11-01T03-24-05-943Z.yml
+1 .D N... 100644 100644 000000 e90dd5e4b5503c6ca25a340fbefbee6969c5ec56 e90dd5e4b5503c6ca25a340fbefbee6969c5ec56 .playwright-mcp/page-2026-11-01T03-25-19-368Z.yml
+1 .D N... 100644 100644 000000 495346b2354b2eba824225a852b15b0245240d08 495346b2354b2eba824225a852b15b0245240d08 .playwright-mcp/page-2026-11-01T03-25-50-016Z.yml
+1 .D N... 100644 100644 000000 afc44e3bc75da53a649f6cb8d8bec6d4f8f0a53d afc44e3bc75da53a649f6cb8d8bec6d4f8f0a53d .playwright-mcp/page-2026-11-01T03-26-38-732Z.yml
+1 .D N... 100644 100644 000000 70231b97b94da44ae04b238e84ffcc3a7cd98777 70231b97b94da44ae04b238e84ffcc3a7cd98777 .playwright-mcp/page-2026-11-01T03-27-12-181Z.yml
+1 .D N... 100644 100644 000000 44696a84af936d898dea1712026641335a21e552 44696a84af936d898dea1712026641335a21e552 .playwright-mcp/page-2026-11-01T03-27-38-315Z.yml
+1 .D N... 100644 100644 000000 45f34b66fbb7accac199d8e4945a222e6fa20fed 45f34b66fbb7accac199d8e4945a222e6fa20fed .playwright-mcp/page-2026-11-01T11-04-08-878Z.yml
+1 .D N... 100644 100644 000000 e2227718a38f548a2018ed603a968696ad84837e e2227718a38f548a2018ed603a968696ad84837e .playwright-mcp/page-2026-11-01T11-05-26-558Z.yml
+1 .D N... 100644 100644 000000 3b7e710d75281e8634b96572fd32c708752666f7 3b7e710d75281e8634b96572fd32c708752666f7 .playwright-mcp/page-2026-11-01T11-05-42-046Z.yml
+1 .D N... 100644 100644 000000 8363a3da44d7fd5deb3a047a6abc8e4af214da3e 8363a3da44d7fd5deb3a047a6abc8e4af214da3e .playwright-mcp/page-2026-11-01T11-06-41-467Z.yml
+1 .D N... 100644 100644 000000 8363a3da44d7fd5deb3a047a6abc8e4af214da3e 8363a3da44d7fd5deb3a047a6abc8e4af214da3e .playwright-mcp/page-2026-11-01T11-06-49-588Z.yml
+1 .D N... 100644 100644 000000 ba7f89c6fcb4b47dfff494bb076a12a14346751b ba7f89c6fcb4b47dfff494bb076a12a14346751b .playwright-mcp/page-2026-11-01T11-07-07-356Z.yml
+1 .D N... 100644 100644 000000 1a33319ef0095ecb6b91120595885928fb9af1ac 1a33319ef0095ecb6b91120595885928fb9af1ac .playwright-mcp/page-2026-11-01T11-07-16-117Z.yml
+1 .D N... 100644 100644 000000 40c2c29fa54018d9b39998d86c91f2434ff5b839 40c2c29fa54018d9b39998d86c91f2434ff5b839 .playwright-mcp/page-2026-11-01T11-08-27-074Z.yml
+1 .D N... 100644 100644 000000 a18d1a447e3489cc71cb54f4dca23f7243385b7e a18d1a447e3489cc71cb54f4dca23f7243385b7e .playwright-mcp/page-2026-11-01T11-08-43-032Z.yml
+1 .D N... 100644 100644 000000 48321bcb624c5a567c913125c65edad4a4d16715 48321bcb624c5a567c913125c65edad4a4d16715 .playwright-mcp/page-2026-11-01T11-09-21-014Z.yml
+1 .D N... 100644 100644 000000 2c1a3d13bd2dbf97b6bf32eb6f8b6e5f7c5d89e2 2c1a3d13bd2dbf97b6bf32eb6f8b6e5f7c5d89e2 .playwright-mcp/page-2026-11-01T11-09-36-975Z.yml
+1 .D N... 100644 100644 000000 d5ce18c69e6624c1564d1fb792019bf88e8c5869 d5ce18c69e6624c1564d1fb792019bf88e8c5869 .playwright-mcp/page-2026-11-01T11-13-43-465Z.yml
+1 .D N... 100644 100644 000000 4ed8f98d2b609f381d9cc85ff2885a9ff5307ae7 4ed8f98d2b609f381d9cc85ff2885a9ff5307ae7 .playwright-mcp/page-2026-11-01T11-14-45-761Z.yml
+1 .D N... 100644 100644 000000 98b43f5108029e3706b7f282c1cc34fa5a3c485b 98b43f5108029e3706b7f282c1cc34fa5a3c485b .playwright-mcp/page-2026-11-01T11-15-10-363Z.yml
+1 .D N... 100644 100644 000000 a4d3a0fb35c5112fc13eaf9c7e8b7b6d40e96cb3 a4d3a0fb35c5112fc13eaf9c7e8b7b6d40e96cb3 .playwright-mcp/page-2026-11-01T11-15-52-131Z.yml
+1 .D N... 100644 100644 000000 804912b2b4f5e29c203e45409af857089adacaa5 804912b2b4f5e29c203e45409af857089adacaa5 .playwright-mcp/page-2026-11-01T11-16-00-020Z.yml
+1 .D N... 100644 100644 000000 385c10457d29c7ada5af2f535ea8f134ff06c628 385c10457d29c7ada5af2f535ea8f134ff06c628 android/.gradle/8.11.1/checksums/md5-checksums.bin
+1 .D N... 100644 100644 000000 67005d4196519d6f847e80d56c0ed3698f642ab2 67005d4196519d6f847e80d56c0ed3698f642ab2 android/.gradle/8.11.1/checksums/sha1-checksums.bin
+1 .D N... 100644 100644 000000 15c63f15a02dfb21c4021653310d3bb5c2e8ccd5 15c63f15a02dfb21c4021653310d3bb5c2e8ccd5 android/.gradle/8.11.1/executionHistory/executionHistory.bin
+1 .D N... 100644 100644 000000 f76dd238ade08917e6712764a16a22005a50573d f76dd238ade08917e6712764a16a22005a50573d android/.gradle/8.11.1/fileChanges/last-build.bin
+1 .D N... 100644 100644 000000 297fa852afabd8d3640464ce0a699a4662ff0c97 297fa852afabd8d3640464ce0a699a4662ff0c97 android/.gradle/8.11.1/fileHashes/fileHashes.bin
+1 .D N... 100644 100644 000000 81c71e845549b6e057dc1461f9dffa24f9f19c40 81c71e845549b6e057dc1461f9dffa24f9f19c40 android/.gradle/8.11.1/fileHashes/resourceHashesCache.bin
+1 .D N... 100644 100644 000000 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 android/.gradle/8.11.1/gc.properties
+1 .D N... 100644 100644 000000 c97288ec05f868c6730bf58008031bf38b25cc67 c97288ec05f868c6730bf58008031bf38b25cc67 android/.gradle/9.7.1/checksums/sha1-checksums.bin
+1 .M N... 100644 100644 100644 afe8c2f377de2f16958656f44c6cdf5ae28acec1 afe8c2f377de2f16958656f44c6cdf5ae28acec1 android/.gradle/9.7.1/executionHistory/executionHistory.bin
+1 .M N... 100644 100644 100644 db71c84bf651dfd632009d21182c21b6887ffcfb db71c84bf651dfd632009d21182c21b6887ffcfb android/.gradle/9.7.1/fileHashes/fileHashes.bin
+1 .M N... 100644 100644 100644 274fb4fc5d7c1b17dbace61e833e0db0badf439d 274fb4fc5d7c1b17dbace61e833e0db0badf439d android/.gradle/9.7.1/fileHashes/resourceHashesCache.bin
+1 .M N... 100644 100644 100644 b3425eaf7298cc014ca6bd488cbc22693b2c0f98 b3425eaf7298cc014ca6bd488cbc22693b2c0f98 android/.gradle/buildOutputCleanup/cache.properties
+1 .M N... 100644 100644 100644 186447f9698a66e0a9f2fdc710f277ebb2a5c97b 186447f9698a66e0a9f2fdc710f277ebb2a5c97b android/.gradle/buildOutputCleanup/outputFiles.bin
+1 .M N... 100644 100644 100644 3c09b42ce7f423b6aa1d00ad4a1ef3b298e9a9df 3c09b42ce7f423b6aa1d00ad4a1ef3b298e9a9df android/app/src/main/java/com/nexhaat/app/data/remote/ApiService.kt
+1 .M N... 100644 100644 100644 c04379e2a62e9be428dc473e04dee02fa18613dd c04379e2a62e9be428dc473e04dee02fa18613dd android/app/src/main/java/com/nexhaat/app/data/remote/dto/ApiResponse.kt
+1 .M N... 100644 100644 100644 c8f15b3c43bc37a2ec9b3d8943bba1f2e2be5465 c8f15b3c43bc37a2ec9b3d8943bba1f2e2be5465 android/app/src/main/java/com/nexhaat/app/data/remote/dto/AuthDto.kt
+1 .M N... 100644 100644 100644 8b90d935af7d7772e77d9d4fa8b90ae9e62cc4d4 8b90d935af7d7772e77d9d4fa8b90ae9e62cc4d4 android/app/src/main/java/com/nexhaat/app/data/repository/AuthRepository.kt
+1 .M N... 100644 100644 100644 09b85c7e8569d57d8015793b14b980159003582b 09b85c7e8569d57d8015793b14b980159003582b android/app/src/main/java/com/nexhaat/app/ui/components/EmptyState.kt
+1 .M N... 100644 100644 100644 0b6ed2b235d1f9a43089051bbe76aed89ac9a7e6 0b6ed2b235d1f9a43089051bbe76aed89ac9a7e6 android/app/src/main/java/com/nexhaat/app/ui/components/ProductCard.kt
+1 .M N... 100644 100644 100644 000bcd24977b31e323a3f9e1f8fdefaff03b443a 000bcd24977b31e323a3f9e1f8fdefaff03b443a android/app/src/main/java/com/nexhaat/app/ui/components/ProductImage.kt
+1 .M N... 100644 100644 100644 d0c8766329fc53bcde22c987a5417be788d72e87 d0c8766329fc53bcde22c987a5417be788d72e87 android/app/src/main/java/com/nexhaat/app/ui/screens/ai/AIAssistantScreen.kt
+1 .M N... 100644 100644 100644 c0a7f27996a691891f22424bae1938f20a37daf0 c0a7f27996a691891f22424bae1938f20a37daf0 android/app/src/main/java/com/nexhaat/app/ui/screens/ai/AIAssistantViewModel.kt
+1 .M N... 100644 100644 100644 a2a043801aafb0847f928ad510933403efe227bb a2a043801aafb0847f928ad510933403efe227bb android/app/src/main/java/com/nexhaat/app/ui/screens/auth/ForgotPasswordViewModel.kt
+1 .M N... 100644 100644 100644 bb21291464c99a5b8abbaf112f0285980af761ea bb21291464c99a5b8abbaf112f0285980af761ea android/app/src/main/java/com/nexhaat/app/ui/screens/auth/SignInScreen.kt
+1 .M N... 100644 100644 100644 6a09cdbe2b1ecb96ef7ec0caec59e2379aaa593c 6a09cdbe2b1ecb96ef7ec0caec59e2379aaa593c android/app/src/main/java/com/nexhaat/app/ui/screens/auth/SignInViewModel.kt
+1 .M N... 100644 100644 100644 d24470743708366eba2c21cec82b89f5135c6008 d24470743708366eba2c21cec82b89f5135c6008 android/app/src/main/java/com/nexhaat/app/ui/screens/auth/SignUpScreen.kt
+1 .M N... 100644 100644 100644 59edb381f9c4f9b9095bc8278101d260d9a7a7b8 59edb381f9c4f9b9095bc8278101d260d9a7a7b8 android/app/src/main/java/com/nexhaat/app/ui/screens/auth/SignUpViewModel.kt
+1 .M N... 100644 100644 100644 ca093c16c281485ad7346e1b2625567e0b09f780 ca093c16c281485ad7346e1b2625567e0b09f780 android/app/src/main/java/com/nexhaat/app/ui/screens/auth/VerifyRegistrationViewModel.kt
+1 .M N... 100644 100644 100644 a9a13d9cb03c0d31033b634fd96dd59b905853e9 a9a13d9cb03c0d31033b634fd96dd59b905853e9 android/app/src/main/java/com/nexhaat/app/ui/screens/checkout/CheckoutViewModel.kt
+1 .M N... 100644 100644 100644 408a7846da9d3a71ecacc431e2147dc9dca9739d 408a7846da9d3a71ecacc431e2147dc9dca9739d android/app/src/main/java/com/nexhaat/app/ui/screens/deals/DealsScreen.kt
+1 .M N... 100644 100644 100644 eef4830d5e23822b7532e5c515468ee1c16f48e3 eef4830d5e23822b7532e5c515468ee1c16f48e3 android/app/src/main/java/com/nexhaat/app/ui/screens/deals/DealsViewModel.kt
+1 .M N... 100644 100644 100644 1ec04ecdef636b1f5e353585fb5edd1c3e5ffbc6 1ec04ecdef636b1f5e353585fb5edd1c3e5ffbc6 android/app/src/main/java/com/nexhaat/app/ui/screens/home/HomeScreen.kt
+1 .M N... 100644 100644 100644 352d0961f3dc2fbc0cc77138f856d473bc0594a2 352d0961f3dc2fbc0cc77138f856d473bc0594a2 android/app/src/main/java/com/nexhaat/app/ui/screens/notifications/NotificationsViewModel.kt
+1 .M N... 100644 100644 100644 51dad8bcb6f8fc371963e44754689a56b81be5b9 51dad8bcb6f8fc371963e44754689a56b81be5b9 android/app/src/main/java/com/nexhaat/app/ui/screens/orders/OrdersViewModel.kt
+1 .M N... 100644 100644 100644 80add9677a462efc8b3b5d928e228ca827308535 80add9677a462efc8b3b5d928e228ca827308535 android/app/src/main/java/com/nexhaat/app/ui/screens/portals/PortalsScreen.kt
+1 .M N... 100644 100644 100644 a276812d7adbfe9615c4c797a519c415d24563d6 a276812d7adbfe9615c4c797a519c415d24563d6 android/app/src/main/java/com/nexhaat/app/ui/screens/portals/PortalsViewModel.kt
+1 .M N... 100644 100644 100644 f081df86fbdf67806b29556530d9e41ce229583c f081df86fbdf67806b29556530d9e41ce229583c android/app/src/main/java/com/nexhaat/app/ui/screens/security/SecuritySettingsViewModel.kt
+1 .M N... 100644 100644 100644 1e6728c747c26e6afbf89fda4c8b3d6faf730a11 1e6728c747c26e6afbf89fda4c8b3d6faf730a11 android/app/src/main/java/com/nexhaat/app/ui/screens/settings/SettingsScreen.kt
+1 .M N... 100644 100644 100644 0e72c59005a59487a2484ae8f6ef95591d938c03 0e72c59005a59487a2484ae8f6ef95591d938c03 android/app/src/main/java/com/nexhaat/app/ui/screens/wishlist/WishlistScreen.kt
+1 .M N... 100644 100644 100644 99e0dcdc4f5f10e4829b366ccb673337ae5c962c 99e0dcdc4f5f10e4829b366ccb673337ae5c962c android/app/src/main/java/com/nexhaat/app/ui/screens/wishlist/WishlistViewModel.kt
+1 .M N... 100644 100644 100644 6ef095316ca59edf2185de1208b83b5c17470a60 6ef095316ca59edf2185de1208b83b5c17470a60 android/app/src/main/java/com/nexhaat/app/ui/theme/Color.kt
+1 .M N... 100644 100644 100644 c19400f7db2ceb177c0b84608f9254e09de29350 c19400f7db2ceb177c0b84608f9254e09de29350 android/app/src/main/java/com/nexhaat/app/ui/theme/Theme.kt
+1 .M N... 100644 100644 100644 9c00e1f50336a631b8c2ab83198b3b235a951516 9c00e1f50336a631b8c2ab83198b3b235a951516 android/app/src/main/res/values-bn/strings.xml
+1 .M N... 100644 100644 100644 b43719b4b7a626007f99b177e6c361908f8e59c0 b43719b4b7a626007f99b177e6c361908f8e59c0 android/app/src/main/res/values-night/colors.xml
+1 .M N... 100644 100644 100644 fab180691fbc3f5ebbbb30acd6f89b1a8b50a842 fab180691fbc3f5ebbbb30acd6f89b1a8b50a842 android/app/src/main/res/values/colors.xml
+1 .M N... 100644 100644 100644 cab2434122affd8130467d865a70c690e9465406 cab2434122affd8130467d865a70c690e9465406 android/app/src/main/res/values/strings.xml
+1 .D N... 100644 100644 000000 9b98d7da029aac86ab9540e2d0f9295707cf0914 9b98d7da029aac86ab9540e2d0f9295707cf0914 android/local.properties
+1 .M N... 100644 100644 100644 a1d67c8fe47a9afac7d994921665c86e67be1334 a1d67c8fe47a9afac7d994921665c86e67be1334 app/api/routes/auth.py
+1 .M N... 100644 100644 100644 b51bd29f2b620961118a28c70c084787ed1702fd b51bd29f2b620961118a28c70c084787ed1702fd app/api/routes/catalog.py
+1 .M N... 100644 100644 100644 7d784342b4d61359999aace1d873849e15d92031 7d784342b4d61359999aace1d873849e15d92031 app/api/serializers.py
+1 .M N... 100644 100644 100644 c176884ed8e95b6cc3f40ba993b0e7c1db83bb45 c176884ed8e95b6cc3f40ba993b0e7c1db83bb45 app/config.py
+1 .M N... 100644 100644 100644 65d1727beeaed6f07f126e886b8fde7df6f710e4 65d1727beeaed6f07f126e886b8fde7df6f710e4 app/models/__init__.py
+1 .M N... 100644 100644 100644 aac76b4a2a9334fd7c7373853ebeeab9598d4534 aac76b4a2a9334fd7c7373853ebeeab9598d4534 app/models/security.py
+1 .M N... 100644 100644 100644 5d7e2acaa58883fc7fabb237a2fc3262dcbff016 5d7e2acaa58883fc7fabb237a2fc3262dcbff016 app/models/user.py
+1 .M N... 100644 100644 100644 605847bdf598e002bb2778e189aa437cfd224d1b 605847bdf598e002bb2778e189aa437cfd224d1b app/routes/auth.py
+1 .M N... 100644 100644 100644 95147b4999b17a8e384777be7982e4395a001680 95147b4999b17a8e384777be7982e4395a001680 app/static/css/auth.css
+1 .M N... 100644 100644 100644 1349dc5c3abc33463f8c049715f9d90953ec3ad0 1349dc5c3abc33463f8c049715f9d90953ec3ad0 app/static/css/marketplace.css
+1 .M N... 100644 100644 100644 219d53bfb7e5b24cf0fb91b9dbabdee3be9f49e9 219d53bfb7e5b24cf0fb91b9dbabdee3be9f49e9 app/static/css/otp-verification.css
+1 .M N... 100644 100644 100644 1babdfedc6ea690c5bebc2f1745d601d363a5ede 1babdfedc6ea690c5bebc2f1745d601d363a5ede app/static/css/site.css
+1 .M N... 100644 100644 100644 c342a64d4d7eea22be29cf8121d31dc6b0be13e8 c342a64d4d7eea22be29cf8121d31dc6b0be13e8 app/static/js/otp-verification.js
+1 .M N... 100644 100644 100644 31a0d6eabc290c989b06d5b8d2f11485a1d5f8e2 31a0d6eabc290c989b06d5b8d2f11485a1d5f8e2 app/static/js/site.js
+1 .M N... 100644 100644 100644 7f72cd771193a9c1bf2066b653d10be0a1551d45 7f72cd771193a9c1bf2066b653d10be0a1551d45 app/static/logo.svg
+1 .M N... 100644 100644 100644 04842e58d07f414c8c615eee93bfaa7e68148b14 04842e58d07f414c8c615eee93bfaa7e68148b14 app/templates/ai/admin.html
+1 .M N... 100644 100644 100644 7492993b6dcfda037547f5f12079f8c1df01d42a 7492993b6dcfda037547f5f12079f8c1df01d42a app/templates/ai/customer.html
+1 .M N... 100644 100644 100644 234e8e44169f916ed7e4ea6e85cab498f5a7143f 234e8e44169f916ed7e4ea6e85cab498f5a7143f app/templates/ai/preferences.html
+1 .M N... 100644 100644 100644 115b25aaa7bb7d82fd008d5820c486f06df06bf3 115b25aaa7bb7d82fd008d5820c486f06df06bf3 app/templates/ai/seller.html
+1 .M N... 100644 100644 100644 560fc47582be16983f11287ad26e4a695d27c8bf 560fc47582be16983f11287ad26e4a695d27c8bf app/templates/auth/base.html
+1 .M N... 100644 100644 100644 c162176b7dc7d9eaf910ca2dafc2277e856ab0b5 c162176b7dc7d9eaf910ca2dafc2277e856ab0b5 app/templates/auth/verify_admin_login.html
+1 .M N... 100644 100644 100644 0d5ab616112065c254918f9a400310b4e6f6b017 0d5ab616112065c254918f9a400310b4e6f6b017 app/templates/auth/verify_registration.html
+1 .M N... 100644 100644 100644 5b546f3e42379c26ed7c9222a03fd84501909256 5b546f3e42379c26ed7c9222a03fd84501909256 app/templates/auth/verify_reset_code.html
+1 .M N... 100644 100644 100644 e6bbff469e3049ab9e631645261d80c267b7241c e6bbff469e3049ab9e631645261d80c267b7241c app/templates/base.html
+1 .M N... 100644 100644 100644 1465d3aa7f7d9057b114358ef7c81bd08344945f 1465d3aa7f7d9057b114358ef7c81bd08344945f app/templates/support/case.html
+1 .M N... 100644 100644 100644 b8adec22667d4cd4756648364603770eeb25b272 b8adec22667d4cd4756648364603770eeb25b272 app/templates/support/customer.html
+1 .M N... 100644 100644 100644 91af4f2ab915baa251f82403c9158eff7e9d041d 91af4f2ab915baa251f82403c9158eff7e9d041d app/templates/support/staff_queue.html
+1 .D N... 100644 100644 000000 e176eeb12aa28ecd6cfb8718c0b165baa9194c82 e176eeb12aa28ecd6cfb8718c0b165baa9194c82 artifacts/live-503-home.png
+1 .M N... 100644 100644 100644 9ca917edc91968f147b4ab473adf804a68059464 9ca917edc91968f147b4ab473adf804a68059464 firestore.rules
+1 .M N... 100644 100644 100644 9bdc0a690be0f1569e7a8ae6bfb8634c4871b591 9bdc0a690be0f1569e7a8ae6bfb8634c4871b591 index.html
+1 .M N... 100644 100644 100644 f473d58a486058527c32ad07a0436dbe9af64a1c f473d58a486058527c32ad07a0436dbe9af64a1c package-lock.json
+1 .M N... 100644 100644 100644 bc7e9d9b81742a96ffda49b813f8e495e2a6fdfa bc7e9d9b81742a96ffda49b813f8e495e2a6fdfa package.json
+1 .M N... 100644 100644 100644 d0c5ab834a84099105c3cbb9239d69f42ccf8451 d0c5ab834a84099105c3cbb9239d69f42ccf8451 public/assets/aistudio/Paste_November_03__2026_-_7_43AM_6f707fc0
+1 .M N... 100644 100644 100644 7f72cd771193a9c1bf2066b653d10be0a1551d45 7f72cd771193a9c1bf2066b653d10be0a1551d45 public/logo.svg
+1 .M N... 100644 100644 100644 c4bade7a33bbc950ac9242c43910b2db1c9cb131 c4bade7a33bbc950ac9242c43910b2db1c9cb131 requirements.txt
+1 .M N... 100644 100644 100644 21de06ce5510d154816a90be2199d0872cfbff3d 21de06ce5510d154816a90be2199d0872cfbff3d server.ts
+1 .M N... 100644 100644 100644 0c89540eb48f58653a584f58f51bc3baa1324f04 0c89540eb48f58653a584f58f51bc3baa1324f04 src/App.tsx
+1 .M N... 100644 100644 100644 fe855d65a3a7dc3ca6aae6a25464467a6c3638cd fe855d65a3a7dc3ca6aae6a25464467a6c3638cd src/components/AIAssistantDrawer.tsx
+1 .M N... 100644 100644 100644 98715454faf46d8dc7bec4f69e6cae88394ffcfe 98715454faf46d8dc7bec4f69e6cae88394ffcfe src/components/AmazonAppBanner.tsx
+1 .M N... 100644 100644 100644 679b50fd7a940aa6a3fd36cfeb3d9faa2b33444a 679b50fd7a940aa6a3fd36cfeb3d9faa2b33444a src/components/CartDrawer.tsx
+1 .M N... 100644 100644 100644 3ca40dd91128a53607ec9bb98796f870854252d5 3ca40dd91128a53607ec9bb98796f870854252d5 src/components/CompareModal.tsx
+1 .M N... 100644 100644 100644 9ba0cb110230db720ec8c8605a3665619866419b 9ba0cb110230db720ec8c8605a3665619866419b src/components/DateRangePicker.tsx
+1 .M N... 100644 100644 100644 a58599d098b2c5017b706ef8cecad09fb2a98d87 a58599d098b2c5017b706ef8cecad09fb2a98d87 src/components/FlaskAuthPanel.tsx
+1 .M N... 100644 100644 100644 d7649aed80e90b2095a65d4c10e4a2143f25469d d7649aed80e90b2095a65d4c10e4a2143f25469d src/components/Footer.tsx
+1 .M N... 100644 100644 100644 ccedf8a985b5193832314302aafa7621c7360b47 ccedf8a985b5193832314302aafa7621c7360b47 src/components/Navbar.tsx
+1 .M N... 100644 100644 100644 003e7796ce21c5bf20371f09d93f087c31b398e3 003e7796ce21c5bf20371f09d93f087c31b398e3 src/components/PWAInstallButton.tsx
+1 .M N... 100644 100644 100644 5e31abf3ba5a75ec7e09ab07441b8747c2cbd277 5e31abf3ba5a75ec7e09ab07441b8747c2cbd277 src/components/PriceAlertModal.tsx
+1 .M N... 100644 100644 100644 5b038077daed7955b1422f5930594eafddeddfcb 5b038077daed7955b1422f5930594eafddeddfcb src/components/PriceIntelligenceCard.tsx
+1 .M N... 100644 100644 100644 b9f2acfb9cd35f7c1691d034a95eb2084b3c026b b9f2acfb9cd35f7c1691d034a95eb2084b3c026b src/components/PriceTrendChart.tsx
+1 .M N... 100644 100644 100644 163287cc048e8c33f5331f3f56fc1ba9d6639e0c 163287cc048e8c33f5331f3f56fc1ba9d6639e0c src/components/PrimeModal.tsx
+1 .M N... 100644 100644 100644 8fc77b9c9efbf4454a0f6252a6dfef53062b759f 8fc77b9c9efbf4454a0f6252a6dfef53062b759f src/components/ProductCard.tsx
+1 .M N... 100644 100644 100644 88d797b839dafe2290f4d1ff8c6371f080b8564b 88d797b839dafe2290f4d1ff8c6371f080b8564b src/components/ProductReviewsSection.tsx
+1 .M N... 100644 100644 100644 6eef9f4e2a8a834a6dedd402e39361640f5b9f24 6eef9f4e2a8a834a6dedd402e39361640f5b9f24 src/components/SearchAnalyticsDashboard.tsx
+1 .M N... 100644 100644 100644 dd923befb068be7d80dcf398d0e0fbb69bd8eda7 dd923befb068be7d80dcf398d0e0fbb69bd8eda7 src/context/AppContext.tsx
+1 .M N... 100644 100644 100644 126701604d9a3a2d3b21d82afd2bdf5241155a1c 126701604d9a3a2d3b21d82afd2bdf5241155a1c src/data/mockData.ts
+1 .M N... 100644 100644 100644 d2a8d1d0456643fc33bf92dfa4f1116ab95df12e d2a8d1d0456643fc33bf92dfa4f1116ab95df12e src/index.css
+1 .M N... 100644 100644 100644 b5eb9a26502a94c537fcabdf2896569a918480ed b5eb9a26502a94c537fcabdf2896569a918480ed src/lib/flaskAuth.ts
+1 .M N... 100644 100644 100644 58249767b7f231fc7a74ef4c6ff88363e563c133 58249767b7f231fc7a74ef4c6ff88363e563c133 src/lib/marketplaceApi.ts
+1 .M N... 100644 100644 100644 375a4ccc8ed179002479b0027866e3141f792316 375a4ccc8ed179002479b0027866e3141f792316 src/pages/CatalogPage.tsx
+1 .M N... 100644 100644 100644 52e28beb087d216b77635b83ca70e2c34331f429 52e28beb087d216b77635b83ca70e2c34331f429 src/pages/CheckoutPage.tsx
+1 .M N... 100644 100644 100644 0ead28f817cc27b026fc91dfc474d0157f7d84a6 0ead28f817cc27b026fc91dfc474d0157f7d84a6 src/pages/DealsPage.tsx
+1 .M N... 100644 100644 100644 9a4f3028088e0233ce6f541f38508f58bc7e8dc8 9a4f3028088e0233ce6f541f38508f58bc7e8dc8 src/pages/HomePage.tsx
+1 .M N... 100644 100644 100644 d3edea9113148ca781e5243d058648c473d29f27 d3edea9113148ca781e5243d058648c473d29f27 src/pages/MyOrdersPage.tsx
+1 .M N... 100644 100644 100644 876e1c5d7b5f90a26c2b839c60d4dfd99e6ff94b 876e1c5d7b5f90a26c2b839c60d4dfd99e6ff94b src/pages/OrderConfirmationPage.tsx
+1 .M N... 100644 100644 100644 baa3874a05cf33e20f1d783f9975d3cae2a91e92 baa3874a05cf33e20f1d783f9975d3cae2a91e92 src/pages/ProductDetailPage.tsx
+1 .M N... 100644 100644 100644 6992119b5815e39da6fd60604a7d83715db26df5 6992119b5815e39da6fd60604a7d83715db26df5 src/pages/RiderPortalPage.tsx
+1 .M N... 100644 100644 100644 a297e69db621f2a09b895026a5f5708cf26389de a297e69db621f2a09b895026a5f5708cf26389de src/pages/SellerPortalPage.tsx
+1 .M N... 100644 100644 100644 c23e9bf60bee9772f4d049df6e96a0a012edf7b9 c23e9bf60bee9772f4d049df6e96a0a012edf7b9 src/pages/SupportPage.tsx
+1 .M N... 100644 100644 100644 f33311805c26c29c9fdf279c72fb6bbf9b6b86d3 f33311805c26c29c9fdf279c72fb6bbf9b6b86d3 src/types/index.ts
+1 .M N... 100644 100644 100644 80f6e4b0284e8e0596d44d9ee4bc4524593cc3f4 80f6e4b0284e8e0596d44d9ee4bc4524593cc3f4 tailwind.config.js
+1 .M N... 100644 100644 100644 1ca38786ce5c7eb0b8024bc724b1de6e81180844 1ca38786ce5c7eb0b8024bc724b1de6e81180844 tests-node/server-security.test.ts
+1 .M N... 100644 100644 100644 3b9ee1deab5a07dba5ad150573802f43679d1bdc 3b9ee1deab5a07dba5ad150573802f43679d1bdc tests/test_review_trust.py
+1 .M N... 100644 100644 100644 df258d22d00929367f179254251d7feb013e370b df258d22d00929367f179254251d7feb013e370b tests/test_reviews.py
+1 .M N... 100644 100644 100644 cdef8fcc5253969d79f85fe269fe8381568983a3 cdef8fcc5253969d79f85fe269fe8381568983a3 vite.config.ts
+? .aistudio/artifacts/brain/68a56bc5-7cf9-4ee9-b7c4-4bd9f60fd4e8/
+? .aistudio/artifacts/brain/7a6022cd-a4ca-427d-9387-a0c4a3be02a0/
+? android/app/src/main/java/com/nexhaat/app/ui/theme/MotionTokens.kt
+? app/services/two_factor.py
+? app/services/two_factor_crypto.py
+? app/templates/auth/verify_2fa_login.html
+? bun.lock
+? dev-dist/
+? docs/amazon-research/
+? docs/architecture/AMAZON_REFERENCE_AND_NEXHAAT_PARITY.md
+? docs/architecture/ANIMATION_AND_MOTION_STANDARD.md
+? docs/architecture/DATABASE_SCHEMA_TWO_FACTOR.md
+? docs/architecture/NEXHAAT_PHASE0_REA_AND_SYSTEM_AUDIT.md
+? docs/architecture/PHASE1_STEP_D_G_IMPLEMENTATION_REPORT.md
+? docs/architecture/WEBSITE_ANDROID_FEATURE_PARITY.md
+? docs/design/
+? docs/implementation/
+? docs/recovery/
+? migrations/versions/20261104_01_two_factor_auth.py
+? public/assets/aistudio/Paste_November_03__2026_-_6_56PM_524861a5
+? scripts/generate_apk_package.py
+? serverAI.ts
+? serverVisualSearch.ts
+? src/components/AICopilotFAB.tsx
+? src/components/ScrollProgressBar.tsx
+? src/components/SplashScreen.tsx
+? src/lib/currency.test.ts
+? src/lib/currency.ts
+? src/lib/i18n.test.ts
+? src/lib/i18n.ts
+? src/lib/motionTokens.test.ts
+? src/lib/motionTokens.ts
+? src/lib/useMotionPresence.ts
+? src/services/
+? tests/test_auth_two_factor.py

@@ -1,6 +1,5 @@
 """Session-authenticated REST endpoints for account access."""
 
-import hashlib
 import hmac
 import re
 import secrets
@@ -19,7 +18,10 @@ from ...models import (
     RegistrationChallenge,
     SellerProfile,
     User,
+<<<<<<< HEAD
     UserBackupCode,
+=======
+>>>>>>> d5fb7ab (Fix)
     UserTwoFactor,
 )
 from ...security import (
@@ -509,6 +511,10 @@ def setup_2fa():
         user.two_factor.encryption_key_version = version
         user.two_factor.enabled = False
         user.two_factor.confirmed_at = None
+<<<<<<< HEAD
+=======
+        user.two_factor.last_used_step = None
+>>>>>>> d5fb7ab (Fix)
         user.two_factor.updated_at = datetime.now(UTC)
     else:
         tf = UserTwoFactor(
@@ -560,16 +566,35 @@ def confirm_2fa():
     from ...services.two_factor_crypto import decrypt_totp_secret
 
     secret = decrypt_totp_secret(tf.encrypted_secret, version=tf.encryption_key_version)
+<<<<<<< HEAD
     valid, step = verify_totp_code(secret, code, last_used_step=tf.last_used_step)
+=======
+    valid, step = verify_totp_code(secret, code)
+>>>>>>> d5fb7ab (Fix)
 
     if not valid:
         record_audit("auth.2fa_confirm_failed", actor=user)
         raise ApiError("The 6-digit authenticator code is incorrect or expired.", "INVALID_CODE", 400)
 
+<<<<<<< HEAD
     tf.enabled = True
     tf.confirmed_at = datetime.now(UTC)
     tf.last_used_step = step
     tf.updated_at = datetime.now(UTC)
+=======
+    from ...services.two_factor import consume_totp_step
+    if not consume_totp_step(
+        user.id,
+        step,
+        require_enabled=False,
+        expected_secret=tf.encrypted_secret,
+        expected_key_version=tf.encryption_key_version,
+        enable=True,
+    ):
+        record_audit("auth.2fa_confirm_failed", actor=user)
+        raise ApiError("The authenticator code is incorrect, expired, or already used.", "INVALID_CODE", 400)
+
+>>>>>>> d5fb7ab (Fix)
     user.auth_version += 1
     session["auth_version"] = user.auth_version
     db.session.commit()
@@ -599,7 +624,11 @@ def challenge_2fa():
             raise ApiError("Two-factor challenge expired. Please sign in again.", "CHALLENGE_EXPIRED", 401)
     except (ValueError, TypeError):
         session.clear()
+<<<<<<< HEAD
         raise ApiError("Two-factor challenge is invalid. Please sign in again.", "CHALLENGE_EXPIRED", 401)
+=======
+        raise ApiError("Two-factor challenge is invalid. Please sign in again.", "CHALLENGE_EXPIRED", 401) from None
+>>>>>>> d5fb7ab (Fix)
 
     attempts = int(session.get("pending_2fa_attempts", 0) or 0)
     if attempts >= TWO_FACTOR_MAX_ATTEMPTS:
@@ -624,12 +653,28 @@ def challenge_2fa():
     if len(code) == 6 and code.isdigit():
         tf = user.two_factor
         secret = decrypt_totp_secret(tf.encrypted_secret, version=tf.encryption_key_version)
+<<<<<<< HEAD
         valid, step = verify_totp_code(secret, code, last_used_step=tf.last_used_step)
         if valid:
             tf.last_used_step = step
             db.session.commit()
             authenticated = True
             record_audit("auth.login_2fa", actor=user)
+=======
+        valid, step = verify_totp_code(secret, code)
+        if valid:
+            from ...services.two_factor import consume_totp_step
+            authenticated = consume_totp_step(
+                user.id,
+                step,
+                require_enabled=True,
+                expected_secret=tf.encrypted_secret,
+                expected_key_version=tf.encryption_key_version,
+            )
+            if authenticated:
+                db.session.commit()
+                record_audit("auth.login_2fa", actor=user)
+>>>>>>> d5fb7ab (Fix)
     elif len(code) == 8 and code.isdigit():
         if verify_and_consume_backup_code(user.id, code):
             authenticated = True
@@ -667,10 +712,23 @@ def regenerate_backup_codes():
         from ...services.two_factor import verify_totp_code
         from ...services.two_factor_crypto import decrypt_totp_secret
         secret = decrypt_totp_secret(user.two_factor.encrypted_secret, version=user.two_factor.encryption_key_version)
+<<<<<<< HEAD
         valid, step = verify_totp_code(secret, code, last_used_step=user.two_factor.last_used_step)
         if valid:
             user.two_factor.last_used_step = step
             reauth_ok = True
+=======
+        valid, step = verify_totp_code(secret, code)
+        if valid:
+            from ...services.two_factor import consume_totp_step
+            reauth_ok = consume_totp_step(
+                user.id,
+                step,
+                require_enabled=True,
+                expected_secret=user.two_factor.encrypted_secret,
+                expected_key_version=user.two_factor.encryption_key_version,
+            )
+>>>>>>> d5fb7ab (Fix)
 
     if not reauth_ok:
         raise ApiError("Your password or current authenticator code is required to regenerate backup codes.", "REAUTH_REQUIRED", 403)
@@ -705,9 +763,22 @@ def disable_2fa():
         from ...services.two_factor import verify_totp_code
         from ...services.two_factor_crypto import decrypt_totp_secret
         secret = decrypt_totp_secret(user.two_factor.encrypted_secret, version=user.two_factor.encryption_key_version)
+<<<<<<< HEAD
         valid, step = verify_totp_code(secret, code, last_used_step=user.two_factor.last_used_step)
         if valid:
             reauth_ok = True
+=======
+        valid, step = verify_totp_code(secret, code)
+        if valid:
+            from ...services.two_factor import consume_totp_step
+            reauth_ok = consume_totp_step(
+                user.id,
+                step,
+                require_enabled=True,
+                expected_secret=user.two_factor.encrypted_secret,
+                expected_key_version=user.two_factor.encryption_key_version,
+            )
+>>>>>>> d5fb7ab (Fix)
 
     if not reauth_ok:
         raise ApiError("Your password or current authenticator code is required to disable 2FA.", "REAUTH_REQUIRED", 403)
@@ -723,5 +794,8 @@ def disable_2fa():
 
     record_audit("auth.2fa_disabled", actor=user)
     return success_response({"two_factor_enabled": False}, "Two-factor authentication has been disabled.")
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> d5fb7ab (Fix)

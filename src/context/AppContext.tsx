@@ -1,12 +1,15 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { 
   User, UserRole, Product, Category, CartItem, Order, 
   Review, Notification, Promotion, ProductVariant, OrderStatus, 
-  ProductQuestion, AIChatMessage, SponsoredCampaign, PriceAlert 
+  ProductQuestion, AIChatMessage, SponsoredCampaign, PriceAlert,
+  AppLanguage, AppCurrency
 } from '../types';
+import { formatCurrencyPrice, CURRENCY_CONFIGS } from '../lib/currency';
+import { translate, SUPPORTED_LANGUAGES } from '../lib/i18n';
 import { 
-  INITIAL_USERS, INITIAL_CATEGORIES, INITIAL_PRODUCTS, 
-  INITIAL_PROMOTIONS, INITIAL_REVIEWS, INITIAL_NOTIFICATIONS, 
+  INITIAL_USERS,
+  INITIAL_PROMOTIONS,
   INITIAL_QUESTIONS, INITIAL_SPONSORED_CAMPAIGNS 
 } from '../data/mockData';
 import { 
@@ -28,6 +31,8 @@ import {
 import {
   addMarketplaceCartItem,
   addMarketplaceWishlistItem,
+  clearMarketplaceCart,
+  fetchMarketplaceCart,
   fetchMarketplaceCatalog,
   fetchMarketplaceWishlist,
   removeMarketplaceCartItem,
@@ -35,10 +40,12 @@ import {
   cancelMarketplaceOrder,
   fetchMarketplaceNotifications,
   fetchMarketplaceOrders,
+  fetchMarketplaceProductReviews,
   markAllMarketplaceNotificationsRead,
   markMarketplaceNotificationRead,
   requestMarketplaceReturn,
   submitMarketplaceCheckout,
+  submitMarketplaceProductReview,
   updateMarketplaceCartItem,
 } from '../lib/marketplaceApi';
 
@@ -77,13 +84,15 @@ interface AppContextType {
   navigateToProduct: (slug: string) => void;
   navigateToCategory: (categorySlug: string) => void;
 
-  // Language & Theme
-  language: 'en' | 'bn';
-  setLanguage: (lang: 'en' | 'bn') => void;
+  // Language, Currency & Theme
+  language: AppLanguage;
+  setLanguage: (lang: AppLanguage) => void;
+  currency: AppCurrency;
+  setCurrency: (curr: AppCurrency) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
-  t: (en: string, bn: string) => string;
-  formatPrice: (amount: number) => string;
+  t: (en: string, bn: string, ar?: string, hi?: string) => string;
+  formatPrice: (amount: number, overrideCurrency?: AppCurrency) => string;
 
   // User & Roles
   currentUser: User;
@@ -106,6 +115,7 @@ interface AppContextType {
     promotionCode?: string;
   }) => Promise<Order>;
   isMarketplaceCatalogLoading: boolean;
+  isMarketplaceCatalogReady: boolean;
   marketplaceCatalogError: string | null;
 
   // NexHaat Prime
@@ -170,8 +180,9 @@ interface AppContextType {
 
   // Reviews & Q&A
   reviews: Review[];
-  addReview: (productId: number, rating: number, comment: string) => void;
+  addReview: (productId: number, rating: number, comment: string) => Promise<Review>;
   getProductReviews: (productId: number) => Review[];
+  refreshProductReviews: (productId: number) => Promise<Review[]>;
   questions: ProductQuestion[];
   addQuestion: (productId: number, questionText: string) => void;
   getProductQuestions: (productId: number) => ProductQuestion[];
@@ -181,6 +192,7 @@ interface AppContextType {
   setIsAIAssistantOpen: (open: boolean) => void;
   aiMessages: AIChatMessage[];
   sendAIMessage: (text: string) => void;
+  addAIResponse: (text: string) => void;
   clearAIChat: () => void;
 
   // Seller Ads / Sponsored
@@ -217,8 +229,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState<boolean>(false);
 
   // Localization & Theme
-  const [language, setLanguage] = useState<'en' | 'bn'>(() => {
-    return (localStorage.getItem('nexhaat_lang') as 'en' | 'bn') || 'en';
+  const [language, setLanguage] = useState<AppLanguage>(() => {
+    return (localStorage.getItem('nexhaat_lang') as AppLanguage) || 'en';
+  });
+
+  const [currency, setCurrency] = useState<AppCurrency>(() => {
+    return (localStorage.getItem('nexhaat_currency') as AppCurrency) || 'BDT';
   });
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -228,7 +244,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // User & Persona
   const [currentRole, setCurrentRole] = useState<UserRole>('customer');
   const [isPrimeMember, setIsPrimeMember] = useState<boolean>(() => {
-    return localStorage.getItem('nexhaat_prime') !== 'false';
+    return localStorage.getItem('nexhaat_prime') === 'true';
   });
 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -356,7 +372,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await logoutFromFlask();
       setFlaskUser(null);
       setOrders([]);
-      setNotifications(INITIAL_NOTIFICATIONS);
+      setNotifications([]);
       showToast(t('Marketplace session ended.', 'মার্কেটপ্লেস session শেষ হয়েছে।'), 'info');
     } finally {
       setIsFlaskAuthLoading(false);
@@ -382,14 +398,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     isPrimeMember,
   };
 
-  // Data Store with Local Storage persistence
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('nexhaat_products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
+  // Catalog data comes from Flask; browser storage and demo seeds are not authoritative.
+  const [products, setProducts] = useState<Product[]>([]);
 
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isMarketplaceCatalogLoading, setIsMarketplaceCatalogLoading] = useState(false);
+  const [isMarketplaceCatalogReady, setIsMarketplaceCatalogReady] = useState(false);
   const [marketplaceCatalogError, setMarketplaceCatalogError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -397,20 +411,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsMarketplaceCatalogLoading(true);
     fetchMarketplaceCatalog()
       .then(({ products: apiProducts, categories: apiCategories }) => {
-        if (!active || apiProducts.length === 0) return;
+        if (!active) return;
         setProducts(apiProducts);
-        if (apiCategories.length > 0) setCategories(apiCategories);
+        setCategories(apiCategories);
         setMarketplaceCatalogError(null);
       })
       .catch((error: unknown) => {
         if (active) {
+          setProducts([]);
+          setCategories([]);
           setMarketplaceCatalogError(
             error instanceof Error ? error.message : 'Marketplace catalog is unavailable.',
           );
         }
       })
       .finally(() => {
-        if (active) setIsMarketplaceCatalogLoading(false);
+        if (active) {
+          setIsMarketplaceCatalogLoading(false);
+          setIsMarketplaceCatalogReady(true);
+        }
       });
     return () => {
       active = false;
@@ -427,80 +446,110 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Reconcile the guest cart with the server-side customer cart after sign-in.
+  // Flask owns cart contents for signed-in customers, so the browser copy is a
+  // preview until this merge completes. The guard keeps it to one run per session.
+  const cartHydratedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (flaskUser?.role !== 'customer' || !flaskUser.email) {
+      cartHydratedForUser.current = null;
+      return undefined;
+    }
+    if (!isMarketplaceCatalogReady) return undefined;
+    const hydrationKey = flaskUser.email;
+    if (cartHydratedForUser.current === hydrationKey) return undefined;
+    cartHydratedForUser.current = hydrationKey;
+    let active = true;
+
+    const reconcile = async () => {
+      const serverCart = await fetchMarketplaceCart();
+      const serverByKey = new Map(serverCart.items.map((item) => [item.key, item]));
+      const merged: CartItem[] = [];
+
+      for (const localItem of cart) {
+        const key = localItem.selectedVariant?.id
+          ? `${localItem.product.id}:${localItem.selectedVariant.id}`
+          : String(localItem.product.id);
+        const liveProduct = products.find((item) => item.id === localItem.product.id) ?? localItem.product;
+        const serverItem = serverByKey.get(key);
+        if (serverItem) {
+          merged.push({
+            ...localItem,
+            product: liveProduct,
+            quantity: Math.min(Math.max(serverItem.quantity, localItem.quantity), 20),
+          });
+          if (localItem.quantity > serverItem.quantity) {
+            try {
+              await addMarketplaceCartItem(
+                liveProduct,
+                localItem.selectedVariant,
+                localItem.quantity - serverItem.quantity,
+              );
+            } catch {
+              // Stock may have changed; checkout revalidates every line.
+            }
+          }
+          serverByKey.delete(key);
+          continue;
+        }
+        try {
+          await addMarketplaceCartItem(liveProduct, localItem.selectedVariant, localItem.quantity);
+          merged.push({ ...localItem, product: liveProduct });
+        } catch {
+          showToast(
+            t('Some cart items are no longer available.', 'কিছু কার্ট আইটেম আর পাওয়া যাচ্ছে না।'),
+            'warning',
+          );
+        }
+      }
+
+      for (const serverItem of serverByKey.values()) {
+        const liveProduct = products.find((item) => item.id === serverItem.product_id);
+        if (!liveProduct) continue;
+        const variant = serverItem.variant_id
+          ? liveProduct.variants?.find((item) => Number(item.id) === serverItem.variant_id)
+          : undefined;
+        merged.push({
+          product: liveProduct,
+          selectedVariant: variant,
+          quantity: serverItem.quantity,
+        });
+      }
+
+      if (active) setCart(merged);
+    };
+
+    reconcile().catch(() => {
+      showToast(
+        t('The saved server cart could not be loaded.', 'সার্ভারে সংরক্ষিত কার্ট লোড করা যায়নি।'),
+        'warning',
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [flaskUser, isMarketplaceCatalogReady, products, cart]);
+
   const [comparedProductIds, setComparedProductIds] = useState<number[]>([]);
 
-  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(() => {
-    return [INITIAL_PRODUCTS[0], INITIAL_PRODUCTS[1], INITIAL_PRODUCTS[3]];
-  });
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
 
   const [wishlist, setWishlist] = useState<number[]>(() => {
     const saved = localStorage.getItem('nexhaat_wishlist');
-    return saved ? JSON.parse(saved) : [101, 104];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('nexhaat_orders');
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: 'ord-demo-01',
-        order_number: 'NH-2026-8821',
-        created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-        customer_name: 'Tanvir Rahman',
-        customer_phone: '+8801711223344',
-        customer_email: 'tanvir.rahman@example.com',
-        delivery_address: {
-          division: 'Dhaka',
-          district: 'Dhaka',
-          thana: 'Dhanmondi',
-          street: 'Flat 4B, House 18, Road 7',
-          notes: 'Call before arriving',
-        },
-        delivery_speed: 'standard',
-        payment_method: 'cod',
-        payment_status: 'pending',
-        status: 'shipped',
-        items: [
-          {
-            product_id: 101,
-            product_name: 'Premium Rajshahi Fazli Sweet Mangoes (5kg Basket)',
-            product_name_bn: 'রাজশাহীর সেরা ফজলি আম (৫ কেজি বাস্কেট)',
-            seller_id: 1,
-            seller_name: 'Dhaka Fresh & Agro Haat',
-            image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=800&q=80',
-            unit_price: 720,
-            quantity: 1,
-            variant_name: '5kg Crate',
-            total_price: 720,
-          },
-          {
-            product_id: 104,
-            product_name: 'Authentic Traditional Bogra Shahi Misti Doi',
-            product_name_bn: 'ঐতিহ্যবাহী বগুড়ার শাহী মিষ্টি দই',
-            seller_id: 3,
-            seller_name: 'Gouripur Dairy & Sweets',
-            image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80',
-            unit_price: 310,
-            quantity: 2,
-            total_price: 620,
-          }
-        ],
-        subtotal: 1340,
-        delivery_fee: 0,
-        discount_amount: 0,
-        total_amount: 1340,
-        rider_name: 'Kamal Hossain',
-        rider_phone: '+8801912998877',
-      }
-    ];
+    const saved = localStorage.getItem("nexhaat_orders");
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [lastConfirmedOrder, setLastConfirmedOrder] = useState<Order | null>(null);
   const [activeCoupon, setActiveCoupon] = useState<Promotion | null>(null);
-  const [reviews, setReviews] = useState<Review[]>(INITIAL_REVIEWS);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [questions, setQuestions] = useState<ProductQuestion[]>(INITIAL_QUESTIONS);
   const [sponsoredCampaigns, setSponsoredCampaigns] = useState<SponsoredCampaign[]>(INITIAL_SPONSORED_CAMPAIGNS);
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>(() => {
     try {
@@ -544,16 +593,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     {
       id: 'ai-init',
       sender: 'assistant',
-      text: 'Hello Tanvir! I am HaatAI, your intelligent Gemini shopping assistant on NexHaat. Looking for fresh river ilish, seasonal fruits, organic spices, or recipe pairings?',
+      text: 'Welcome to NexHaat AI. Ask about shopping, recipes, or general product questions.',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      suggestedProductIds: [101, 102, 104],
     }
   ]);
-
-  // Sync state to LocalStorage
-  useEffect(() => {
-    localStorage.setItem('nexhaat_products', JSON.stringify(products));
-  }, [products]);
 
   useEffect(() => {
     localStorage.setItem('nexhaat_cart', JSON.stringify(cart));
@@ -589,7 +632,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     localStorage.setItem('nexhaat_lang', language);
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem('nexhaat_currency', currency);
+  }, [currency]);
 
   useEffect(() => {
     localStorage.setItem('nexhaat_prime', String(isPrimeMember));
@@ -613,8 +662,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const next = !prev;
       showToast(
         next 
-          ? '🎉 Welcome to NexHaat Prime! Unlimited FREE 3-hour delivery activated.'
-          : 'Prime membership cancelled.',
+          ? 'Membership preview badge enabled on this device.'
+          : 'Membership preview badge cleared.',
         'success'
       );
       return next;
@@ -630,17 +679,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, 3800);
   };
 
-  const t = (en: string, bn: string): string => {
-    return language === 'bn' ? bn : en;
+  const t = (en: string, bn: string, ar?: string, hi?: string): string => {
+    return translate(language, en, bn, ar, hi);
   };
 
-  const formatPrice = (amount: number): string => {
-    if (isNaN(amount)) return '৳0.00';
-    const formatted = amount.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return language === 'bn' ? `৳ ${formatted}` : `৳${formatted}`;
+  const formatPrice = (amount: number, overrideCurrency?: AppCurrency): string => {
+    return formatCurrencyPrice(amount, overrideCurrency || currency, language);
   };
 
   const navigateToProduct = (slug: string) => {
@@ -778,7 +822,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
+    if (flaskUser?.role === 'customer') {
+      try {
+        await clearMarketplaceCart();
+      } catch (error) {
+        showToast(
+          error instanceof Error
+            ? error.message
+            : t('Unable to clear the server cart.', 'সার্ভার কার্ট খালি করা যায়নি।'),
+          'error',
+        );
+        return;
+      }
+    }
     setCart([]);
   };
 
@@ -884,8 +941,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setActiveCoupon(promo);
     showToast(
-      t(`Coupon "${promo.code}" applied successfully!`, `কুপন "${promo.code}" সফলভাবে প্রয়োগ করা হয়েছে!`),
-      'success'
+      t(
+        `Coupon "${promo.code}" applied in this preview. Checkout validates the code with the marketplace.`,
+        `কুপন "${promo.code}" প্রিভিউতে প্রয়োগ হয়েছে। চেকআউটে মার্কেটপ্লেস কোড যাচাই করবে।`,
+      ),
+      'info',
     );
     return true;
   };
@@ -1085,46 +1145,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Reviews & Q&A
-  const addReview = (productId: number, rating: number, comment: string) => {
-    const newReview: Review = {
-      id: `rev-${Date.now()}`,
-      product_id: productId,
-      user_name: currentUser.name,
-      rating,
-      comment,
-      created_at: new Date().toISOString().split('T')[0],
-      verified_purchase: true,
-      helpful_count: 0,
-    };
-    setReviews(prev => [newReview, ...prev]);
+  const addReview = useCallback(
+    (productId: number, rating: number, comment: string) =>
+      submitMarketplaceProductReview(productId, rating, comment),
+    [],
+  );
 
-    setProducts(prev =>
-      prev.map(p => {
-        if (p.id === productId) {
-          const newCount = p.review_count + 1;
-          const newAvg = Number(((p.rating * p.review_count + rating) / newCount).toFixed(1));
-          return { ...p, rating: newAvg, review_count: newCount };
-        }
-        return p;
-      })
-    );
-
-    showToast(t('Review submitted! Thank you.', 'আপনার মতামত গ্রহণ করা হয়েছে। ধন্যবাদ!'));
-
-    if (auth.currentUser) {
-      setDoc(doc(db, 'reviews', newReview.id), {
-        id: newReview.id,
-        productId: newReview.product_id,
-        userId: auth.currentUser.uid,
-        userName: newReview.user_name,
-        rating: newReview.rating,
-        comment: newReview.comment,
-        createdAt: newReview.created_at,
-      }).catch(err => {
-        handleFirestoreError(err, OperationType.CREATE, `reviews/${newReview.id}`);
-      });
-    }
-  };
+  const refreshProductReviews = useCallback(async (productId: number): Promise<Review[]> => {
+    const productReviews = await fetchMarketplaceProductReviews(productId);
+    setReviews((current) => [
+      ...current.filter((review) => review.product_id !== productId),
+      ...productReviews,
+    ]);
+    return productReviews;
+  }, []);
 
   const getProductReviews = (productId: number) => {
     return reviews.filter(r => r.product_id === productId);
@@ -1146,51 +1180,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return questions.filter(q => q.product_id === productId);
   };
 
-  // Gemini AI Assistant Chat Logic
+  // Keep AI conversation state in memory only; the AI service owns response generation.
   const sendAIMessage = (text: string) => {
+    const cleanText = text.trim();
+    if (!cleanText) return;
     const userMsg: AIChatMessage = {
-      id: `usr-${Date.now()}`,
+      id: `usr-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       sender: 'user',
-      text,
+      text: cleanText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-
     setAiMessages(prev => [...prev, userMsg]);
+  };
 
-    // Intelligent AI response generation
-    setTimeout(() => {
-      const lower = text.toLowerCase();
-      let reply = '';
-      let suggested: number[] = [];
-
-      if (lower.includes('fish') || lower.includes('ilish') || lower.includes('মাছ')) {
-        reply = 'For fresh fish, I strongly recommend our Wild-Caught Padma Ilish (1.2kg). Hand-caught at Chandpur/Mawa ghat, formalin-tested, and delivered in insulated ice boxes. Would you like it Whole or Curry Cut?';
-        suggested = [102];
-      } else if (lower.includes('mango') || lower.includes('fruit') || lower.includes('আম')) {
-        reply = 'The Rajshahi Fazli Mango 5kg Crate is currently in season! It is tree-ripened without artificial carbide. Today you also get a 15% flash discount.';
-        suggested = [101];
-      } else if (lower.includes('dinner') || lower.includes('recipe') || lower.includes('রান্না') || lower.includes('1500') || lower.includes('family')) {
-        reply = 'Here is a royal Bangladeshi dinner menu for 4-5 people: 1) Authentic Dinajpur Chinigura Aromatic Rice, 2) Pure Mustard Oil for traditional bhorta, and 3) Bogra Shahi Misti Doi for dessert. Total comes to under ৳1,000!';
-        suggested = [103, 105, 104];
-      } else if (lower.includes('prime') || lower.includes('delivery') || lower.includes('shipping')) {
-        reply = isPrimeMember
-          ? 'You are currently an active NexHaat Prime Member! You enjoy guaranteed unlimited FREE 3-hour express delivery inside Dhaka and Chittagong with 5% cashback.'
-          : 'With NexHaat Prime (only ৳199/month), you get unlimited FREE express delivery, priority rider dispatch, and member-only pricing!';
-      } else {
-        reply = `I found several highly rated items matching "${text}" on NexHaat with verified seller ratings above 4.8 stars. Check out these top recommendations:`;
-        suggested = [101, 102, 107];
-      }
-
-      const botMsg: AIChatMessage = {
-        id: `bot-${Date.now()}`,
-        sender: 'assistant',
-        text: reply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestedProductIds: suggested,
-      };
-
-      setAiMessages(prev => [...prev, botMsg]);
-    }, 600);
+  const addAIResponse = (text: string) => {
+    const cleanText = text.trim();
+    if (!cleanText) return;
+    setAiMessages(prev => [...prev, {
+      id: `bot-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      sender: 'assistant',
+      text: cleanText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }]);
   };
 
   const clearAIChat = () => {
@@ -1198,7 +1209,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       {
         id: 'ai-reset',
         sender: 'assistant',
-        text: 'Chat history cleared. How else may I assist your shopping today?',
+        text: 'Chat history cleared. Ask about shopping, recipes, or general product questions.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
     ]);
@@ -1386,6 +1397,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         navigateToCategory,
         language,
         setLanguage,
+        currency,
+        setCurrency,
         isDarkMode,
         toggleDarkMode,
         t,
@@ -1439,6 +1452,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         reviews,
         addReview,
         getProductReviews,
+        refreshProductReviews,
         questions,
         addQuestion,
         getProductQuestions,
@@ -1446,6 +1460,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsAIAssistantOpen,
         aiMessages,
         sendAIMessage,
+        addAIResponse,
         clearAIChat,
         sponsoredCampaigns,
         addSponsoredCampaign,
@@ -1467,6 +1482,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         startFlaskRegistration: beginFlaskRegistration,
         submitMarketplaceCheckout: createMarketplaceOrder,
         isMarketplaceCatalogLoading,
+        isMarketplaceCatalogReady,
         marketplaceCatalogError,
       }}
     >

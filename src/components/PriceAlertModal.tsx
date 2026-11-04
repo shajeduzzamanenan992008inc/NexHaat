@@ -160,12 +160,12 @@ export const PriceAlertModal: React.FC<PriceAlertModalProps> = ({
             <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/80 space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 dark:text-blue-300">
                 <Zap className="w-3.5 h-3.5 text-blue-600" />
-                <span>{t('Instant Notification Simulator', 'তাৎক্ষণিক নোটিফিকেশন টেস্ট')}</span>
+                <span>{t('Local notification preview', 'স্থানীয় নোটিফিকেশন প্রিভিউ')}</span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
                 {t(
-                  `Simulate a marketplace price drop to ৳${existingAlert.target_price} to immediately verify the real-time notification alert.`,
-                  `বাজারদর হ্রাস টেস্ট করে দেখতে পারেন কিভাবে দাম ৳${existingAlert.target_price}-এ নামলে নোটিফিকেশন আসে।`
+                  `Preview a local alert at ৳${existingAlert.target_price}. It does not monitor marketplace prices or send a notification.`,
+                  `৳${existingAlert.target_price} দামে স্থানীয় প্রিভিউ দেখুন। এটি বাজারদর পর্যবেক্ষণ বা নোটিফিকেশন পাঠায় না।`
                 )}
               </p>
               <button
@@ -174,7 +174,7 @@ export const PriceAlertModal: React.FC<PriceAlertModalProps> = ({
                 className="w-full py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-xs transition-colors flex items-center justify-center gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>{t('⚡ Test Notification (Simulate Price Drop)', '⚡ নোটিফিকেশন টেস্ট করুন (মূল্য হ্রাস)')}</span>
+                <span>{t('Show local preview', 'স্থানীয় প্রিভিউ দেখুন')}</span>
               </button>
             </div>
 
@@ -266,8 +266,8 @@ export const PriceAlertModal: React.FC<PriceAlertModalProps> = ({
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
                 {t(
-                  'NexHaat monitors seller prices and flash deals 24/7 to guarantee you never miss a drop.',
-                  'নেক্সহাট সার্বক্ষণিক পণ্যের দর পর্যবেক্ষণ করে যেন আপনি কোনো মূল্য হ্রাস মিস না করেন।'
+                  'Price alerts in this preview are stored on this device; automatic notifications are not connected to live seller prices.',
+                  'এই প্রিভিউর মূল্য সতর্কতা এই ডিভাইসে থাকে; বিক্রেতার লাইভ দামের স্বয়ংক্রিয় নোটিফিকেশন যুক্ত নেই।'
                 )}
               </span>
             </div>

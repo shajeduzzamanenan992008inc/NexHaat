@@ -59,8 +59,8 @@ class AIAssistantViewModel @Inject constructor(
 
         val historyPayload = updatedMessages.dropLast(1).map {
             AIChatHistoryItemDto(
-                role = if (it.isUser) "user" else "model",
-                parts = listOf(it.text)
+                sender = if (it.isUser) "user" else "assistant",
+                text = it.text
             )
         }
 
@@ -73,17 +73,15 @@ class AIAssistantViewModel @Inject constructor(
                     )
                 )
 
-                if (response.isSuccessful && response.body() != null) {
-                    val body = response.body()!!
-                    val aiText = body.reply ?: body.message ?: "I found great options on NexHaat for you!"
+                val aiText = response.responseText.trim()
+                if (aiText.isNotEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         messages = _uiState.value.messages + ChatMessage(text = aiText, isUser = false),
                         isGenerating = false
                     )
                 } else {
-                    val errorMsg = "Sorry, NexHaat AI could not connect right now. Please try again."
+                    val errorMsg = "NexHaat AI did not return a response. Please try again."
                     _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + ChatMessage(text = errorMsg, isUser = false),
                         isGenerating = false,
                         error = errorMsg
                     )
@@ -91,7 +89,6 @@ class AIAssistantViewModel @Inject constructor(
             } catch (e: Exception) {
                 val fallbackMsg = "Could not reach AI service. Please check your internet connection."
                 _uiState.value = _uiState.value.copy(
-                    messages = _uiState.value.messages + ChatMessage(text = fallbackMsg, isUser = false),
                     isGenerating = false,
                     error = fallbackMsg
                 )

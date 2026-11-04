@@ -157,7 +157,7 @@ export function getSimilarProductComparisons(
     if (itemPrice < currentPrice) {
       valueBadge = 'Budget Pick';
       valueBadgeBn = 'বাজেট সাশ্রয়ী';
-    } else if (item.rating >= 4.8) {
+    } else if (item.rating !== undefined && item.rating >= 4.8) {
       valueBadge = 'Top Rated';
       valueBadgeBn = 'সর্বোচ্চ রেটেড';
     } else if (itemPrice > currentPrice * 1.25) {

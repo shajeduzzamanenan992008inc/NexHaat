@@ -58,8 +58,8 @@ fun SignUpScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.challenge) {
-        uiState.challenge?.let { challenge ->
-            onRegistrationSuccess(uiState.email, challenge.challengeId)
+        uiState.challenge?.let {
+            onRegistrationSuccess(uiState.email, null)
         }
     }
 

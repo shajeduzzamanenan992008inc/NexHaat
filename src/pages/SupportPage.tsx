@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  Headphones, Phone, Mail, MessageSquare, ChevronDown, 
-  ChevronUp, CheckCircle2, ShieldCheck, Clock 
+  Headphones, MessageSquare, ChevronDown, ChevronUp, CheckCircle2
 } from 'lucide-react';
 
 export const SupportPage: React.FC = () => {
@@ -17,26 +16,26 @@ export const SupportPage: React.FC = () => {
     {
       q: 'Which areas in Bangladesh do you deliver to?',
       q_bn: 'বাংলাদেশের কোন কোন এলাকায় আপনারা ডেলিভারি করেন?',
-      a: 'We provide guaranteed 3-hour hyper-local express delivery within all metropolitan areas of Dhaka (Dhanmondi, Gulshan, Banani, Uttara, Mirpur, Mohammadpur, Old Dhaka). We also deliver to Chittagong, Sylhet, and all 64 districts via courier partners within 48 to 72 hours.',
-      a_bn: 'আমরা সমগ্র ঢাকা শহরে (ধানমন্ডি, গুলশান, বনানী, উত্তরা, মিরপুর, পুরান ঢাকা) ৩ ঘণ্টার মধ্যে এক্সপ্রেস ডেলিভারি দিয়ে থাকি। এছাড়া চট্টগ্রাম, সিলেটসহ ৬৪টি জেলায় কুরিয়ার সার্ভিসের মাধ্যমে ৪৮-৭২ ঘণ্টায় পণ্য পৌঁছে দেওয়া হয়।',
+      a: 'Delivery availability and estimated timing depend on the product and address. Review the options shown for your order at checkout.',
+      a_bn: 'ডেলিভারির সুযোগ ও সম্ভাব্য সময় পণ্য এবং ঠিকানার ওপর নির্ভর করে। অর্ডারের সময় চেকআউটে দেখানো বিকল্প দেখুন।',
     },
     {
       q: 'How does Cash on Delivery (COD) and bKash payment work?',
       q_bn: 'ক্যাশ অন ডেলিভারি এবং বিকাশ পেমেন্ট কীভাবে কাজ করে?',
-      a: 'You can pay in cash directly to our rider after inspecting the parcel at your doorstep. For contactless orders, you can pay instantly using bKash, Nagad, or credit/debit cards during checkout through our SSLCommerz secure gateway.',
-      a_bn: 'পণ্য হাতে পেয়ে দেখে ডেলিভারি রাইডারের কাছে নগদ মূল্য পরিশোধ করতে পারবেন। অথবা চেকআউটের সময় বিকাশ, নগদ বা ব্যাংকিং কার্ডের মাধ্যমে সহজে পেমেন্ট করতে পারবেন।',
+      a: 'Use only the payment methods presented by marketplace checkout for your order. The available methods can vary by order and configuration.',
+      a_bn: 'আপনার অর্ডারের চেকআউটে দেখানো পেমেন্ট পদ্ধতিই ব্যবহার করুন। অর্ডার ও কনফিগারেশন অনুযায়ী পদ্ধতি ভিন্ন হতে পারে।',
     },
     {
-      q: 'What is the 7-day returns and refund policy?',
-      q_bn: '৭ দিনের রিটার্ন ও রিফান্ড পলিসি কী?',
-      a: 'If any fresh produce, fish, meat, or grocery item arrives damaged, stale, or incorrect, you can request an instant return directly from the "My Orders" tab within 7 days. Our rider will pick up the item and your refund will be processed promptly.',
-      a_bn: 'পণ্য কোনো কারণে নষ্ট, বাসি বা ত্রুটিপূর্ণ হলে ৭ দিনের মধ্যে "আমার অর্ডার" সেকশন থেকে সরাসরি রিটার্ন রিকোয়েস্ট করতে পারেন। আমাদের রাইডার পণ্য সংগ্রহ করে টাকা রিফান্ড করে দেবেন।',
+      q: 'How can I ask about a return or refund?',
+      q_bn: 'রিটার্ন বা রিফান্ড সম্পর্কে কীভাবে জানব?',
+      a: 'Eligibility and next steps depend on the order, item, and current order status. Review the actions available in your order details.',
+      a_bn: 'যোগ্যতা ও পরবর্তী পদক্ষেপ অর্ডার, পণ্য ও বর্তমান স্ট্যাটাসের ওপর নির্ভর করে। অর্ডারের বিস্তারিত অংশে থাকা কাজগুলো দেখুন।',
     },
     {
       q: 'How do I register as a seller or express delivery rider?',
       q_bn: 'কীভাবে বিক্রেতা বা ডেলিভারি রাইডার হিসেবে যুক্ত হব?',
-      a: 'Navigate to the top workspace switcher in the header and select "Seller Portal" or "Rider Portal". Verified merchants receive instant payouts and nationwide catalog distribution.',
-      a_bn: 'হেডারে দেওয়া পোর্টাল সুইচ থেকে "সেলার পোর্টাল" অথবা "রাইডার পোর্টাল" বেছে নিয়ে আবেদন করতে পারেন।',
+      a: 'Use the Flask sign-in and application pages for seller onboarding. The role switch in the React preview only opens a local workspace mock.',
+      a_bn: 'বিক্রেতা হিসেবে যুক্ত হওয়ার জন্য Flask সাইন-ইন ও আবেদন পেজ ব্যবহার করুন। React প্রিভিউয়ের role switch শুধু স্থানীয় mock workspace খোলে।',
     },
   ];
 
@@ -44,7 +43,7 @@ export const SupportPage: React.FC = () => {
     e.preventDefault();
     if (!ticketSubject || !ticketMessage) return;
     setIsSubmitted(true);
-    showToast(t('Support ticket created. Our team will contact you shortly.', 'আপনার অভিযোগ গ্রহণ করা হয়েছে। দ্রুত যোগাযোগ করা হবে।'));
+    showToast(t('This support form is a preview; your message was not sent.', 'এই support form প্রিভিউ; আপনার বার্তা পাঠানো হয়নি।'), 'warning');
   };
 
   return (
@@ -54,22 +53,18 @@ export const SupportPage: React.FC = () => {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-primary font-bold text-xs mb-1.5">
             <Headphones className="w-3.5 h-3.5" />
-            <span>{t('NexHaat Care & Support', 'নেক্সহাট গ্রাহক সেবা')}</span>
+            <span>{t('HELP & SUPPORT', 'সহায়তা')}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-ink">
             {t('Help & Customer Support Center', 'সহায়তা ও গ্রাহক সেবা কেন্দ্র')}
           </h1>
           <p className="text-xs sm:text-sm text-muted mt-0.5">
-            {t('Our dedicated team in Dhaka is available 7 days a week from 8:00 AM to 11:00 PM', 'সপ্তাহের ৭ দিন সকাল ৮টা থেকে রাত ১১টা পর্যন্ত সার্বক্ষণিক সেবা')}
+            {t('Find answers about orders, payment options, and account access.', 'অর্ডার, পেমেন্ট ও অ্যাকাউন্ট ব্যবহারের তথ্য দেখুন।')}
           </p>
         </div>
 
-        <div className="flex flex-col gap-1 self-start sm:self-auto bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs">
-          <div className="flex items-center gap-2 text-ink font-bold">
-            <Phone className="w-4 h-4 text-emerald-600" />
-            <span>+880 9612 000 000</span>
-          </div>
-          <span className="text-[11px] text-muted">Toll-free customer hotline</span>
+        <div className="max-w-xs rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900" role="note">
+          {t('The React support form below is a preview and does not create a support ticket.', 'নিচের React support form প্রিভিউ; এটি support ticket তৈরি করে না।')}
         </div>
       </div>
 
@@ -116,17 +111,17 @@ export const SupportPage: React.FC = () => {
           <div className="p-6 rounded-3xl bg-white border border-border shadow-card space-y-4">
             <h3 className="font-bold text-sm text-ink pb-3 border-b border-slate-100 flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-primary" />
-              <span>{t('Send a Support Ticket', 'অভিযোগ বা বার্তা পাঠান')}</span>
+              <span>{t('Support form preview', 'Support form প্রিভিউ')}</span>
             </h3>
 
             {isSubmitted ? (
-              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <h4 className="font-bold text-xs text-emerald-900">
-                  {t('Ticket Submitted Successfully!', 'বার্তা সফলভাবে পাঠানো হয়েছে!')}
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-center space-y-2">
+                <CheckCircle2 className="w-8 h-8 text-amber-600 mx-auto" />
+                <h4 className="font-bold text-xs text-amber-900">
+                  {t('Preview checked', 'প্রিভিউ দেখা হয়েছে')}
                 </h4>
-                <p className="text-[11px] text-emerald-800">
-                  {t('Ticket ID #TK-9821. An agent will call or email you within 30 minutes.', 'টিকেট আইডি #TK-9821। ৩০ মিনিটের মধ্যে যোগাযোগ করা হবে।')}
+                <p className="text-[11px] text-amber-900">
+                  {t('No ticket was created and your message was not sent.', 'কোনো ticket তৈরি হয়নি এবং আপনার বার্তা পাঠানো হয়নি।')}
                 </p>
                 <button
                   onClick={() => setIsSubmitted(false)}
@@ -146,7 +141,7 @@ export const SupportPage: React.FC = () => {
                     required
                     value={ticketSubject}
                     onChange={(e) => setTicketSubject(e.target.value)}
-                    placeholder="e.g. Delivery status of NH-2026-8821"
+                    placeholder="e.g. Delivery status question"
                     className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white"
                   />
                 </div>
@@ -160,7 +155,7 @@ export const SupportPage: React.FC = () => {
                     rows={4}
                     value={ticketMessage}
                     onChange={(e) => setTicketMessage(e.target.value)}
-                    placeholder="Describe how we can help you today..."
+                    placeholder="Write a message to preview the form..."
                     className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white"
                   />
                 </div>
@@ -169,7 +164,7 @@ export const SupportPage: React.FC = () => {
                   type="submit"
                   className="neu-button w-full py-3 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary-hover shadow-sm"
                 >
-                  {t('Submit Support Ticket', 'টিকেট জমা দিন')}
+                  {t('Preview message', 'বার্তা প্রিভিউ করুন')}
                 </button>
               </form>
             )}

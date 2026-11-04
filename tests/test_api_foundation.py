@@ -239,6 +239,62 @@ def test_api_cart_checkout_orders_and_cancel_restore_inventory(client, app):
         assert db.session.query(Order).one().status == "cancelled"
 
 
+def test_api_sslcommerz_checkout_returns_nullable_provider_link_and_payment_contract(client, app, monkeypatch):
+    from app.api.routes import commerce
+
+    from app.services.payments import PaymentError
+
+    client.application.config["WTF_CSRF_ENABLED"] = False
+    customer = User(email="online-checkout-api@example.com", role="customer")
+    customer.set_password("password123")
+    customer.customer_profile = CustomerProfile(full_name="Online Checkout", phone="01234567890")
+    category = Category(name="Online checkout", slug="online-checkout", is_active=True)
+    product = Product(
+        category=category,
+        name="Online checkout item",
+        slug="online-checkout-item",
+        description="Disposable API contract fixture",
+        price=Decimal("4.25"),
+        stock_quantity=2,
+        is_available=True,
+    )
+    db.session.add_all([customer, category, product])
+    db.session.commit()
+
+    assert client.post(
+        "/api/v1/auth/login",
+        json={"email": customer.email, "password": "password123"},
+    ).status_code == 200
+    assert client.post(
+        "/api/v1/cart/items", json={"product_id": product.id, "quantity": 1}
+    ).status_code == 201
+
+    monkeypatch.setattr(commerce, "gateway_is_configured", lambda: True)
+
+    def no_provider_attempt(_payment):
+        raise PaymentError("Provider initiation is intentionally disabled in this test.")
+
+    monkeypatch.setattr(commerce, "begin_payment_attempt", no_provider_attempt)
+    response = client.post(
+        "/api/v1/checkout",
+        json={
+            "customer_name": "Online Checkout",
+            "phone": "01234567890",
+            "address": "Disposable test address",
+            "city": "Test City",
+            "payment_method": "sslcommerz",
+        },
+    )
+
+    assert response.status_code == 201, response.get_json()
+    data = response.get_json()["data"]
+    assert data["checkout_group"] == data["orders"][0]["checkout_group"]
+    assert data["payment_status"] == "pending"
+    assert data["payment_status_url"] == f"/api/v1/payments/{data['checkout_group']}"
+    assert data["checkout_url"] is None
+    assert data["orders"][0]["payment_status"] == "pending"
+
+
 def test_api_seller_dashboard_and_orders_are_owner_scoped(client, app):
     client.application.config["WTF_CSRF_ENABLED"] = False
     seller = User(email="api-seller-orders@example.com", role="seller")

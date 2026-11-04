@@ -67,6 +67,7 @@ class DealsViewModel @Inject constructor(
             when (result) {
                 is NetworkResult.Success -> _actionMessage.value = "${product.name} added to cart"
                 is NetworkResult.Error -> _actionMessage.value = result.message
+                NetworkResult.Loading -> Unit
             }
         }
     }

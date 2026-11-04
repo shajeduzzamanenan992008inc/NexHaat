@@ -5,7 +5,7 @@
   'auth.seller_application', 'auth.accept_invitation'
 ) %}
 {% block extra_head %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css', v='20261006_passwordtoggle1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css', v='20261104_signature_blue') }}">
   <script src="{{ url_for('static', filename='js/auth.js', v='20261006_passwordtoggle1') }}" defer></script>
 {% endblock %}
 {% block site_header %}
@@ -15,6 +15,12 @@
       <span class="brand-lockup__mark"><img src="{{ url_for('static', filename=app_logo) }}" alt=""></span>
       <span class="brand-lockup__name">{{ app_name }}</span>
     </a>
+    <button class="theme-toggle" type="button" data-theme-toggle
+      data-theme-label-dark="{{ _('Switch to dark theme') }}"
+      data-theme-label-light="{{ _('Switch to light theme') }}"
+      aria-label="{{ _('Switch to dark theme') }}" title="{{ _('Switch to dark theme') }}">
+      <span data-theme-icon aria-hidden="true">☾</span>
+    </button>
     <form class="locale-form" method="post" action="{{ url_for('main.set_language') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">

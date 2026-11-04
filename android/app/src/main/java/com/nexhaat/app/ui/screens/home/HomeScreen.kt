@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocalOffer
@@ -104,7 +105,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.AutoAwesome,
+                        imageVector = Icons.Default.AutoAwesome,
                         contentDescription = stringResource(R.string.ai_assistant)
                     )
                     Spacer(Modifier.width(6.dp))

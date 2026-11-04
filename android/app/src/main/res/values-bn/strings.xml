@@ -200,4 +200,12 @@
     <string name="backup_codes_desc">এই ব্যাকআপ কোডগুলো নিরাপদ স্থানে রাখুন। অথেন্টিকেটর অ্যাপ হারিয়ে গেলে অ্যাকাউন্ট পুনরুদ্ধারে প্রয়োজন হবে।</string>
     <string name="copy_backup_codes">সব ব্যাকআপ কোড কপি করুন</string>
     <string name="codes_copied">ব্যাকআপ কোড কপি হয়েছে</string>
+
+    <!-- International & Digital Commerce -->
+    <string name="instant_digital_delivery">তাৎক্ষণিক ডিজিটাল ডেলিভারি</string>
+    <string name="instant_digital_delivery_desc">কোনো অপেক্ষা নেই। অর্ডার সম্পন্ন হতেই ডিজিটাল টোকেন ও ভাউচার স্ক্রিনে সক্রিয় হবে।</string>
+    <string name="global_air_cargo">আন্তর্জাতিক বিমান কার্গো এক্সপ্রেস</string>
+    <string name="global_air_cargo_desc">ডিএইচএল ও ফেডেক্স এর মাধ্যমে সার্টিফাইড আন্তর্জাতিক হোম ডেলিভারি।</string>
+    <string name="multi_currency_hub">মাল্টি-কারেন্সি ও গ্লোবাল এক্সচেঞ্জ</string>
+    <string name="cold_chain_iot">কোল্ড-চেইন আইওটি সুরক্ষিত</string>
 </resources>

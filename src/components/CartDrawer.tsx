@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, 
   Tag, ShieldCheck, Bookmark, Sparkles, Check, Zap 
 } from 'lucide-react';
-import { calculateFreeShippingProgress } from '../lib/amazonFeatures';
+import { useMotionPresence } from '../lib/useMotionPresence';
 
 export const CartDrawer: React.FC = () => {
   const {
@@ -25,24 +25,22 @@ export const CartDrawer: React.FC = () => {
     applyCoupon,
     removeCoupon,
     setCurrentView,
-    isPrimeMember,
-    setIsPrimeModalOpen,
     products,
     addToCart,
     t,
   } = useApp();
 
   const [couponInput, setCouponInput] = useState('');
+  const { isPresent, isExiting } = useMotionPresence(isCartDrawerOpen);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
-  if (!isCartDrawerOpen) return null;
+  useEffect(() => {
+    if (overlayRef.current) overlayRef.current.inert = isExiting || !isCartDrawerOpen;
+  }, [isCartDrawerOpen, isExiting]);
 
-  const shippingInfo = calculateFreeShippingProgress(cartSubtotal, 1500, isPrimeMember);
-  const { progressPercent, remainingAmount: remainingForFreeShipping, isFreeEligible } = shippingInfo;
+  if (!isPresent) return null;
 
-  const estimatedDelivery = cart.length > 0 
-    ? (isFreeEligible || activeCoupon?.code === 'FREESHIP' ? 0 : 60) 
-    : 0;
-  const grandTotal = Math.max(0, cartSubtotal - appliedPromoDiscount + estimatedDelivery);
+  const estimatedItemsTotal = Math.max(0, cartSubtotal - appliedPromoDiscount);
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +50,13 @@ export const CartDrawer: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div
+      ref={overlayRef}
+      className={`fixed inset-0 z-50 overflow-hidden motion-drawer-overlay motion-overlay-enter ${
+        isExiting ? 'motion-overlay-exit pointer-events-none' : ''
+      }`}
+      aria-hidden={isExiting || !isCartDrawerOpen}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
@@ -60,7 +64,7 @@ export const CartDrawer: React.FC = () => {
       />
 
       {/* Drawer content */}
-      <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+      <div className={`absolute inset-y-0 right-0 max-w-full flex pl-10 motion-drawer-enter ${isExiting ? 'motion-drawer-exit' : ''}`}>
         <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col">
           {/* Header */}
           <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-surface-raised">
@@ -87,38 +91,10 @@ export const CartDrawer: React.FC = () => {
             </button>
           </div>
 
-          {/* Prime & Free Shipping Meter */}
-          <div className="px-5 py-3 bg-blue-50/70 border-b border-blue-100">
-            {isPrimeMember ? (
-              <div className="flex items-center justify-between text-xs font-bold text-primary">
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <span>NexHaat Prime: FREE 3-Hour Delivery Applied!</span>
-                </span>
-                <span className="text-[10px] bg-amber-400 text-slate-900 px-2 py-0.5 rounded-md font-black">
-                  PRIME
-                </span>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
-                  <span>
-                    {progressPercent >= 100
-                      ? t('🎉 You unlocked FREE Delivery inside Dhaka!', '🎉 আপনি ঢাকায় ফ্রি ডেলিভারি পেয়েছেন!')
-                      : t(
-                          `Add ${formatPrice(remainingForFreeShipping)} more for FREE Delivery`,
-                          `ফ্রি ডেলিভারির জন্য আরও ${formatPrice(remainingForFreeShipping)} যোগ করুন`
-                        )}
-                  </span>
-                  <span>{progressPercent}%</span>
-                </div>
-                <div className="w-full bg-blue-200/60 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-primary h-2 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
+          <div className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] leading-relaxed text-amber-900" role="note">
+            {t(
+              'Delivery, promotions, and membership benefits are confirmed by marketplace checkout. Preview values here are not final.',
+              'ডেলিভারি, অফার ও মেম্বারশিপ সুবিধা মার্কেটপ্লেস চেকআউটে নিশ্চিত হবে। এখানে প্রিভিউ মান চূড়ান্ত নয়।'
             )}
           </div>
 
@@ -185,9 +161,11 @@ export const CartDrawer: React.FC = () => {
                             {item.selectedVariant.name}
                           </span>
                         )}
-                        <p className="text-xs text-muted truncate">
-                          {item.product.seller_name}
-                        </p>
+                        {item.product.seller_name && (
+                          <p className="text-xs text-muted truncate">
+                            {item.product.seller_name}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between mt-2 pt-1">
@@ -381,20 +359,17 @@ export const CartDrawer: React.FC = () => {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span>{t('Estimated Delivery', 'আনুমানিক ডেলিভারি')}</span>
-                  <span className="font-semibold text-ink">
-                    {estimatedDelivery === 0 ? (
-                      <span className="text-emerald-600 font-bold">{t('FREE', 'ফ্রি')}</span>
-                    ) : (
-                      formatPrice(estimatedDelivery)
-                    )}
-                  </span>
+                  <span>{t('Delivery preview', 'ডেলিভারি প্রিভিউ')}</span>
+                  <span className="font-semibold text-ink">{t('Confirmed at checkout', 'চেকআউটে নিশ্চিত হবে')}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-ink pt-2 border-t border-slate-200">
-                  <span>{t('Total Amount', 'সর্বমোট মূল্য')}</span>
-                  <span className="text-base text-primary">{formatPrice(grandTotal)}</span>
+                  <span>{t('Items total before delivery', 'ডেলিভারির আগের পণ্য মূল্য')}</span>
+                  <span className="text-base text-primary">{formatPrice(estimatedItemsTotal)}</span>
                 </div>
               </div>
+              <p className="pt-1 text-[10px] leading-relaxed text-muted">
+                {t('The marketplace validates the final delivery charge and total during checkout.', 'চেকআউটে মার্কেটপ্লেস চূড়ান্ত ডেলিভারি চার্জ ও মোট মূল্য যাচাই করবে।')}
+              </p>
 
               {/* Action buttons */}
               <div className="pt-2 flex flex-col gap-2">
@@ -412,7 +387,7 @@ export const CartDrawer: React.FC = () => {
                 <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 px-1">
                   <span className="flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-success" />
-                    {t('100% Buyer Protection & Escrow', '১০০% নিরাপদ ক্রেতা সুরক্ষা')}
+                    {t('Checkout validation required', 'চেকআউটে যাচাই হবে')}
                   </span>
                   <button
                     onClick={clearCart}

@@ -1,46 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCard } from '../components/ProductCard';
-import { 
-  Sparkles, Flame, Clock, ArrowRight, ShieldCheck, 
-  Truck, Award, Store, ChevronRight, ChevronLeft, CheckCircle2, History,
-  Apple, Fish, Smartphone, Shirt, Wheat, Egg, Cookie, Grid, Tag, Zap, ShoppingBag
+import {
+  Sparkles, Flame, ArrowRight, Store, ChevronRight, ChevronLeft, History,
+  Apple, Fish, Smartphone, Shirt, Wheat, Egg, Cookie, Grid, Tag, ShoppingBag,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
-  const { 
+  const {
     products, 
     categories, 
+    isMarketplaceCatalogLoading,
+    marketplaceCatalogError,
     recentlyViewed, 
     navigateToCategory, 
     navigateToProduct,
     addToCart,
     setCurrentView, 
-    isPrimeMember, 
-    setIsPrimeModalOpen, 
+    setSearchQuery,
     t, 
     formatPrice, 
-    language 
+    language,
   } = useApp();
 
-  // Flash deals countdown timer
-  const [timeLeft, setTimeLeft] = useState({ hours: 7, minutes: 24, seconds: 18 });
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: 59, seconds: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 12, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const dealProducts = products.filter(p => p.discount_price && p.is_available);
+  const dealProducts = products.filter(p => p.discount_price && p.is_available && p.stock_quantity > 0);
   const nexhaatChoiceProducts = products.filter(p => p.is_nexhaat_choice && p.is_available).slice(0, 4);
   const featuredProducts = products.filter(p => p.is_featured && p.is_available).slice(0, 8);
+  const spotlightProducts = products.filter(p => p.is_available && p.stock_quantity > 0).slice(0, 3);
+  const featuredSellers = [...new Set(products.filter(p => p.is_available).map(p => p.seller_name))].slice(0, 4);
 
   // Horizontal Deals carousel scroll ref
   const dealsScrollRef = useRef<HTMLDivElement>(null);
@@ -81,7 +68,7 @@ export const HomePage: React.FC = () => {
 
   const categoryTypes = [
     { id: 'all', label: 'All Items', label_bn: 'সকল ধরন', icon: Grid, color: 'text-primary' },
-    { id: 'fresh-food', label: 'Fresh Food', label_bn: 'তাজা খাবার', icon: Apple, slugs: ['fruits-vegetables', 'meat-seafood'], color: 'text-emerald-600' },
+    { id: 'fresh-food', label: 'Fresh Food', label_bn: 'তাজা খাবার', icon: Apple, slugs: ['fruits-vegetables', 'meat-seafood'], color: 'text-primary' },
     { id: 'electronics', label: 'Electronics', label_bn: 'ইলেকট্রনিক্স', icon: Smartphone, slugs: ['electronics'], color: 'text-blue-600' },
     { id: 'fashion', label: 'Fashion', label_bn: 'ফ্যাশন ও তাঁত', icon: Shirt, slugs: ['fashion-accessories'], color: 'text-purple-600' },
     { id: 'grains', label: 'Grains & Rice', label_bn: 'চাল ও খাদ্যশস্য', icon: Wheat, slugs: ['rice-grains-pasta'], color: 'text-amber-600' },
@@ -96,132 +83,113 @@ export const HomePage: React.FC = () => {
         return typeObj?.slugs?.includes(cat.slug);
       });
 
-  const sellers = [
-    {
-      id: 1,
-      name: 'Dhaka Fresh & Agro Haat',
-      specialty: 'Farm Fresh Fruits, Greens & Deshi Vegetables',
-      location: 'Karwan Bazar, Dhaka',
-      rating: 4.9,
-      sales: '12,400+ orders',
-      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      id: 2,
-      name: 'Padma River Fish Emporium',
-      specialty: 'Authentic Wild-caught Hilsa & Sweetwater Fish',
-      location: 'Mawa Ghat / Jatrabari, Dhaka',
-      rating: 4.95,
-      sales: '8,900+ orders',
-      image: 'https://images.unsplash.com/photo-1534482421-64566f976cfa?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      id: 3,
-      name: 'Bogra Heritage Dairy',
-      specialty: 'Original Shahi Misti Doi & Pure Artisanal Ghee',
-      location: 'Bogra / Gulshan-2, Dhaka',
-      rating: 4.98,
-      sales: '6,200+ orders',
-      image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      id: 4,
-      name: 'Tangail Weavers Collective',
-      specialty: '100-count Fine Handloom Cotton Sarees & Panjabis',
-      location: 'Tangail / Dhanmondi, Dhaka',
-      rating: 4.88,
-      sales: '3,100+ orders',
-      image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=400&q=80',
-    },
-  ];
-
   return (
-    <div className="space-y-12 sm:space-y-16 pb-12">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-primary to-blue-800 text-white shadow-elevated p-6 sm:p-12">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-accent/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
-
-        <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-amber-300 font-bold text-xs mb-4">
-            <Sparkles className="w-4 h-4" />
-            <span>{t('BANGLADESH HYPER-LOCAL MEGA HAAT', 'বাংলাদেশের সেরা হাইপার-লোকাল মেগা হাট')}</span>
+    <div className="marketplace-home space-y-9 sm:space-y-12 pb-12">
+      <section className="marketplace-hero relative grid overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0B1F3A] via-[#1769FF] to-[#1748A8] p-6 text-white shadow-elevated sm:p-9 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:p-12 dark:from-[#07182B] dark:via-[#0B1F3A] dark:to-[#102947]">
+        <div className="relative z-10 max-w-2xl py-2 lg:py-6">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-bold text-amber-200">
+            <Sparkles className="h-4 w-4" />
+            <span>{t('A LOCAL MARKETPLACE FOR EVERY DAY', 'প্রতিদিনের কেনাকাটার আপন ঠিকানা')}</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-white mb-4">
-            {t(
-              'Farm-Fresh Food, River Ilish & Daily Haat at Your Doorstep',
-              'খামারের তাজা খাবার, পদ্মার ইলিশ ও নিত্যপণ্য ঘরে বসেই'
-            )}
+          <h1 className="mb-4 max-w-xl text-4xl font-black leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-6xl">
+            {t('Good things, found closer to home.', 'প্রতিদিনের কেনাকাটা, কাছের মানুষের কাছ থেকে।')}
           </h1>
 
-          <p className="text-slate-200 text-sm sm:text-base leading-relaxed mb-8 max-w-xl">
+          <p className="mb-7 max-w-lg text-sm leading-relaxed text-blue-50/90 sm:text-base">
             {t(
-              'Order fresh Rajshahi mangoes, wild Padma fish, Dinajpur Chinigura rice, and authentic sweets directly from verified local merchants. Guaranteed 3-hour hyper-local delivery.',
-              'রাজশাহীর মিষ্টি আম, মাওয়ার রূপালী ইলিশ, দিনাজপুরের চিনিগুঁড়া চাল আর ঐতিহ্যবাহী মিষ্টি সরাসরি সংগ্রহ করুন বিশ্বস্ত চাষী ও বিক্রেতাদের কাছ থেকে।'
+              'Explore groceries, fresh food, everyday essentials, and products from local sellers in one place.',
+              'এক জায়গায় খুঁজে নিন নিত্যপণ্য, তাজা খাবার, দরকারি সামগ্রী আর স্থানীয় বিক্রেতাদের পণ্য।'
             )}
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
+              type="button"
               onClick={() => setCurrentView('catalog')}
-              className="neu-button px-6 py-3.5 rounded-xl bg-accent text-slate-900 font-bold text-sm shadow-lg hover:bg-amber-400 flex items-center gap-2"
+              className="neu-button inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-bold text-slate-950 shadow-lg hover:bg-amber-400"
             >
-              <span>{t('Explore Full Haat Catalog', 'সম্পূর্ণ হাট ব্রাউজ করুন')}</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>{t('Explore the marketplace', 'মার্কেটপ্লেস দেখুন')}</span>
+              <ArrowRight className="h-4 w-4" />
             </button>
-
             <button
+              type="button"
               onClick={() => setCurrentView('deals')}
-              className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm backdrop-blur-md border border-white/20 transition-colors"
+              className="rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
             >
-              {t('Flash Deals (Up to 30% Off)', 'মেগা ফ্ল্যাশ ডিলসমূহ')}
+              {t('Browse current deals', 'চলতি অফার দেখুন')}
             </button>
           </div>
 
-          {/* Quick trust badges */}
-          <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-3 gap-4 text-xs text-slate-200 font-medium">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{t('100% Halal Verified', '১০০% হালাল')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-amber-300 shrink-0" />
-              <span>{t('3-Hr Dhaka Express', '৩ ঘণ্টায় ডেলিভারি')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-blue-300 shrink-0" />
-              <span>{t('Cash On Delivery', 'ক্যাশ অন ডেলিভারি')}</span>
-            </div>
+          <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/15 pt-5 text-xs font-medium text-blue-50/90">
+            <span className="inline-flex items-center gap-2"><Store className="h-4 w-4 text-amber-200" />{t('Local sellers', 'স্থানীয় বিক্রেতা')}</span>
+            <span className="inline-flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-amber-200" />{t('Everyday essentials', 'নিত্যপ্রয়োজনীয় পণ্য')}</span>
+            <span className="inline-flex items-center gap-2"><Grid className="h-4 w-4 text-amber-200" />{t('Browse by category', 'ক্যাটাগরি অনুযায়ী দেখুন')}</span>
           </div>
+        </div>
+
+        <div className="marketplace-hero__visual" aria-label={t('A selection of marketplace products', 'মার্কেটপ্লেসের কিছু পণ্য')}>
+          <span className="marketplace-hero__visual-label">{t('Picked from the marketplace', 'মার্কেটপ্লেস থেকে বাছাই')}</span>
+          {spotlightProducts[0] && (
+            <button
+              type="button"
+              className="marketplace-hero__feature group"
+              onClick={() => navigateToProduct(spotlightProducts[0].slug)}
+              aria-label={`${t('View product', 'পণ্য দেখুন')}: ${language === 'bn' ? spotlightProducts[0].name_bn || spotlightProducts[0].name : spotlightProducts[0].name}`}
+            >
+              <img src={spotlightProducts[0].image} alt="" loading="eager" />
+              <span className="marketplace-hero__product-copy">
+                <span className="block text-[11px] font-semibold text-white/80">{spotlightProducts[0].seller_name}</span>
+                <span className="mt-1 block line-clamp-2 text-lg font-extrabold leading-snug">
+                  {language === 'bn' ? spotlightProducts[0].name_bn || spotlightProducts[0].name : spotlightProducts[0].name}
+                </span>
+                <span className="mt-1 block text-sm font-bold text-amber-200">
+                  {formatPrice(spotlightProducts[0].discount_price ?? spotlightProducts[0].price)}
+                </span>
+              </span>
+            </button>
+          )}
+          {spotlightProducts.slice(1, 3).map((product) => (
+            <button
+              type="button"
+              key={product.id}
+              className="marketplace-hero__tile group"
+              onClick={() => navigateToProduct(product.slug)}
+              aria-label={`${t('View product', 'পণ্য দেখুন')}: ${language === 'bn' ? product.name_bn || product.name : product.name}`}
+            >
+              <img src={product.image} alt="" loading="lazy" />
+              <span className="marketplace-hero__product-copy">
+                <span className="block line-clamp-2 text-xs font-bold leading-snug">
+                  {language === 'bn' ? product.name_bn || product.name : product.name}
+                </span>
+                <span className="mt-1 block text-xs font-bold text-amber-200">
+                  {formatPrice(product.discount_price ?? product.price)}
+                </span>
+              </span>
+            </button>
+          ))}
         </div>
       </section>
 
-      {/* Amazon Prime Strip Banner */}
-      <section className="rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 p-4 sm:p-5 text-slate-950 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-slate-950 text-amber-400 rounded-xl font-black italic text-base">
-            prime
-          </div>
+      {!isMarketplaceCatalogLoading && !marketplaceCatalogError && products.length === 0 && (
+        <section
+          className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-light/70 p-4 text-navy dark:border-sky-400/30 dark:bg-[#102947] dark:text-white sm:items-center sm:p-5"
+          role="status"
+        >
+          <ShoppingBag className="mt-0.5 h-5 w-5 shrink-0 text-primary dark:text-sky-300 sm:mt-0" />
           <div>
-            <h3 className="font-extrabold text-sm sm:text-base leading-snug">
-              {isPrimeMember 
-                ? t('You are enjoying NexHaat Prime Free 3-Hour Delivery!', 'আপনি নেক্সহাট প্রাইমের ফ্রি ৩-ঘণ্টা এক্সপ্রেস সুবিধা উপভোগ করছেন!')
-                : t('Join NexHaat Prime: Unlimited FREE 3-Hour Delivery & 5% Cashback', 'নেক্সহাট প্রাইমে যুক্ত হোন: আনলিমিটেড ফ্রি ডেলিভারি ও ৫% ক্যাশব্যাক')}
-            </h3>
-            <p className="text-xs text-slate-900/80">
-              {t('Fastest delivery across all metropolitan areas of Dhaka & Chittagong', 'ঢাকা ও চট্টগ্রামের সমগ্র মেট্রোপলিটন এলাকায় দ্রুততম সেবা')}
+            <h2 className="text-sm font-extrabold sm:text-base">
+              {t('No products are currently listed', 'এখনো কোনো পণ্য তালিকাভুক্ত নেই')}
+            </h2>
+            <p className="mt-1 text-xs text-navy/75 dark:text-slate-300 sm:text-sm">
+              {t(
+                'This is the live catalog. Approved seller listings will appear here when available.',
+                'এটি লাইভ ক্যাটালগ। অনুমোদিত বিক্রেতার পণ্য পাওয়া গেলে এখানে দেখা যাবে।',
+              )}
             </p>
           </div>
-        </div>
-
-        <button
-          onClick={() => setIsPrimeModalOpen(true)}
-          className="neu-button px-5 py-2.5 rounded-xl bg-slate-950 text-white font-bold text-xs hover:bg-slate-900 shrink-0 shadow-md"
-        >
-          {isPrimeMember ? t('Manage Prime', 'প্রাইম ম্যানেজ') : t('Try Prime for ৳199/mo', 'প্রাইম শুরু করুন (৳১৯৯/মাস)')}
-        </button>
-      </section>
+        </section>
+      )}
 
       {/* Category Navigation Bar & Quick Browse Grid */}
       <section className="space-y-6">
@@ -268,7 +236,7 @@ export const HomePage: React.FC = () => {
                 <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : type.color}`} />
                 <span>{language === 'bn' ? type.label_bn : type.label}</span>
                 {type.id === 'fresh-food' && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? 'bg-white/20 text-white' : 'bg-primary-light text-navy'}`}>
                     Hot
                   </span>
                 )}
@@ -291,12 +259,18 @@ export const HomePage: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-5">
           {filteredCategories.map((cat) => {
             const CategoryIcon = getCategoryIcon(cat.slug);
-            const categoryItemCount = products.filter(p => p.category_slug === cat.slug).length;
+            const categoryItemCount = products.filter(p => p.category_slug === cat.slug && p.is_available).length;
 
             return (
               <div
                 key={cat.id}
+                role="link"
+                tabIndex={0}
+                aria-label={`${t('Browse category', 'ক্যাটাগরি দেখুন')}: ${language === 'bn' ? cat.name_bn : cat.name}`}
                 onClick={() => navigateToCategory(cat.slug)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') navigateToCategory(cat.slug);
+                }}
                 className="group relative overflow-hidden rounded-2xl bg-white border border-slate-200/90 p-3.5 sm:p-4 shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1.5 cursor-pointer flex flex-col justify-between"
               >
                 <div>
@@ -317,7 +291,7 @@ export const HomePage: React.FC = () => {
                     {/* Item count chip */}
                     <div className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur-xs text-white text-[10px] font-bold flex items-center gap-1">
                       <Tag className="w-3 h-3 text-amber-400" />
-                      <span>{categoryItemCount > 0 ? `${categoryItemCount}+ ${t('Products', 'পণ্য')}` : t('Available', 'উপলব্ধ')}</span>
+                      <span>{categoryItemCount} {t('products', 'টি পণ্য')}</span>
                     </div>
                   </div>
 
@@ -334,11 +308,8 @@ export const HomePage: React.FC = () => {
 
                 {/* Card Action Footer */}
                 <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-primary">
-                  <span className="text-slate-500 font-semibold text-[10px]">
-                    {t('Direct from verified sellers', 'যাচাইকৃত বিক্রেতা')}
-                  </span>
                   <span className="flex items-center gap-0.5 group-hover:underline">
-                    {t('Browse', 'ব্রাউজ')} →
+                    {t('Explore category', 'ক্যাটাগরি দেখুন')} →
                   </span>
                 </div>
               </div>
@@ -347,7 +318,7 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* NexHaat's Choice & Best Sellers (Amazon-style Shelf) */}
+      {/* Curated product shelf */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -355,10 +326,10 @@ export const HomePage: React.FC = () => {
               <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-slate-900 text-white">
                 NexHaat's <span className="text-amber-400">Choice</span>
               </span>
-              <span className="text-xs text-muted font-semibold">• Highly rated & priced right</span>
+              <span className="text-xs text-muted font-semibold">{t('Selected from the current catalog', 'বর্তমান ক্যাটালগ থেকে বাছাই')}</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-ink">
-              {t('Top Rated & Certified Bestsellers', 'সেরা রেটিংপ্রাপ্ত পণ্য')}
+              {t('A few good finds', 'বাছাই করা কিছু পণ্য')}
             </h2>
           </div>
           <button
@@ -377,57 +348,31 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Deals Section with Countdown Timer and Horizontal Carousel */}
+      {/* Current catalog discounts */}
       <section className="rounded-3xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-rose-500/10 border border-amber-300/60 p-5 sm:p-8 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/20 text-accent font-bold text-xs uppercase tracking-wider">
-              <Zap className="w-3.5 h-3.5 fill-current animate-pulse text-amber-600" />
-              <span className="text-amber-800">{t('Time-Sensitive Offers', 'সীমিত সময়ের মেগা অফার')}</span>
+              <Tag className="w-3.5 h-3.5 text-amber-700" />
+              <span className="text-amber-800">{t('Price drops', 'দাম কমেছে')}</span>
             </div>
             <div className="flex items-center gap-2.5">
               <h2 className="text-xl sm:text-3xl font-black text-ink">
                 {t('Featured Deals', 'ফিচার্ড ডিলসমূহ')}
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-600 text-white uppercase tracking-wider animate-pulse">
-                Live
-              </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-600">
-              {t('Deep discounts on verified local produce and top sellers. Grab yours before time runs out!', 'যাচাইকৃত চাষী ও সেরা ভেন্ডরদের পণ্যে বিশেষ মূল্যছাড়। সময় শেষ হওয়ার আগেই লুফে নিন!')}
+              {t('See products currently listed with a discounted price.', 'বর্তমানে ছাড়ের দামে থাকা পণ্যগুলো দেখুন।')}
             </p>
           </div>
 
-          {/* Countdown Clock and Carousel Navigation Controls */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Countdown Clock */}
-            <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-2xl border border-amber-200/90 shadow-xs">
-              <Clock className="w-4 h-4 text-rose-500 animate-spin-slow" />
-              <div className="text-left">
-                <span className="text-[10px] font-bold text-slate-400 block -mb-0.5 uppercase tracking-wide">
-                  {t('Deal Expires In', 'মেয়াদ বাকি')}
-                </span>
-                <div className="flex items-center gap-1 font-mono text-sm font-black text-ink">
-                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-rose-600 min-w-[26px] text-center">
-                    {String(timeLeft.hours).padStart(2, '0')}h
-                  </span>
-                  <span>:</span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-rose-600 min-w-[26px] text-center">
-                    {String(timeLeft.minutes).padStart(2, '0')}m
-                  </span>
-                  <span>:</span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-rose-600 min-w-[26px] text-center">
-                    {String(timeLeft.seconds).padStart(2, '0')}s
-                  </span>
-                </div>
-              </div>
-            </div>
-
+          <div className="flex items-center gap-2">
             {/* Carousel Controls */}
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => scrollDeals('left')}
+                disabled={dealProducts.length === 0}
                 className="neu-button p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-primary hover:bg-slate-50 shadow-xs transition-colors"
                 title="Scroll Left"
                 aria-label="Scroll Deals Left"
@@ -437,6 +382,7 @@ export const HomePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => scrollDeals('right')}
+                disabled={dealProducts.length === 0}
                 className="neu-button p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-primary hover:bg-slate-50 shadow-xs transition-colors"
                 title="Scroll Right"
                 aria-label="Scroll Deals Right"
@@ -464,8 +410,6 @@ export const HomePage: React.FC = () => {
             const discountPercent = product.discount_price 
               ? Math.round(((product.price - product.discount_price) / product.price) * 100) 
               : 0;
-            // Simulated claim percentage based on stock_quantity
-            const claimPercent = Math.min(95, Math.max(45, (100 - (product.stock_quantity % 40) * 2)));
 
             return (
               <div
@@ -474,28 +418,24 @@ export const HomePage: React.FC = () => {
               >
                 <div>
                   {/* Image & Discount Badge */}
-                  <div 
-                    className="relative aspect-4/3 w-full rounded-xl overflow-hidden mb-3 bg-slate-100 cursor-pointer"
+                  <button
+                    type="button"
+                    className="relative mb-3 aspect-4/3 w-full overflow-hidden rounded-xl bg-slate-100 text-left"
                     onClick={() => navigateToProduct(product.slug)}
+                    aria-label={`${t('View product', 'পণ্য দেখুন')}: ${language === 'bn' ? product.name_bn || product.name : product.name}`}
                   >
                     <img
                       src={product.image}
-                      alt={product.name}
+                      alt=""
                       className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-500"
                     />
                     
                     {/* Discount Pill */}
                     <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-rose-600 text-white text-xs font-black shadow-md flex items-center gap-1">
                       <Flame className="w-3.5 h-3.5 fill-current" />
-                      <span>{discountPercent}% OFF</span>
+                      <span>{discountPercent}% {t('off', 'ছাড়')}</span>
                     </div>
-
-                    {/* Fast Express Delivery Tag */}
-                    <div className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-slate-900/85 backdrop-blur-xs text-amber-300 text-[10px] font-extrabold flex items-center gap-1">
-                      <Truck className="w-3 h-3" />
-                      <span>3-Hr Express</span>
-                    </div>
-                  </div>
+                  </button>
 
                   {/* Title & Seller */}
                   <p className="text-[11px] font-semibold text-slate-500 truncate mb-0.5">
@@ -509,6 +449,7 @@ export const HomePage: React.FC = () => {
                   </h3>
 
                   {/* Rating & Stock */}
+                  {product.review_count !== undefined && product.review_count > 0 && product.rating !== undefined && (
                   <div className="flex items-center gap-2 mt-2 text-xs">
                     <div className="flex items-center text-amber-500 font-bold">
                       <span>★</span>
@@ -519,6 +460,7 @@ export const HomePage: React.FC = () => {
                       {product.review_count} {t('ratings', 'মতামত')}
                     </span>
                   </div>
+                  )}
 
                   {/* Pricing */}
                   <div className="mt-3 flex items-baseline gap-2">
@@ -532,19 +474,9 @@ export const HomePage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Deal Progress Meter */}
-                  <div className="mt-3 space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                      <span>{claimPercent}% {t('Claimed', 'বিক্রি সম্পন্ন')}</span>
-                      <span className="text-rose-600">{t('Only few left', 'সীমিত স্টক')}</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-amber-500 to-rose-600 rounded-full transition-all duration-500"
-                        style={{ width: `${claimPercent}%` }}
-                      />
-                    </div>
-                  </div>
+                  <p className="mt-2 text-[11px] font-medium text-muted">
+                    {product.stock_quantity} {t('in stock', 'টি মজুদ')}
+                  </p>
                 </div>
 
                 {/* Add to Cart button */}
@@ -554,11 +486,16 @@ export const HomePage: React.FC = () => {
                   className="neu-button mt-4 w-full py-2.5 px-3 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-xs flex items-center justify-center gap-2 transition-colors"
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>{t('Claim Deal & Add', 'ডিল লুফে নিন')}</span>
+                  <span>{t('Add to cart', 'কার্টে যোগ করুন')}</span>
                 </button>
               </div>
             );
           })}
+          {dealProducts.length === 0 && (
+            <p className="w-full rounded-2xl border border-dashed border-amber-300 bg-white/70 p-6 text-center text-sm text-muted">
+              {t('No discounted products are available in this catalog right now.', 'এই ক্যাটালগে এখন ছাড়ের পণ্য নেই।')}
+            </p>
+          )}
         </div>
       </section>
 
@@ -588,49 +525,51 @@ export const HomePage: React.FC = () => {
         </section>
       )}
 
-      {/* Spotlight on Local Verified Sellers */}
-      <section className="rounded-3xl bg-white border border-border p-6 sm:p-8 shadow-card">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs mb-1.5">
-              <Award className="w-3.5 h-3.5" />
-              <span>{t('VERIFIED VENDORS', 'যাচাইকৃত বিক্রেতা')}</span>
+      {featuredSellers.length > 0 && (
+        <section className="rounded-3xl border border-border bg-white p-6 shadow-card sm:p-8">
+          <div className="mb-6">
+            <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-primary-light px-3 py-1 text-xs font-bold text-primary">
+              <Store className="h-3.5 w-3.5" />
+              <span>{t('SELLER DIRECTORY', 'বিক্রেতার তালিকা')}</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-ink">
-              {t('Direct from Bangladesh’s Heritage Merchants', 'বাংলাদেশের ঐতিহ্যবাহী বিক্রেতাদের সরাসরি শপ')}
+            <h2 className="text-xl font-black text-ink sm:text-2xl">
+              {t('Browse products by seller', 'বিক্রেতা অনুযায়ী পণ্য দেখুন')}
             </h2>
-            <p className="text-xs sm:text-sm text-muted">
-              {t('Shop directly from verified regional markets and farmers cooperatives', 'আঞ্চলিক বাজার ও খামারিদের কাছ থেকে সরাসরি কেনাকাটা করুন')}
+            <p className="text-xs text-muted sm:text-sm">
+              {t('Seller names and item counts come from the catalog currently shown.', 'বিক্রেতার নাম ও পণ্যের সংখ্যা বর্তমান ক্যাটালগ থেকে নেওয়া।')}
             </p>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {sellers.map((seller) => (
-            <div
-              key={seller.id}
-              className="p-4 rounded-2xl bg-surface-raised border border-slate-100 hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <img
-                  src={seller.image}
-                  alt={seller.name}
-                  className="w-12 h-12 rounded-xl object-cover border border-slate-200"
-                />
-                <div>
-                  <h4 className="font-bold text-xs sm:text-sm text-ink">{seller.name}</h4>
-                  <p className="text-[11px] text-muted">{seller.location}</p>
-                </div>
-              </div>
-              <p className="text-xs text-slate-600 mb-3">{seller.specialty}</p>
-              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs font-semibold">
-                <span className="text-amber-500">★ {seller.rating} rating</span>
-                <span className="text-slate-500">{seller.sales}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredSellers.map((sellerName) => {
+              const sellerProducts = products.filter((product) => product.is_available && product.seller_name === sellerName);
+              const sampleProduct = sellerProducts[0];
+              return (
+                <button
+                  type="button"
+                  key={sellerName}
+                  onClick={() => {
+                    setSearchQuery(sellerName);
+                    setCurrentView('catalog');
+                  }}
+                  className="group flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-surface-raised p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-soft"
+                >
+                  {sampleProduct && <img src={sampleProduct.image} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" loading="lazy" />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-ink">{sellerName}</span>
+                    <span className="mt-1 block text-xs text-muted">
+                      {sellerProducts.length} {t('catalog items', 'টি ক্যাটালগ পণ্য')}
+                    </span>
+                    <span className="mt-2 block text-xs font-bold text-primary group-hover:underline">
+                      {t('Browse products', 'পণ্য দেখুন')} →
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

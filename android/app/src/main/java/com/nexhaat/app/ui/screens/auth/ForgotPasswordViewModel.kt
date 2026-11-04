@@ -101,7 +101,7 @@ class ForgotPasswordViewModel @Inject constructor(
             when (val result = authRepository.resetPassword(
                 email = state.email.trim(),
                 code = state.code.trim(),
-                newPassword = state.newPassword
+                newPass = state.newPassword
             )) {
                 is NetworkResult.Success -> {
                     _uiState.value = _uiState.value.copy(

@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="nexhaat_page">#121923</color>
-    <color name="nexhaat_surface">#1A2430</color>
-    <color name="nexhaat_ink">#F3F6FA</color>
-    <color name="nexhaat_muted">#B2C0CF</color>
+    <color name="nexhaat_page">#07182B</color>
+    <color name="nexhaat_surface">#0B1F3A</color>
+    <color name="nexhaat_ink">#F3F6FC</color>
+    <color name="nexhaat_muted">#B5C4D8</color>
+    <color name="nexhaat_blue">#1769FF</color>
+    <color name="nexhaat_blue_deep">#EAF2FF</color>
+    <color name="nexhaat_blue_sky">#4D91FF</color>
+    <color name="nexhaat_orange">#FFB84A</color>
+    <color name="nexhaat_red">#FF756E</color>
 </resources>

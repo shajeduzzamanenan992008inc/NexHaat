@@ -239,7 +239,7 @@ private fun DealProductCard(
                     .clip(RoundedCornerShape(10.dp))
             ) {
                 ProductImage(
-                    imageReference = product.imageReference,
+                    imageUrl = product.imageReference,
                     contentDescription = product.name,
                     modifier = Modifier.fillMaxSize()
                 )

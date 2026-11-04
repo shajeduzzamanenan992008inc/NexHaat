@@ -35,6 +35,27 @@ def rating_summary(product_id):
     }
 
 
+def rating_summaries(product_ids):
+    """Approved-review averages and counts for several products in one query.
+
+    Only real, approved reviews produce a summary. A product with no reviews is
+    absent from the mapping so serializers never emit a fabricated rating.
+    """
+    ids = _review_ids(product_ids)
+    if not ids:
+        return {}
+    rows = db.session.execute(
+        select(Review.product_id, func.count(Review.id), func.avg(Review.rating))
+        .where(Review.product_id.in_(ids), Review.status == "approved")
+        .group_by(Review.product_id)
+    ).all()
+    return {
+        int(product_id): {"count": int(count), "average": round(float(average), 1)}
+        for product_id, count, average in rows
+        if count and average is not None
+    }
+
+
 def rating_histogram(product_id):
     """Approved-review star distribution with ready-to-render bar widths."""
     rows = db.session.execute(

@@ -583,8 +583,8 @@ export const MyOrdersPage: React.FC = () => {
 
             <p className="text-xs text-muted">
               {t(
-                'NexHaat provides 7-day hassle-free returns on perishable foods and goods. Please specify the reason:',
-                'পণ্য পরিবর্তনের কারণ উল্লেখ করুন:'
+                'Return eligibility and timing depend on this order. The marketplace confirms the applicable terms when you submit a request.',
+                'এই অর্ডারের ওপর রিটার্নের যোগ্যতা ও সময় নির্ভর করে। আবেদন জমা দিলে মার্কেটপ্লেস প্রযোজ্য শর্ত নিশ্চিত করবে।'
               )}
             </p>
 
@@ -606,8 +606,8 @@ export const MyOrdersPage: React.FC = () => {
 
             <div className="p-3 bg-emerald-50 rounded-xl text-xs text-emerald-800">
               {t(
-                'Refund will be credited to your original payment channel within 24-48 hours.',
-                'অনুমোদনের পর ২৪-৪৮ ঘণ্টার মধ্যে টাকা ফেরত দেওয়া হবে।'
+                'The applicable refund method and timing are confirmed after the marketplace reviews the request.',
+                'মার্কেটপ্লেস আবেদন পর্যালোচনার পর প্রযোজ্য ফেরত পদ্ধতি ও সময় নিশ্চিত করবে।'
               )}
             </div>
 

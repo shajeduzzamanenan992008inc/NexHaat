@@ -1,67 +1,67 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { ShieldCheck, Truck, Clock, RefreshCw, Mail, Phone, MapPin, Heart } from 'lucide-react';
+import { ShoppingBag, CreditCard, PackageCheck, CircleHelp } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { setCurrentView, setUserRole, t } = useApp();
+  const { setCurrentView, t } = useApp();
 
   return (
-    <footer className="mt-20 bg-slate-900 text-slate-300 text-sm border-t border-slate-800">
+    <footer className="marketplace-footer mt-20 text-sm">
       {/* Value Proposition Highlights */}
       <div className="border-b border-slate-800 py-8 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-slate-800 text-primary">
-              <Truck className="w-6 h-6" />
+              <ShoppingBag className="w-6 h-6" />
             </div>
             <div>
               <h4 className="font-bold text-white text-sm">
-                {t('Hyper-Local Express Delivery', 'হাইপার-লোকাল এক্সপ্রেস ডেলিভারি')}
+                {t('Browse the marketplace', 'মার্কেটপ্লেস ঘুরে দেখুন')}
               </h4>
               <p className="text-xs text-slate-400 mt-1">
-                {t('Same-day and 3-hour doorstep delivery across Dhaka and Chittagong.', 'ঢাকা ও চট্টগ্রামে একই দিনে দ্রুততম হোম ডেলিভারি।')}
+                {t('Explore groceries, everyday essentials, and local products.', 'নিত্যপণ্য, দরকারি সামগ্রী ও স্থানীয় পণ্য দেখুন।')}
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-slate-800 text-emerald-400">
-              <ShieldCheck className="w-6 h-6" />
+              <CreditCard className="w-6 h-6" />
             </div>
             <div>
               <h4 className="font-bold text-white text-sm">
-                {t('100% Halal & Farm Fresh', '১০০% হালাল ও তাজা পণ্য')}
+                {t('Checkout options', 'পেমেন্টের উপায়')}
               </h4>
               <p className="text-xs text-slate-400 mt-1">
-                {t('Direct sourcing from verified regional farms and river fisheries.', 'সরাসরি স্থানীয় খামার ও নদী থেকে সংগৃহীত নিরাপদ খাবার।')}
+                {t('Available payment methods are shown during checkout.', 'চেকআউটের সময় পাওয়া পেমেন্টের উপায় দেখানো হবে।')}
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-slate-800 text-amber-400">
-              <RefreshCw className="w-6 h-6" />
+              <PackageCheck className="w-6 h-6" />
             </div>
             <div>
               <h4 className="font-bold text-white text-sm">
-                {t('7-Day Easy Returns', '৭ দিনের সহজ রিটার্ন')}
+                {t('Order information', 'অর্ডারের তথ্য')}
               </h4>
               <p className="text-xs text-slate-400 mt-1">
-                {t('Hassle-free replacement or refund guarantee on all marketplace items.', 'যেকোনো পণ্যে সহজ ও দ্রুত রিফান্ড বা পরিবর্তনের নিশ্চয়তা।')}
+                {t('Review status and available actions from your order history.', 'অর্ডার ইতিহাসে স্ট্যাটাস ও প্রযোজ্য কাজ দেখুন।')}
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-slate-800 text-blue-400">
-              <Clock className="w-6 h-6" />
+              <CircleHelp className="w-6 h-6" />
             </div>
             <div>
               <h4 className="font-bold text-white text-sm">
-                {t('24/7 Dedicated Support', '২৪/৭ সার্বক্ষণিক সহায়তা')}
+                {t('Help & support', 'সহায়তা')}
               </h4>
               <p className="text-xs text-slate-400 mt-1">
-                {t('Call our direct helpline +880 9612 000 000 for any order queries.', 'যেকোনো প্রয়োজনে ফোন করুন আমাদের হটলাইন নম্বরে।')}
+                {t('Open the support area to view the available help options.', 'সহায়তার বিকল্পগুলো দেখতে Support অংশ খুলুন।')}
               </p>
             </div>
           </div>
@@ -82,25 +82,10 @@ export const Footer: React.FC = () => {
           </div>
           <p className="text-xs text-slate-400 leading-relaxed pr-6">
             {t(
-              'NexHaat connects millions of Bangladeshi shoppers directly with local farmers, river fishermen, cottage artisans, and verified merchants. We guarantee authentic quality, fair pricing, and rapid doorstep delivery.',
-              'নেক্সহাট বাংলাদেশের স্থানীয় কৃষক, জেলে, তাঁতি ও বিশ্বস্ত বিক্রেতাদের সাথে ক্রেতাদের সরাসরি সংযুক্ত করে সাশ্রয়ী মূল্যে তাজা ও আসল পণ্য পৌঁছে দিচ্ছে।'
+              'NexHaat is a Bangladesh-first marketplace for groceries, everyday essentials, and products from local sellers.',
+              'NexHaat বাংলাদেশের নিত্যপণ্য, দরকারি সামগ্রী ও স্থানীয় বিক্রেতাদের পণ্যের মার্কেটপ্লেস।'
             )}
           </p>
-
-          <div className="space-y-1.5 text-xs text-slate-400">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-primary shrink-0" />
-              <span>Level 6, Navana Tower, Gulshan-1, Dhaka 1212, Bangladesh</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Hotline: +880 9612 000 000 (8:00 AM - 11:00 PM)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>support@nexhaat.com.bd</span>
-            </div>
-          </div>
         </div>
 
         {/* Quick Links */}
@@ -110,87 +95,59 @@ export const Footer: React.FC = () => {
           </h5>
           <ul className="space-y-2 text-xs">
             <li>
-              <button onClick={() => setCurrentView('catalog')} className="hover:text-white transition-colors">
+              <button onClick={() => setCurrentView('catalog')} className="marketplace-footer-link">
                 {t('All Products & Catalog', 'সকল পণ্য ও ক্যাটালগ')}
               </button>
             </li>
             <li>
-              <button onClick={() => setCurrentView('deals')} className="hover:text-white transition-colors">
+              <button onClick={() => setCurrentView('deals')} className="marketplace-footer-link">
                 {t('Flash Deals & Discounts', 'মেগা ছাড় ও অফার')}
               </button>
             </li>
             <li>
-              <button onClick={() => setCurrentView('wishlist')} className="hover:text-white transition-colors">
+              <button onClick={() => setCurrentView('wishlist')} className="marketplace-footer-link">
                 {t('My Wishlist', 'আমার উইশলিস্ট')}
               </button>
             </li>
             <li>
-              <button onClick={() => setCurrentView('my-orders')} className="hover:text-white transition-colors">
+              <button onClick={() => setCurrentView('my-orders')} className="marketplace-footer-link">
                 {t('Order Tracking', 'অর্ডার ট্র্যাকিং')}
               </button>
             </li>
           </ul>
         </div>
 
-        {/* Portals & Workspaces */}
+        {/* Partner access */}
         <div>
           <h5 className="font-bold text-white text-xs uppercase tracking-wider mb-3">
             {t('Partner With Us', 'যুক্ত হোন')}
           </h5>
-          <ul className="space-y-2 text-xs">
-            <li>
-              <button 
-                onClick={() => setUserRole('seller')} 
-                className="hover:text-white transition-colors flex items-center gap-1.5"
-              >
-                <span>{t('Seller Merchant Portal', 'মার্চেন্ট / সেলার পোর্টাল')}</span>
-              </button>
-            </li>
-            <li>
-              <button 
-                onClick={() => setUserRole('rider')} 
-                className="hover:text-white transition-colors flex items-center gap-1.5"
-              >
-                <span>{t('Rider Delivery Hub', 'রাইডার ডেলিভারি হাব')}</span>
-              </button>
-            </li>
-            <li>
-              <button 
-                onClick={() => setUserRole('admin')} 
-                className="hover:text-white transition-colors flex items-center gap-1.5"
-              >
-                <span>{t('Admin Operations Center', 'অ্যাডমিন অপারেশনস')}</span>
-              </button>
-            </li>
-            <li>
-              <button onClick={() => setCurrentView('support')} className="hover:text-white transition-colors">
-                {t('Help & FAQs', 'সাহায্য ও প্রশ্নোত্তর')}
-              </button>
-            </li>
-          </ul>
+          <p className="max-w-xs text-xs leading-relaxed text-slate-300">
+            {t(
+              'Seller, rider, and operations access uses verified marketplace accounts. Local role previews are available from the sign-in panel.',
+              'বিক্রেতা, রাইডার ও অপারেশনস অ্যাক্সেস যাচাইকৃত marketplace account দিয়ে হয়। সাইন-ইন প্যানেলে স্থানীয় role preview পাওয়া যায়।',
+            )}
+          </p>
+          <button onClick={() => setCurrentView('support')} className="marketplace-footer-link mt-3">
+            {t('Help & FAQs', 'সাহায্য ও প্রশ্নোত্তর')}
+          </button>
         </div>
 
-        {/* Accepted Payment Methods in Bangladesh */}
+        {/* Checkout integration note */}
         <div>
           <h5 className="font-bold text-white text-xs uppercase tracking-wider mb-3">
-            {t('Payment Security', 'নিরাপদ পেমেন্ট')}
+            {t('Checkout', 'চেকআউট')}
           </h5>
           <p className="text-xs text-slate-400 mb-3">
-            {t('Encrypted checkout supporting all major Bangladeshi channels.', 'নিরাপদ এনক্রিপ্টেড পেমেন্ট ব্যবস্থা।')}
+            {t('Confirm the methods and terms presented for your order before placing it.', 'অর্ডার দেওয়ার আগে দেখানো পেমেন্টের উপায় ও শর্ত দেখে নিন।')}
           </p>
-          <div className="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-slate-300">
-            <span className="p-2 rounded-lg bg-slate-800 border border-slate-700">bKash</span>
-            <span className="p-2 rounded-lg bg-slate-800 border border-slate-700">Nagad</span>
-            <span className="p-2 rounded-lg bg-slate-800 border border-slate-700">Visa / Master</span>
-            <span className="p-2 rounded-lg bg-slate-800 border border-slate-700">Cash on Delivery</span>
-          </div>
         </div>
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-slate-800 py-6 px-4 text-center text-xs text-slate-500">
+      <div className="marketplace-footer-bottom-bar py-5 px-4 text-center text-xs">
         <p>
-          © 2026 NexHaat Ltd. {t('All rights reserved. Built with precision for Bangladesh.', 'সর্বস্বত্ব সংরক্ষিত।')}
+          © 2026 NexHaat. {t('All rights reserved.', 'সর্বস্বত্ব সংরক্ষিত।')}
         </p>
       </div>
     </footer>

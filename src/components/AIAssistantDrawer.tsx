@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useMotionPresence } from '../lib/useMotionPresence';
 import { 
   Sparkles, X, Send, Bot, User, ShoppingBag, 
   Trash2, Mic, MicOff, Video, Image as ImageIcon, 
@@ -10,11 +11,59 @@ import {
 
 type StudioTab = 'chat' | 'voice' | 'transcribe' | 'visual' | 'music' | 'science';
 
+const MAX_AI_PROMPT_LENGTH = 8_000;
+const MAX_AI_HISTORY_MESSAGES = 40;
+
+function isSafeGroundingUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeGroundingSources(value: unknown): Array<{ uri: string; title: string }> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).flatMap((item: unknown) => {
+    if (!item || typeof item !== 'object') return [];
+    const entry = item as Record<string, unknown>;
+    if (!isSafeGroundingUrl(entry.uri)) return [];
+    return [{
+      uri: entry.uri,
+      title: typeof entry.title === 'string' ? entry.title.slice(0, 160) : entry.uri,
+    }];
+  });
+}
+
+function normalizeGroundingPlaces(value: unknown): Array<{ uri: string; title: string; reviewSnippets?: string[] }> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).flatMap((item: unknown) => {
+    if (!item || typeof item !== 'object') return [];
+    const entry = item as Record<string, unknown>;
+    if (!isSafeGroundingUrl(entry.uri)) return [];
+    const reviewSnippets = Array.isArray(entry.reviewSnippets)
+      ? entry.reviewSnippets
+        .filter((snippet): snippet is string => typeof snippet === 'string')
+        .slice(0, 3)
+        .map((snippet) => snippet.slice(0, 500))
+      : [];
+    return [{
+      uri: entry.uri,
+      title: typeof entry.title === 'string' ? entry.title.slice(0, 160) : 'View on Google Maps',
+      reviewSnippets,
+    }];
+  });
+}
+
 export const AIAssistantDrawer: React.FC = () => {
   const { 
     isAIAssistantOpen, 
     setIsAIAssistantOpen, 
     aiMessages, 
+    sendAIMessage,
+    addAIResponse,
     products, 
     addToCart, 
     navigateToProduct, 
@@ -28,6 +77,12 @@ export const AIAssistantDrawer: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const { isPresent, isExiting } = useMotionPresence(isAIAssistantOpen);
+
+  useEffect(() => {
+    if (overlayRef.current) overlayRef.current.inert = isExiting || !isAIAssistantOpen;
+  }, [isAIAssistantOpen, isExiting]);
 
   // Chat settings
   const [chatModel, setChatModel] = useState<'gemini-3.8-flash' | 'gemini-4-argon' | 'gemini-3.1-flash-lite'>('gemini-3.8-flash');
@@ -97,22 +152,7 @@ export const AIAssistantDrawer: React.FC = () => {
     };
   }, []);
 
-  if (!isAIAssistantOpen) return null;
-
-  // Role system instructions
-  const getRoleInstruction = () => {
-    switch (chatRole) {
-      case 'chef':
-        return 'You are an authentic Bengali Chef and recipe advisor for NexHaat. Recommend ingredients available on NexHaat, traditional spices (Panch Phoron, mustard oil), and Bengali culinary methods.';
-      case 'seller':
-        return 'You are an expert marketplace seller consultant for NexHaat Bangladesh. Provide inventory pricing guidance, promotion ideas, and fulfillment tips.';
-      case 'qa':
-        return 'You are NexHaat Food Safety and Quality Inspector. Analyze produce freshness, formalin risk, calcium carbide absence, and organic standards.';
-      case 'shopping':
-      default:
-        return 'You are the intelligent shopping advisor for NexHaat, Bangladesh premier hyper-local multivendor marketplace. Help find products, compare prices, and plan meals.';
-    }
-  };
+  if (!isPresent) return null;
 
   // Chat submit
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -120,18 +160,41 @@ export const AIAssistantDrawer: React.FC = () => {
     if (!input.trim() || isLoading) return;
 
     const userText = input.trim();
-    setInput('');
+    if (userText.length > MAX_AI_PROMPT_LENGTH) {
+      showToast(
+        t('Keep your question under 8,000 characters.', 'প্রশ্নটি ৮,০০০ অক্ষরের মধ্যে লিখুন।'),
+        'warning',
+      );
+      return;
+    }
+
+    const lastMessage = aiMessages[aiMessages.length - 1];
+    const retryingLastMessage = lastMessage?.sender === 'user' && lastMessage.text === userText;
+    const priorMessages = retryingLastMessage ? aiMessages.slice(0, -1) : aiMessages;
+    const history = priorMessages.slice(-MAX_AI_HISTORY_MESSAGES).map((message) => ({
+      sender: message.sender,
+      text: message.text,
+    }));
+
+    if (!retryingLastMessage) sendAIMessage(userText);
     setIsLoading(true);
+    setGroundingSources([]);
+    setGroundingPlaces([]);
 
     try {
+      let assistantText = '';
       if (useSearchGrounding) {
         const res = await fetch('/api/gemini/search-grounding', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: userText }),
         });
-        const data = await res.json();
-        setGroundingSources(data.sources || []);
+        const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+        if (!res.ok) {
+          throw new Error(typeof data.error === 'string' ? data.error : t('Search request failed.', 'সার্চ অনুরোধ ব্যর্থ হয়েছে।'));
+        }
+        setGroundingSources(normalizeGroundingSources(data.sources));
+        assistantText = typeof data.text === 'string' ? data.text.trim() : '';
       } else if (useMapsGrounding) {
         const res = await fetch('/api/gemini/maps-grounding', {
           method: 'POST',
@@ -142,28 +205,42 @@ export const AIAssistantDrawer: React.FC = () => {
             longitude: 90.4125
           }),
         });
-        const data = await res.json();
-        setGroundingPlaces(data.places || []);
+        const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+        if (!res.ok) {
+          throw new Error(typeof data.error === 'string' ? data.error : t('Maps request failed.', 'ম্যাপ অনুরোধ ব্যর্থ হয়েছে।'));
+        }
+        setGroundingPlaces(normalizeGroundingPlaces(data.places));
+        assistantText = typeof data.text === 'string' ? data.text.trim() : '';
+      } else {
+        const chatRes = await fetch('/api/gemini/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: userText,
+            messages: history,
+            model: chatModel,
+            role: chatRole,
+          }),
+        });
+        const data = await chatRes.json().catch(() => ({})) as Record<string, unknown>;
+        if (!chatRes.ok) {
+          throw new Error(typeof data.error === 'string' ? data.error : t('Chat request failed.', 'চ্যাট অনুরোধ ব্যর্থ হয়েছে।'));
+        }
+        assistantText = typeof data.reply === 'string'
+          ? data.reply.trim()
+          : typeof data.text === 'string'
+            ? data.text.trim()
+            : '';
       }
 
-      // Main chat call
-      const chatRes = await fetch('/api/gemini/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: userText,
-          model: chatModel,
-          systemInstruction: getRoleInstruction(),
-        }),
-      });
-
-      if (!chatRes.ok) {
-        const err = await chatRes.json();
-        showToast(err.error || 'Chat failed', 'warning');
-      }
+      if (!assistantText) throw new Error(t('AI did not return a response. Try again.', 'AI কোনো উত্তর দেয়নি। আবার চেষ্টা করুন।'));
+      addAIResponse(assistantText);
+      setInput('');
     } catch (err: any) {
-      console.error('Chat error:', err);
-      showToast(err.message || 'Chat error', 'error');
+      const message = err instanceof Error && err.message
+        ? err.message
+        : t('AI could not be reached. Your question is still here to retry.', 'AI-তে সংযোগ করা যায়নি। আবার চেষ্টা করতে আপনার প্রশ্নটি রাখা হয়েছে।');
+      showToast(message, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -476,7 +553,13 @@ export const AIAssistantDrawer: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div
+      ref={overlayRef}
+      className={`fixed inset-0 z-50 overflow-hidden motion-drawer-overlay motion-overlay-enter ${
+        isExiting ? 'motion-overlay-exit pointer-events-none' : ''
+      }`}
+      aria-hidden={isExiting || !isAIAssistantOpen}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
@@ -484,18 +567,19 @@ export const AIAssistantDrawer: React.FC = () => {
       />
 
       {/* Drawer */}
-      <div className="absolute inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
+      <div className={`absolute inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10 motion-drawer-enter ${isExiting ? 'motion-drawer-exit' : ''}`}>
         <div className="w-screen max-w-xl bg-white shadow-2xl flex flex-col">
           {/* Header */}
           <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-950 via-slate-900 to-primary text-white">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-white/10 rounded-xl backdrop-blur-md">
-                <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+            <div className="flex items-center gap-3">
+              <div className="relative w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md animate-neural-pulse">
+                <Sparkles className="w-5 h-5 text-amber-300" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-slate-950 animate-ping" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-bold text-white text-base">NexHaat AI Studio & Science Lab</h2>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950">
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 shadow-xs">
                     Live
                   </span>
                 </div>
@@ -650,7 +734,7 @@ export const AIAssistantDrawer: React.FC = () => {
                   return (
                     <div
                       key={msg.id}
-                      className={`flex gap-2.5 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+                      className={`flex gap-2.5 motion-message-enter ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
                     >
                       <div
                         className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
@@ -713,7 +797,9 @@ export const AIAssistantDrawer: React.FC = () => {
                                         {formatPrice(prod.discount_price ?? prod.price)}
                                       </span>
                                       <span>•</span>
-                                      <span className="text-amber-500 font-semibold">★ {prod.rating}</span>
+                                      {prod.rating !== undefined && (
+                                        <span className="text-amber-500 font-semibold">★ {prod.rating}</span>
+                                      )}
                                     </div>
                                   </div>
                                   <button
@@ -738,7 +824,7 @@ export const AIAssistantDrawer: React.FC = () => {
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1.5 text-xs">
                     <p className="font-bold text-blue-900 flex items-center gap-1.5">
                       <Search className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Verified Google Search Grounding Sources:</span>
+                      <span>Google Search Sources:</span>
                     </p>
                     <div className="flex flex-wrap gap-2 pt-1">
                       {groundingSources.map((source, idx) => (
@@ -787,6 +873,25 @@ export const AIAssistantDrawer: React.FC = () => {
                   </div>
                 )}
 
+                {/* Assistant response activity */}
+                {isLoading && (
+                  <div role="status" aria-live="polite" className="flex gap-2.5 items-start animate-view-enter">
+                    <div className="w-7 h-7 rounded-xl bg-primary text-white shadow-sm flex items-center justify-center shrink-0 animate-neural-pulse">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-white border border-blue-200/80 shadow-xs space-y-1.5 rounded-tl-xs">
+                      <div className="flex items-center gap-1.5 text-xs text-primary font-semibold">
+                        <span>{t('Generating a reply', 'উত্তর তৈরি হচ্ছে')}</span>
+                        <span className="inline-flex gap-1 items-center">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
 
@@ -796,12 +901,14 @@ export const AIAssistantDrawer: React.FC = () => {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  maxLength={MAX_AI_PROMPT_LENGTH}
+                  aria-label={t('Ask the NexHaat assistant', 'NexHaat সহকারীকে প্রশ্ন করুন')}
                   placeholder={t('Ask anything with search grounding or recipe ideas...', 'যেকোনো প্রশ্ন করুন...')}
                   className="flex-1 px-3.5 py-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl bg-white focus:outline-hidden focus:border-primary"
                 />
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !input.trim()}
                   className="neu-button px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-hover font-bold text-xs flex items-center justify-center shrink-0 disabled:opacity-50"
                 >
                   {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

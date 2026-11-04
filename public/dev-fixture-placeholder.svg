@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640" role="img" aria-label="Development fixture listing: no product photo supplied">
+  <rect width="640" height="640" fill="#EAF2FF"/>
+  <rect x="40" y="40" width="560" height="560" rx="32" fill="#FFFFFF" stroke="#4D91FF" stroke-width="4" stroke-dasharray="18 14"/>
+  <g fill="none" stroke="#1769FF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="232" y="216" width="176" height="140" rx="18"/>
+    <path d="M232 262l52-46 44 40 34-28 46 44"/>
+    <circle cx="286" cy="248" r="12" fill="#1769FF" stroke="none"/>
+  </g>
+  <text x="320" y="420" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700" fill="#0B1F3A">Development fixture</text>
+  <text x="320" y="460" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" fill="#4D91FF">No product photo supplied</text>
+</svg>

@@ -35,22 +35,15 @@ service cloud.firestore {
     // Orders
     match /orders/{orderId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
+      // Flask owns order creation, status transitions, totals, and payment state.
+      allow create, update, delete: if false;
     }
 
     // Reviews
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-
-    // Connection testing
-    match /test/{docId} {
-      allow read, write: if true;
+      // Flask checks delivered purchases and applies moderation before publishing.
+      allow create, update, delete: if false;
     }
   }
 }

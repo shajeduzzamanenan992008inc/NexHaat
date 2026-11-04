@@ -4,18 +4,39 @@
 
 :root {
   color-scheme: light;
-  --page: #f4f6f8;
+  --page: #f3f4f6;
   --surface: #ffffff;
-  --surface-raised: #f8fafc;
-  --ink: #1a2332;
-  --muted: #5c6b7a;
-  --line: #dde3ea;
-  --blue: #0a66c2;
-  --blue-deep: #074f96;
-  --green: #1b7a43;
-  --orange: #e8890c;
-  --red: #b3261e;
+  --surface-raised: #f8faff;
+  --ink: #0b1f3a;
+  --muted: #53657c;
+  --line: #dbe3ed;
+  --blue: #1769ff;
+  --blue-deep: #0b1f3a;
+  --blue-sky: #4d91ff;
+  --blue-light: #eaf2ff;
+  --green: #238253;
+  --orange: #ff9900;
+  --daraz-orange: #f85606;
+  --red: #e1251b;
+  --motion-fast: 150ms;
+  --motion-normal: 280ms;
+  --motion-page: 320ms;
+  --motion-major: 450ms;
+  --motion-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --page: #07182b;
+  --surface: #0b1f3a;
+  --surface-raised: #102947;
+  --ink: #f3f6fc;
+  --muted: #b5c4d8;
+  --line: #2c405a;
+  --blue-deep: #4d91ff;
 }
 
 body {
@@ -35,8 +56,8 @@ body::after {
   pointer-events: none;
   content: "";
   border-radius: 50%;
-  filter: blur(40px);
-  opacity: 0.7;
+  filter: blur(24px);
+  opacity: 0.38;
 }
 
 body::before {
@@ -44,8 +65,7 @@ body::before {
   height: 26rem;
   top: 5%;
   left: -10rem;
-  background: radial-gradient(circle at 65% 38%, #d2e4ff, transparent 70%);
-  animation: ambient-drift 16s ease-in-out infinite;
+  background: radial-gradient(circle at 65% 38%, #d8e7ff, transparent 70%);
 }
 
 body::after {
@@ -53,8 +73,7 @@ body::after {
   height: 30rem;
   bottom: 5%;
   right: -12rem;
-  background: radial-gradient(circle at 38% 46%, #fef0db, transparent 70%);
-  animation: ambient-drift 20s ease-in-out -5s infinite reverse;
+  background: radial-gradient(circle at 38% 46%, #fff0d9, transparent 70%);
 }
 
 @keyframes ambient-drift {
@@ -93,12 +112,13 @@ body::after {
 }
 
 .neu-button {
-  transition: all 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: transform var(--motion-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-normal) var(--motion-ease-standard);
 }
 
 .neu-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(10, 102, 194, 0.2);
+  box-shadow: 0 8px 24px rgba(18, 58, 86, 0.2);
 }
 
 .neu-button:active {
@@ -119,4 +139,935 @@ body::after {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Digital & International Micro-Animations */
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes shimmer-slide {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 3s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-slow 4s ease-in-out infinite;
+}
+
+.shimmer-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 100%
+  );
+  animation: shimmer-slide 4s infinite linear;
+  pointer-events: none;
+}
+
+.digital-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+/* RTL Language Handling */
+[dir="rtl"] {
+  text-align: right;
+}
+[dir="rtl"] .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+/* ========================================================
+   Level 1: Essential Motion (Feedback, Transitions, Skeletons)
+   ======================================================== */
+
+@keyframes heart-pop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.35) rotate(-6deg);
+  }
+  60% {
+    transform: scale(0.9) rotate(3deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.animate-heart-pop {
+  animation: heart-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes cart-bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.25) translateY(-3px);
+  }
+  60% {
+    transform: scale(0.95) translateY(1px);
+  }
+}
+
+.animate-cart-bounce {
+  animation: cart-bounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes view-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-view-enter {
+  animation: view-enter var(--motion-page) var(--motion-ease-enter) forwards;
+}
+
+@keyframes motion-overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes motion-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes motion-drawer-enter {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes motion-popover-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes motion-message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.motion-overlay-enter {
+  animation: motion-overlay-enter var(--motion-fast) var(--motion-ease-enter) both;
+}
+
+.motion-overlay-exit {
+  animation: motion-overlay-enter var(--motion-fast) var(--motion-ease-exit) reverse both;
+}
+
+.motion-panel-enter {
+  animation: motion-panel-enter var(--motion-normal) var(--motion-ease-enter) both;
+}
+
+.motion-panel-exit {
+  animation: motion-panel-enter var(--motion-normal) var(--motion-ease-exit) reverse both;
+}
+
+.motion-drawer-enter {
+  animation: motion-drawer-enter var(--motion-normal) var(--motion-ease-enter) both;
+}
+
+.motion-drawer-exit {
+  animation: motion-drawer-enter var(--motion-normal) var(--motion-ease-exit) reverse both;
+}
+
+.motion-popover-enter {
+  transform-origin: top center;
+  animation: motion-popover-enter var(--motion-fast) var(--motion-ease-enter) both;
+}
+
+.motion-message-enter {
+  animation: motion-message-enter var(--motion-fast) var(--motion-ease-enter) both;
+}
+
+/* Shared modal roots use existing Tailwind structure; drawer panels opt out below. */
+[class~="fixed"][class~="inset-0"][class*="z-"]:not(.motion-drawer-overlay):not([class~="transition-opacity"]) {
+  animation: motion-overlay-enter var(--motion-fast) var(--motion-ease-enter) both;
+}
+
+[class~="fixed"][class~="inset-0"][class*="z-"]:not(.motion-drawer-overlay) > :first-child:not(.absolute.inset-0) {
+  animation: motion-panel-enter var(--motion-normal) var(--motion-ease-enter) both;
+}
+
+.motion-nav-link {
+  position: relative;
+}
+
+.motion-nav-link::after {
+  position: absolute;
+  right: 0.15rem;
+  bottom: -0.3rem;
+  left: 0.15rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--motion-fast) var(--motion-ease-standard);
+}
+
+.motion-nav-link[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+.motion-image-zoom {
+  transition: transform var(--motion-major) var(--motion-ease-standard);
+}
+
+@keyframes error-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-6px);
+  }
+  40%, 80% {
+    transform: translateX(6px);
+  }
+}
+
+.animate-error-shake {
+  animation: error-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes checkmark-draw {
+  0% {
+    stroke-dashoffset: 48;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-checkmark-draw {
+  stroke-dasharray: 48;
+  animation: checkmark-draw 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+/* ========================================================
+   Level 2: Premium Experience (Gradients, AI Streaming, 2FA)
+   ======================================================== */
+
+@keyframes mesh-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.bg-aurora-mesh {
+  background: linear-gradient(
+    135deg,
+    rgba(18, 58, 86, 0.06) 0%,
+    rgba(27, 122, 67, 0.05) 35%,
+    rgba(244, 165, 28, 0.06) 70%,
+    rgba(14, 165, 233, 0.07) 100%
+  );
+  background-size: 300% 300%;
+  animation: mesh-shift 12s ease infinite;
+}
+
+.bg-aurora-mesh-dark {
+  background: linear-gradient(
+    135deg,
+    #061a33 0%,
+    #0a3b6e 35%,
+    #0f2e59 70%,
+    #07192c 100%
+  );
+  background-size: 300% 300%;
+  animation: mesh-shift 14s ease infinite;
+}
+
+@keyframes radar-scan {
+  0% {
+    top: 0%;
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0.2;
+  }
+}
+
+.animate-radar-scan {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #123a56, #f4a51c, transparent);
+  animation: radar-scan 1.8s ease-in-out infinite;
+}
+
+@keyframes neural-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(18, 58, 86, 0.4), 0 0 0 0 rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(18, 58, 86, 0), 0 0 0 16px rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-neural-pulse {
+  animation: neural-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes typing-cursor {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-typing-cursor {
+  animation: typing-cursor 0.9s infinite;
+}
+
+/* ========================================================
+   Level 3: Advanced Experience (Scroll, 3D Depth, AI Ripple)
+   ======================================================== */
+
+.card-3d-tilt {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.15s cubic-bezier(0.0, 0.0, 0.2, 1.0);
+}
+
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(18, 58, 86, 0.08),
+    transparent 40%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+/* NexHaat marketplace refresh: Amazon-inspired discovery patterns in the local brand system. */
+.marketplace-app {
+  --marketplace-navy: #0b1f3a;
+  --marketplace-blue: #1769ff;
+  --marketplace-sky: #4d91ff;
+  --marketplace-orange: #ff9900;
+  --marketplace-daraz-orange: #f85606;
+  --marketplace-alibaba-red: #e1251b;
+  --marketplace-blue-light: #eaf2ff;
+  --marketplace-card-shadow: 0 12px 30px rgba(11, 31, 58, 0.1);
+  background-color: var(--page);
+  background-image:
+    radial-gradient(ellipse at 7% 5%, rgba(77, 145, 255, 0.11), transparent 30rem),
+    radial-gradient(ellipse at 95% 16%, rgba(248, 86, 6, 0.045), transparent 26rem),
+    radial-gradient(ellipse at 82% 84%, rgba(255, 153, 0, 0.045), transparent 24rem),
+    linear-gradient(180deg, #f8faff 0%, #f3f4f6 54%, #f8faff 100%);
+}
+
+.dark .marketplace-app {
+  --marketplace-card-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  background-color: #07182b;
+  background-image:
+    radial-gradient(ellipse at 7% 5%, rgba(23, 105, 255, 0.2), transparent 30rem),
+    radial-gradient(ellipse at 95% 16%, rgba(248, 86, 6, 0.055), transparent 26rem),
+    radial-gradient(ellipse at 82% 84%, rgba(255, 153, 0, 0.04), transparent 24rem),
+    linear-gradient(180deg, #07182b 0%, #0b1f3a 54%, #07182b 100%);
+}
+
+.dark .text-primary {
+  color: #4d91ff;
+}
+
+.text-accent {
+  color: #7a4700;
+}
+
+.dark .text-accent {
+  color: #ffb84a;
+}
+
+.dark .text-ink {
+  color: #f3f6fc;
+}
+
+.dark .text-muted {
+  color: #b5c4d8;
+}
+
+.dark .border-border {
+  border-color: #2c405a;
+}
+
+.marketplace-app main {
+  max-width: 1600px;
+  isolation: isolate;
+}
+
+.marketplace-app footer .max-w-7xl,
+.marketplace-navbar .max-w-7xl {
+  max-width: 1600px;
+}
+
+.marketplace-navbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 255, 0.98));
+  box-shadow: 0 5px 18px rgba(11, 31, 58, 0.06);
+  border-color: rgba(219, 227, 237, 0.9);
+}
+
+.dark .marketplace-navbar {
+  background: linear-gradient(180deg, rgba(11, 31, 58, 0.98), rgba(16, 41, 71, 0.98));
+}
+
+.marketplace-utility-bar {
+  color: #eaf2ff;
+  background: linear-gradient(105deg, #0b1f3a 0%, #102947 72%, #12345c 100%);
+  border-bottom: 1px solid rgba(77, 145, 255, 0.28);
+}
+
+.dark .marketplace-utility-bar {
+  background: linear-gradient(105deg, #061426 0%, #0b1f3a 72%, #102947 100%);
+  border-bottom-color: rgba(77, 145, 255, 0.34);
+}
+
+.marketplace-utility-control {
+  border: 1px solid rgba(234, 242, 255, 0.22);
+  background: rgba(234, 242, 255, 0.1);
+}
+
+.marketplace-utility-control:hover {
+  border-color: rgba(234, 242, 255, 0.48);
+  background: rgba(234, 242, 255, 0.17);
+}
+
+.marketplace-theme-toggle {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(234, 242, 255, 0.22);
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  background: rgba(234, 242, 255, 0.1);
+  color: #eaf2ff;
+  font-size: 11px;
+  font-weight: 700;
+  transition: transform var(--motion-fast) var(--motion-ease-standard),
+    border-color var(--motion-fast) var(--motion-ease-standard),
+    background-color var(--motion-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-fast) var(--motion-ease-standard);
+}
+
+.marketplace-theme-toggle:hover {
+  border-color: rgba(77, 145, 255, 0.75);
+  background: rgba(77, 145, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(77, 145, 255, 0.12);
+}
+
+.marketplace-utility-link {
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+
+.marketplace-utility-link:hover {
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+}
+
+.marketplace-category-bar {
+  border-color: #dbe7f6;
+  background: linear-gradient(90deg, #eaf2ff 0%, #f8faff 54%, #fffaf0 100%);
+}
+
+.dark .marketplace-category-bar {
+  border-color: #29405d;
+  background: linear-gradient(90deg, #102947 0%, #0b1f3a 60%, #10243b 100%);
+}
+
+.marketplace-category-bar button[data-active="true"] {
+  color: #1769ff;
+}
+
+.dark .marketplace-category-bar button[data-active="true"] {
+  color: #8bb8ff;
+}
+
+.marketplace-navbar form:focus-within {
+  border-radius: 0.85rem;
+  box-shadow: 0 0 0 3px rgba(23, 105, 255, 0.2);
+}
+
+.marketplace-navbar form input {
+  transition: background-color var(--motion-fast) var(--motion-ease-standard),
+    border-color var(--motion-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-fast) var(--motion-ease-standard);
+}
+
+.marketplace-navbar form input:focus {
+  background-color: #ffffff;
+  border-color: var(--marketplace-blue);
+}
+
+.dark .marketplace-navbar form input:focus {
+  background-color: #102947;
+}
+
+.marketplace-app :focus-visible {
+  outline: 3px solid rgba(23, 105, 255, 0.88);
+  outline-offset: 3px;
+}
+
+.marketplace-action-button,
+.marketplace-icon-button,
+.marketplace-footer-link {
+  transform: translateY(0);
+  transition: transform var(--motion-fast) var(--motion-ease-standard),
+    color var(--motion-fast) var(--motion-ease-standard),
+    background-color var(--motion-fast) var(--motion-ease-standard),
+    border-color var(--motion-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-fast) var(--motion-ease-standard);
+}
+
+.marketplace-action-button:hover:not(:disabled),
+.marketplace-icon-button:hover:not(:disabled),
+.marketplace-footer-link:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.marketplace-action-button:active:not(:disabled),
+.marketplace-icon-button:active:not(:disabled),
+.marketplace-footer-link:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+}
+
+.marketplace-action-button:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(23, 105, 255, 0.24);
+}
+
+.marketplace-ai-cta {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(234, 242, 255, 0.36);
+  background: linear-gradient(120deg, #0b1f3a 0%, #1769ff 68%, #4d91ff 100%);
+  box-shadow: 0 5px 16px rgba(23, 105, 255, 0.28);
+}
+
+.marketplace-ai-cta::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.18) 48%, transparent 72%);
+  content: "";
+  opacity: 0;
+  transform: translateX(-65%);
+  transition: opacity var(--motion-fast) var(--motion-ease-standard),
+    transform var(--motion-major) var(--motion-ease-standard);
+  pointer-events: none;
+}
+
+.marketplace-ai-cta:hover::after {
+  opacity: 1;
+  transform: translateX(65%);
+}
+
+.marketplace-navbar .motion-nav-link {
+  text-decoration-color: transparent;
+  text-underline-offset: 7px;
+  transition: color var(--motion-fast) var(--motion-ease-standard),
+    text-decoration-color var(--motion-fast) var(--motion-ease-standard);
+}
+
+.marketplace-navbar .motion-nav-link:hover,
+.marketplace-navbar .motion-nav-link[data-active="true"] {
+  text-decoration-line: underline;
+  text-decoration-color: #1769ff;
+}
+
+.marketplace-search-submit {
+  min-height: 38px;
+  background-image: linear-gradient(115deg, #1769ff, #1458d4);
+}
+
+.marketplace-footer {
+  border-top: 1px solid rgba(77, 145, 255, 0.38);
+  border-image: linear-gradient(90deg, #1769ff, #4d91ff 48%, #ff9900 82%, #f85606) 1;
+  background: linear-gradient(145deg, #0b1f3a 0%, #07182b 68%, #0a2440 100%);
+  color: #eaf2ff;
+}
+
+.marketplace-footer > div:first-child {
+  border-color: rgba(234, 242, 255, 0.12);
+  background: rgba(7, 24, 43, 0.32);
+}
+
+.marketplace-footer .bg-slate-800 {
+  background-color: rgba(234, 242, 255, 0.09);
+}
+
+.marketplace-footer .text-slate-400,
+.marketplace-footer .text-slate-500 {
+  color: #b5c4d8;
+}
+
+.marketplace-footer-link {
+  display: inline-flex;
+  align-items: center;
+  text-align: left;
+  color: #cfdef1;
+}
+
+.marketplace-footer-link:hover {
+  color: #8bb8ff;
+}
+
+.marketplace-footer-bottom-bar {
+  border-top: 1px solid rgba(234, 242, 255, 0.12);
+  background: rgba(4, 15, 28, 0.56);
+  color: #c3d2e7;
+}
+
+.marketplace-home > section,
+.marketplace-catalog > section,
+.marketplace-product-page > section {
+  animation: marketplace-section-enter 320ms var(--motion-ease-enter) both;
+}
+
+.marketplace-home > section:nth-child(2),
+.marketplace-catalog > section:nth-child(2),
+.marketplace-product-page > section:nth-child(2) {
+  animation-delay: 55ms;
+}
+
+.marketplace-home > section:nth-child(3),
+.marketplace-catalog > section:nth-child(3),
+.marketplace-product-page > section:nth-child(3) {
+  animation-delay: 110ms;
+}
+
+.marketplace-home > section:nth-child(n + 4),
+.marketplace-catalog > section:nth-child(n + 4),
+.marketplace-product-page > section:nth-child(n + 4) {
+  animation-delay: 150ms;
+}
+
+@keyframes marketplace-section-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.marketplace-hero {
+  min-height: 0;
+  box-shadow: 0 20px 48px rgba(11, 31, 58, 0.2);
+  background: linear-gradient(115deg, #0b1f3a 0%, #1769ff 62%, #1748a8 100%);
+}
+
+.marketplace-hero::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 86% 42%, rgba(255, 255, 255, 0.1), transparent 42%);
+  content: "";
+  pointer-events: none;
+}
+
+.marketplace-hero__visual {
+  position: relative;
+  display: grid;
+  min-height: 340px;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.58fr);
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
+  align-self: stretch;
+  padding: 18px 4px 18px 18px;
+}
+
+.marketplace-hero__feature,
+.marketplace-hero__tile {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  box-shadow: 0 16px 34px rgba(5, 20, 42, 0.24);
+  text-align: left;
+  backdrop-filter: blur(10px);
+}
+
+.marketplace-hero__feature {
+  grid-row: 1 / 3;
+  min-height: 320px;
+  padding: 0;
+}
+
+.marketplace-hero__feature img,
+.marketplace-hero__tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 280ms var(--motion-ease-standard);
+}
+
+.marketplace-hero__feature:hover img,
+.marketplace-hero__tile:hover img {
+  transform: scale(1.035);
+}
+
+.marketplace-hero__feature::after,
+.marketplace-hero__tile::after {
+  position: absolute;
+  inset: 30% 0 0;
+  background: linear-gradient(180deg, transparent, rgba(7, 24, 43, 0.86));
+  content: "";
+  pointer-events: none;
+}
+
+.marketplace-hero__product-copy {
+  position: absolute;
+  z-index: 1;
+  right: 18px;
+  bottom: 16px;
+  left: 18px;
+}
+
+.marketplace-hero__tile .marketplace-hero__product-copy {
+  right: 12px;
+  bottom: 10px;
+  left: 12px;
+}
+
+.marketplace-hero__visual-label {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 4px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(11, 31, 58, 0.68);
+  color: #f3f6fc;
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: blur(8px);
+}
+
+.marketplace-preview-notice {
+  border: 1px solid #ead5aa;
+  background: #fff9eb;
+  color: #714c11;
+}
+
+.marketplace-home > section:not(:first-child) {
+  scroll-margin-top: 8rem;
+}
+
+.marketplace-product-card {
+  border-color: rgba(219, 227, 237, 0.95);
+  box-shadow: 0 4px 14px rgba(11, 31, 58, 0.055);
+  transition: border-color var(--motion-normal) var(--motion-ease-standard),
+    box-shadow var(--motion-normal) var(--motion-ease-standard),
+    background-color var(--motion-normal) var(--motion-ease-standard);
+}
+
+.marketplace-product-card:hover {
+  border-color: rgba(23, 105, 255, 0.42);
+  box-shadow: var(--marketplace-card-shadow);
+}
+
+.marketplace-product-card .marketplace-cart-cta {
+  min-height: 40px;
+  border: 1px solid rgba(11, 31, 58, 0.12);
+  background-image: linear-gradient(135deg, #1769ff, #0b1f3a);
+  box-shadow: 0 5px 14px rgba(23, 105, 255, 0.24);
+}
+
+.marketplace-product-card .marketplace-cart-cta:hover:not(:disabled) {
+  box-shadow: 0 8px 18px rgba(16, 42, 67, 0.24);
+}
+
+.marketplace-product-card img {
+  transition: transform 480ms var(--motion-ease-standard), filter 300ms var(--motion-ease-standard);
+}
+
+.marketplace-product-card:hover img {
+  filter: saturate(1.04);
+}
+
+.marketplace-catalog > div:first-child,
+.marketplace-catalog aside,
+.marketplace-catalog main > div:first-child {
+  box-shadow: 0 6px 22px rgba(18, 42, 63, 0.045);
+}
+
+.marketplace-product-page > div:nth-child(2) > div {
+  scroll-margin-top: 7rem;
+}
+
+.marketplace-product-page img {
+  backface-visibility: hidden;
+}
+
+@media (max-width: 640px) {
+  .marketplace-app main {
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
+    padding-top: 1rem;
+  }
+
+  .marketplace-hero {
+    min-height: 0;
+  }
+
+  .marketplace-hero__visual {
+    min-height: 250px;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 9px;
+    padding: 22px 0 0;
+  }
+
+  .marketplace-hero__feature {
+    min-height: 250px;
+  }
+
+  .marketplace-hero__visual-label {
+    right: 0;
+  }
+
+  .marketplace-product-card {
+    border-radius: 1.1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-heart-pop,
+  .animate-cart-bounce,
+  .animate-view-enter,
+  .animate-error-shake,
+  .animate-checkmark-draw,
+  .bg-aurora-mesh,
+  .animate-radar-scan,
+  .animate-neural-pulse,
+  .animate-typing-cursor,
+  .marketplace-action-button,
+  .marketplace-icon-button,
+  .marketplace-footer-link,
+  .marketplace-ai-cta::after,
+  .card-3d-tilt {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
 }

@@ -1,7 +1,9 @@
 package com.nexhaat.app.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -26,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,6 +37,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nexhaat.app.data.remote.dto.ProductDto
+import com.nexhaat.app.ui.theme.MotionTokens
 import com.nexhaat.app.ui.theme.NexHaatTypography
 
 @Composable
@@ -46,6 +50,10 @@ fun ProductCard(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = tween(
+            durationMillis = MotionTokens.DurationFast,
+            easing = MotionTokens.EasingStandard
+        ),
         label = "scale"
     )
 
@@ -60,8 +68,10 @@ fun ProductCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .shadow(3.dp, RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(
@@ -82,8 +92,8 @@ fun ProductCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(96.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .height(116.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             ProductImage(

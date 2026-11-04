@@ -254,6 +254,10 @@ def test_helpful_vote_api_requires_login_and_toggles(client, app):
     voted = client.post(f"/api/v1/products/{product_id}/reviews/{review_id}/helpful")
     assert voted.status_code == 200
     assert voted.get_json()["data"] == {"review_id": review_id, "helpful": True, "count": 1}
+    listed = client.get(f"/api/v1/products/{product_id}/reviews").get_json()["data"]["reviews"]
+    assert next(item for item in listed if item["id"] == review_id)["viewer_helpful"] is True
 
     removed = client.post(f"/api/v1/products/{product_id}/reviews/{review_id}/helpful")
     assert removed.get_json()["data"]["helpful"] is False
+    listed = client.get(f"/api/v1/products/{product_id}/reviews").get_json()["data"]["reviews"]
+    assert next(item for item in listed if item["id"] == review_id)["viewer_helpful"] is False

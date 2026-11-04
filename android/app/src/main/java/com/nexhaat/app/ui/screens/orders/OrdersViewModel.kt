@@ -39,6 +39,7 @@ class OrdersViewModel @Inject constructor(
             when (val result = orderRepository.getOrders()) {
                 is NetworkResult.Success -> _uiState.value = OrdersUiState.Success(result.data)
                 is NetworkResult.Error -> _uiState.value = OrdersUiState.Error(result.message)
+                NetworkResult.Loading -> Unit
             }
         }
     }
@@ -51,6 +52,7 @@ class OrdersViewModel @Inject constructor(
                     loadOrders()
                 }
                 is NetworkResult.Error -> _actionMessage.value = result.message
+                NetworkResult.Loading -> Unit
             }
         }
     }
@@ -63,6 +65,7 @@ class OrdersViewModel @Inject constructor(
                     loadOrders()
                 }
                 is NetworkResult.Error -> _actionMessage.value = result.message
+                NetworkResult.Loading -> Unit
             }
         }
     }

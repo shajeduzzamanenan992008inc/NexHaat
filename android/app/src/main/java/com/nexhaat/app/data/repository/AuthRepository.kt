@@ -40,6 +40,12 @@ class AuthRepository @Inject constructor(
                 }
                 val response = apiService.login(LoginRequestDto(email, password))
                 if (response.twoFactorRequired) {
+<<<<<<< HEAD
+=======
+                    if (!refreshCsrfToken()) {
+                        return@withLock NetworkResult.Error("Could not refresh the secure session.")
+                    }
+>>>>>>> d5fb7ab (Fix)
                     return@withLock NetworkResult.Error(response.message ?: "Two-factor authentication required.", "TWO_FACTOR_REQUIRED")
                 }
                 val user = response.data?.takeIf { response.success }

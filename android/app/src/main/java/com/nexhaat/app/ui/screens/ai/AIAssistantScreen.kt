@@ -196,6 +196,15 @@ fun AIAssistantScreen(
                 }
             }
 
+            uiState.error?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
+
             // Bottom Input Bar
             Surface(
                 color = MaterialTheme.colorScheme.surface,

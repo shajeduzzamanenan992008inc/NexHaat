@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,7 +17,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun EmptyState(message: String, modifier: Modifier = Modifier) {
+fun EmptyState(
+    message: String,
+    modifier: Modifier = Modifier,
+    title: String? = null,
+    buttonText: String? = null,
+    onButtonClick: (() -> Unit)? = null
+) {
     // Scrollable so long empty-state copy stays readable in landscape or at large font scales.
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -27,11 +34,23 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            title?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center
+                )
+            }
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center
             )
+            if (buttonText != null && onButtonClick != null) {
+                Button(onClick = onButtonClick) {
+                    Text(text = buttonText)
+                }
+            }
         }
     }
 }

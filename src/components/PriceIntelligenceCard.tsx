@@ -52,13 +52,13 @@ export const PriceIntelligenceCard: React.FC<PriceIntelligenceCardProps> = ({ pr
               <Scale className="w-4 h-4" />
             </span>
             <h3 className="text-base sm:text-lg font-bold text-ink">
-              {t('Smart Price Intelligence & Buying Guide', 'মূল্য পর্যবেক্ষণ ও তুলনামূলক পর্যালোচনা')}
+              {t('Price comparison preview', 'দাম তুলনার প্রিভিউ')}
             </h3>
           </div>
           <p className="text-xs text-muted mt-0.5">
             {t(
-              'Real-time marketplace price tracking, 30-day historical fluctuations, and catalog comparisons.',
-              'মার্কেটপ্লেস প্রাইস ট্র্যাকিং, ৩০ দিনের ঐতিহাসিক তারতম্য ও বিকল্প পণ্যের তুলনা।'
+              'Comparisons use the listings currently loaded. Historical price tracking and buying recommendations are not connected.',
+              'বর্তমানে লোড হওয়া পণ্যের সঙ্গে তুলনা দেখানো হয়। অতীতের দাম ও কেনার পরামর্শ সংযুক্ত নয়।'
             )}
           </p>
         </div>
@@ -132,11 +132,13 @@ export const PriceIntelligenceCard: React.FC<PriceIntelligenceCardProps> = ({ pr
                 <h4 className="text-xs font-bold text-ink line-clamp-2">
                   {language === 'bn' && product.name_bn ? product.name_bn : product.name}
                 </h4>
-                <div className="flex items-center gap-1.5 text-xs text-amber-500 font-bold">
-                  <Star className="w-3.5 h-3.5 fill-current" />
-                  <span>{product.rating}</span>
-                  <span className="text-slate-400 font-normal">({product.review_count} reviews)</span>
-                </div>
+                {product.rating !== undefined && product.review_count !== undefined && product.review_count > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-amber-500 font-bold">
+                    <Star className="w-3.5 h-3.5 fill-current" />
+                    <span>{product.rating}</span>
+                    <span className="text-slate-400 font-normal">({product.review_count} reviews)</span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2 pt-2 border-t border-primary/20">
@@ -200,11 +202,13 @@ export const PriceIntelligenceCard: React.FC<PriceIntelligenceCardProps> = ({ pr
                       {language === 'bn' && alt.name_bn ? alt.name_bn : alt.name}
                     </h4>
 
-                    <div className="flex items-center gap-1.5 text-xs text-amber-500 font-bold">
-                      <Star className="w-3.5 h-3.5 fill-current" />
-                      <span>{alt.rating}</span>
-                      <span className="text-slate-400 font-normal">({alt.review_count} reviews)</span>
-                    </div>
+                    {alt.rating !== undefined && alt.review_count !== undefined && alt.review_count > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-500 font-bold">
+                        <Star className="w-3.5 h-3.5 fill-current" />
+                        <span>{alt.rating}</span>
+                        <span className="text-slate-400 font-normal">({alt.review_count} reviews)</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2 pt-2 border-t border-border">

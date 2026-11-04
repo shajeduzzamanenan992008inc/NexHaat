@@ -37,14 +37,29 @@ class PortalsViewModel @Inject constructor(
     fun loadPortalData() {
         viewModelScope.launch {
             _uiState.value = PortalsUiState.Loading
-            val dashboardResult = portalRepository.getSellerDashboard()
-            val ordersResult = portalRepository.getSellerOrders()
+            val dashboard = when (val result = portalRepository.getSellerDashboard()) {
+                is NetworkResult.Success -> result.data
+                is NetworkResult.Error -> {
+                    _uiState.value = PortalsUiState.Error(result.message)
+                    return@launch
+                }
+                NetworkResult.Loading -> {
+                    _uiState.value = PortalsUiState.Error("Failed to load seller metrics.")
+                    return@launch
+                }
+            }
 
-            val dashboard = if (dashboardResult is NetworkResult.Success) dashboardResult.data
-            else SellerDashboardDto(products = 12, activeProducts = 10, pendingOrders = 2, completedOrders = 34, sales = "42,500.00")
-
-            val orders = if (ordersResult is NetworkResult.Success) ordersResult.data
-            else emptyList()
+            val orders = when (val result = portalRepository.getSellerOrders()) {
+                is NetworkResult.Success -> result.data
+                is NetworkResult.Error -> {
+                    _uiState.value = PortalsUiState.Error(result.message)
+                    return@launch
+                }
+                NetworkResult.Loading -> {
+                    _uiState.value = PortalsUiState.Error("Failed to load seller orders.")
+                    return@launch
+                }
+            }
 
             _uiState.value = PortalsUiState.Success(dashboard, orders)
         }

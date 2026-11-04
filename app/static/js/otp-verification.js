@@ -161,7 +161,7 @@
   }
 
   function spawnSplash() {
-    const colors = ["#087cff", "#075cbd", "#3da1ff", "#80c4ff", "#16865d", "#42c994", "#e6f1ff", "#ffffff"];
+    const colors = ["#1769FF", "#0B1F3A", "#4D91FF", "#A9CBFF", "#16865d", "#42c994", "#EAF2FF", "#ffffff"];
 
     successWrap.querySelectorAll(".confetti").forEach((piece) => piece.remove());
     for (let index = 0; index < 24; index += 1) {

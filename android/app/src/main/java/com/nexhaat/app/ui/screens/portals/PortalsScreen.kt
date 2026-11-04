@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -34,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -111,14 +113,17 @@ fun PortalsScreen(
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                when (val state = uiState) {
-                    is PortalsUiState.Loading -> LoadingState()
-                    is PortalsUiState.Error -> ErrorState(message = state.message, onRetry = viewModel::loadPortalData)
-                    is PortalsUiState.Success -> {
-                        when (selectedTab) {
-                            0 -> SellerHubContent(dashboard = state.dashboard)
-                            1 -> RiderHubContent()
-                            2 -> SupportContent()
+                when (selectedTab) {
+                    1 -> RiderHubContent()
+                    2 -> SupportContent()
+                    else -> {
+                        when (val state = uiState) {
+                            is PortalsUiState.Loading -> LoadingState()
+                            is PortalsUiState.Error -> ErrorState(
+                                message = state.message,
+                                onRetry = viewModel::loadPortalData
+                            )
+                            is PortalsUiState.Success -> SellerHubContent(dashboard = state.dashboard)
                         }
                     }
                 }

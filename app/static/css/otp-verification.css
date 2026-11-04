@@ -1,16 +1,16 @@
 
 
 :root {
-  --bg-color: #fafafa;
-  --card-bg: rgba(255, 255, 255, 0.85);
-  --text-main: #1e1b4b;
-  --text-muted: #64748b;
-  --accent: #6366f1;
-  --accent-glow: rgba(99, 102, 241, 0.2);
+  --bg-color: #f3f4f6;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --text-main: #0b1f3a;
+  --text-muted: #53657c;
+  --accent: #1769ff;
+  --accent-glow: rgba(23, 105, 255, 0.18);
   --success: #10b981;
   --success-glow: rgba(16, 185, 129, 0.35);
-  --error: #f43f5e;
-  --error-glow: rgba(244, 63, 94, 0.2);
+  --error: #e1251b;
+  --error-glow: rgba(225, 37, 27, 0.2);
   --shadow-card:
     0 20px 40px -15px rgba(0, 0, 0, 0.05),
     0 0 0 1px rgba(255, 255, 255, 0.5) inset;
@@ -798,18 +798,18 @@ html:not(.otp-enhanced) .input-stage { display: none; }
 html:has(body.otp-reference-body) { color-scheme: light; background: #fafafa; }
 body.otp-reference-body {
   color-scheme: light;
-  color: #1e1b4b;
-  background-color: #fafafa;
-  --bg-color: #fafafa;
+  color: #0b1f3a;
+  background-color: #f3f4f6;
+  --bg-color: #f3f4f6;
   --card-bg: rgba(255, 255, 255, .85);
-  --text-main: #1e1b4b;
-  --text-muted: #64748b;
-  --accent: #6366f1;
-  --accent-glow: rgba(99, 102, 241, .2);
+  --text-main: #0b1f3a;
+  --text-muted: #53657c;
+  --accent: #1769ff;
+  --accent-glow: rgba(23, 105, 255, .18);
   --success: #10b981;
   --success-glow: rgba(16, 185, 129, .35);
-  --error: #f43f5e;
-  --error-glow: rgba(244, 63, 94, .2);
+  --error: #e1251b;
+  --error-glow: rgba(225, 37, 27, .2);
 }
 body.otp-reference-body:has(#otp-card[data-state="orbit"]),
 body.otp-reference-body:has(#otp-card[data-state="checking"]),
@@ -840,7 +840,7 @@ body.otp-reference-body:has(#otp-card[data-state="error"]) {
   --text-main: var(--auth-ink);
   --text-muted: var(--auth-muted);
   --accent: var(--auth-accent);
-  --accent-glow: rgb(8 124 255 / 20%);
+  --accent-glow: rgb(23 105 255 / 20%);
   --success: #16865d;
   --success-glow: rgb(22 134 93 / 30%);
   --error: var(--auth-danger);
@@ -883,6 +883,45 @@ body.otp-auth-body > .flash-stack { display: none; }
   -webkit-backdrop-filter: none;
   transform-style: preserve-3d;
   transition: transform 420ms cubic-bezier(.2, .7, .2, 1), box-shadow 420ms ease;
+}
+
+:root[data-theme="dark"]:has(body.otp-reference-body) {
+  color-scheme: dark;
+  background: #07182b;
+}
+
+:root[data-theme="dark"] body.otp-reference-body {
+  color-scheme: dark;
+  color: #f3f6fc;
+  background-color: #07182b;
+  --bg-color: #07182b;
+  --card-bg: #0b1f3a;
+  --text-main: #f3f6fc;
+  --text-muted: #b5c4d8;
+  --accent: #4d91ff;
+  --accent-glow: rgb(77 145 255 / 22%);
+  --error: #ff756e;
+  --error-glow: rgb(255 117 110 / 20%);
+}
+
+:root[data-theme="dark"] body.otp-reference-body:has(#otp-card[data-state="orbit"]),
+:root[data-theme="dark"] body.otp-reference-body:has(#otp-card[data-state="checking"]),
+:root[data-theme="dark"] body.otp-reference-body:has(#otp-card[data-state="success"]),
+:root[data-theme="dark"] body.otp-reference-body:has(#otp-card[data-state="error"]) {
+  background-color: #07182b;
+}
+
+:root[data-theme="dark"] body.otp-auth-body {
+  color-scheme: dark;
+  --bg-color: #07182b;
+  --card-bg: #0b1f3a;
+  --text-main: #f3f6fc;
+  --text-muted: #b5c4d8;
+  --accent: #4d91ff;
+  --accent-glow: rgb(77 145 255 / 22%);
+  --shadow-card: 0 16px 38px rgb(0 0 0 / 30%);
+  --shadow-input: inset 2px 2px 6px rgb(0 0 0 / 22%);
+  --shadow-focus: 0 0 0 3px rgb(77 145 255 / 24%);
 }
 .otp-auth-body .otp-auth-card .eyebrow {
   position: relative;
