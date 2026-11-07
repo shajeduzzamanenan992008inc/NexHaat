@@ -880,6 +880,45 @@
         "tests/test_telegram_bots.py"
       ],
       "confidence": "HIGH"
+    },
+    {
+      "id": "NEX-APK-RELEASE",
+      "name": "Android Automated Testing, APK Release, and Get App Integration",
+      "classification": "IMPLEMENTED_AND_CONNECTED",
+      "frontend_locations": [
+        "src/components/PWAInstallButton.tsx",
+        "src/services/apkDownloadService.ts"
+      ],
+      "backend_locations": [
+        "server.ts",
+        "scripts/nexhaat_qa_release_orchestrator.py"
+      ],
+      "api_dependencies": [
+        "/api/download/apk/info",
+        "/api/download/apk",
+        "/APK/latest.apk",
+        "/APK/latest.json",
+        "/APK/checksums.txt"
+      ],
+      "test_locations": [
+        "tests-node/server-security.test.ts",
+        "tests-node/marketplace-api.test.mjs"
+      ],
+      "integration_status": "implemented-local-contract; automated testing and release pipeline with strict Fail Rule and rollback support",
+      "ownership": "Express/Android automated QA and release orchestration",
+      "preservation_requirements": [
+        "Preserve Fail Rule: never overwrite latest.apk on gate failure.",
+        "Maintain /APK/ as primary artifact store synchronized with public/downloads/.",
+        "Preserve MIME type application/vnd.android.package-archive."
+      ],
+      "evidence": [
+        "scripts/nexhaat_qa_release_orchestrator.py",
+        "APK/latest.apk",
+        "APK/latest.json",
+        "APK/checksums.txt",
+        "reports/test-summary.json"
+      ],
+      "confidence": "HIGH"
     }
   ]
 }

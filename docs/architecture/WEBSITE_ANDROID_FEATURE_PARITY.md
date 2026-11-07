@@ -44,8 +44,6 @@
 3. **Applet Compilation & Lint:**
    - `compile_applet`: Build succeeded cleanly.
    - `lint_applet`: `tsc --noEmit` completed with 0 errors.
-<<<<<<< HEAD
-=======
 
 ---
 
@@ -70,4 +68,3 @@ This update records the current local source and automated-test evidence. It doe
 - **Android:** API failures no longer render fabricated seller data. Auth/2FA and existing call sites compile. `:app:testDebugUnitTest` passed 67 tests with no failures, but no emulator/device or instrumentation flow was run. Android reviews, seller/admin parity, and support parity remain PARTIAL or NOT IMPLEMENTED.
 - **Social login, payments, Firebase, motion, and accessibility:** Provider handshakes, hosted payment callbacks, Firebase emulator behavior, and browser/device accessibility remain NOT TESTED. Local Firebase rule changes were not deployed.
 - **Current verification:** `npm.cmd run lint`, `npm.cmd run build`, full Ruff, 20 review/trust tests, 67 Android unit tests, `node --test tests-node/server-security.test.ts` (9 passed), and `git diff --check` passed. The `npm.cmd test` wrapper still fails before test discovery because Node v26/`tsx` fails at `os.userInfo()`; see the Phase 0 audit for the exact error and repository-structure blocker.
->>>>>>> d5fb7ab (Fix)

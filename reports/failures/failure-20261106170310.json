@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-11-06T17:03:12.068668+00:00",
+  "buildId": "20261106170310",
+  "status": "BLOCKED",
+  "failedGate": {
+    "gate": 2,
+    "name": "Gate 2 (simulated)",
+    "status": "FAIL",
+    "mandatory": "mandatory",
+    "durationSec": 0.0,
+    "detail": "simulated failure via --force-fail gate2",
+    "facts": {}
+  },
+  "gates": [
+    {
+      "gate": 1,
+      "name": "Repository integrity & manifest",
+      "status": "PASS",
+      "mandatory": "mandatory",
+      "durationSec": 1.15,
+      "detail": "structure validator passed; no conflict markers; manifest and Gradle identity match",
+      "facts": {
+        "applicationId": "com.nexhaat.app",
+        "identity": {
+          "versionName": "1.0.0",
+          "versionCode": 1,
+          "minSdk": 24,
+          "targetSdk": 36,
+          "applicationId": "com.nexhaat.app"
+        },
+        "conflictMarkers": [],
+        "currentScan": {
+          "command": [
+            "git",
+            "grep",
+            "-n",
+            "-I",
+            "-e",
+            "^<<<<<<< ",
+            "-e",
+            "^>>>>>>> ",
+            "-e",
+            "^=======$"
+          ],
+          "exitStatus": 1,
+          "rawMarkerLines": [],
+          "normalizedMarkerLines": []
+        }
+      }
+    },
+    {
+      "gate": 2,
+      "name": "Gate 2 (simulated)",
+      "status": "FAIL",
+      "mandatory": "mandatory",
+      "durationSec": 0.0,
+      "detail": "simulated failure via --force-fail gate2",
+      "facts": {}
+    }
+  ],
+  "toolchain": {
+    "python": "C:\\Program Files\\Python315\\python.exe",
+    "java": null,
+    "javaVersion": null,
+    "npm": "C:\\Program Files\\nodejs\\npm.CMD",
+    "node": "C:\\Program Files\\nodejs\\node.EXE",
+    "adb": null,
+    "emulator": null,
+    "gradleWrapper": "D:\\FTP\\NexHaat\\android\\gradlew.bat",
+    "androidSdkDirs": [],
+    "buildTools": [],
+    "gradleIdentity": {
+      "versionName": "1.0.0",
+      "versionCode": 1,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "applicationId": "com.nexhaat.app"
+    },
+    "signingConfigured": false
+  },
+  "liveRelease": {
+    "latestApkExists": false,
+    "latestJsonExists": true,
+    "publicMirrorExists": false,
+    "releases": []
+  }
+}

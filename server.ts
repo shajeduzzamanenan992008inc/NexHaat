@@ -3,6 +3,7 @@ import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Modality } from '@google/genai';
 import {
@@ -26,6 +27,7 @@ import {
   validateJsonBody,
 } from './serverSecurity.ts';
 import { createVisualSearchRouter } from './serverVisualSearch.ts';
+import { createMarketplaceRouter } from './serverMarketplace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,6 +75,7 @@ app.use(
   }),
 );
 app.use(express.json({ limit: '1mb', strict: true }));
+app.use('/api/v1', createMarketplaceRouter());
 
 const providerConcurrencyLimit = createConcurrencyLimit(8);
 const mediaConcurrencyLimit = createConcurrencyLimit(2);
@@ -864,46 +867,145 @@ Provide:
   },
 );
 
-// 10b. Dedicated Android APK Download Service & Filesystem Handlers
-const getApkPath = (): string => {
-  const primaryPath = path.resolve(__dirname, 'public', 'downloads', 'nexhaat.apk');
-  const fallbackPath = path.resolve(__dirname, 'public', 'nexhaat.apk');
-  if (fs.existsSync(primaryPath)) return primaryPath;
-  if (fs.existsSync(fallbackPath)) return fallbackPath;
-  return primaryPath;
+// 10b. Android APK distribution — fail closed.
+// A release is only advertised (and only served) when the artifact exists AND its
+// SHA-256 matches the published metadata. A stale metadata file must never make a
+// missing or unverified package look installable.
+//
+// Stable-only policy: only APK/NexHaat.apk may be served publicly. Debug builds
+// remain internal and are never exposed through the download endpoint, public
+// metadata, or Get App button.
+interface ApkArtifactState {
+  path: string;
+  exists: boolean;
+  verified: boolean;
+  reason: string;
+  sha256: string;
+  sizeBytes: number;
+}
+
+const getApkCandidatePaths = (): string[] => [
+  // Stable-only: the public download path is APK/NexHaat.apk.
+  // Legacy candidate paths are retained only for migration safety and are
+  // evaluated after the primary Stable path. They do not enable arbitrary
+  // filesystem access and do not expose Debug builds.
+  path.resolve(__dirname, 'APK', 'NexHaat.apk'),
+  path.resolve(__dirname, 'APK', 'latest.apk'),
+  path.resolve(__dirname, 'public', 'downloads', 'nexhaat.apk'),
+];
+
+const sha256Cache = new Map<string, { mtimeMs: number; size: number; sha256: string }>();
+
+const computeFileSha256 = (filePath: string): string => {
+  const stat = fs.statSync(filePath);
+  const cached = sha256Cache.get(filePath);
+  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+    return cached.sha256;
+  }
+  const sha256 = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+  sha256Cache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, sha256 });
+  return sha256;
 };
+
+const readApkMetadataFile = (): Record<string, any> => {
+  for (const candidate of [
+    path.resolve(__dirname, 'APK', 'latest.json'),
+    path.resolve(__dirname, 'public', 'downloads', 'metadata.json'),
+  ]) {
+    if (!fs.existsSync(candidate)) continue;
+    try {
+      return JSON.parse(fs.readFileSync(candidate, 'utf8'));
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
+
+const resolveApkArtifact = (): ApkArtifactState => {
+  for (const candidate of getApkCandidatePaths()) {
+    if (!fs.existsSync(candidate)) continue;
+    let sha256 = '';
+    try {
+      sha256 = computeFileSha256(candidate);
+    } catch {
+      return { path: candidate, exists: true, verified: false, reason: 'artifact could not be read', sha256: '', sizeBytes: 0 };
+    }
+    const metadata = readApkMetadataFile();
+    const expected = typeof metadata.sha256 === 'string' ? metadata.sha256.trim().toLowerCase() : '';
+    const verified = metadata.verified === true && expected.length === 64 && expected === sha256;
+    const reason = verified
+      ? 'artifact exists and matches published metadata'
+      : expected
+        ? 'artifact checksum does not match published metadata'
+        : 'published metadata contains no verified checksum';
+    return { path: candidate, exists: true, verified, reason, sha256, sizeBytes: fs.statSync(candidate).size };
+  }
+  return {
+    path: path.resolve(__dirname, 'APK', 'latest.apk'),
+    exists: false,
+    verified: false,
+    reason: 'no verified APK is published',
+    sha256: '',
+    sizeBytes: 0,
+  };
+};
+
+const getApkPath = (): string => resolveApkArtifact().path;
 
 // Route for APK metadata
 app.get('/api/download/apk/info', (_req: Request, res: Response) => {
   try {
     const apkFile = getApkPath();
-    const metadataPath = path.resolve(__dirname, 'public', 'downloads', 'metadata.json');
+    const rootMetadataPath = path.resolve(__dirname, 'APK', 'latest.json');
+    const publicMetadataPath = path.resolve(__dirname, 'public', 'downloads', 'metadata.json');
     let metadata: Record<string, unknown> = {};
 
-    if (fs.existsSync(metadataPath)) {
+    if (fs.existsSync(rootMetadataPath)) {
       try {
-        metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+        metadata = JSON.parse(fs.readFileSync(rootMetadataPath, 'utf8'));
       } catch {
-        // fallback if parse fails
+        // fallback
+      }
+    } else if (fs.existsSync(publicMetadataPath)) {
+      try {
+        metadata = JSON.parse(fs.readFileSync(publicMetadataPath, 'utf8'));
+      } catch {
+        // fallback
       }
     }
 
-    const exists = fs.existsSync(apkFile);
-    const sizeBytes = exists ? fs.statSync(apkFile).size : 0;
+    const artifact = resolveApkArtifact();
+    const exists = artifact.exists;
+    const sizeBytes = artifact.sizeBytes;
 
     return res.json({
       success: true,
       apk: {
         filename: 'nexhaat.apk',
-        displayName: 'NexHaat-v1.0.0.apk',
+        displayName: (metadata.displayName as string) || 'NexHaat-v1.0.0.apk',
         version: (metadata.version as string) || '1.0.0',
         versionCode: (metadata.versionCode as number) || 1,
-        packageId: 'com.nexhaat.app',
+        packageId: (metadata.packageId as string) || 'com.nexhaat.app',
         mimeType: 'application/vnd.android.package-archive',
         sizeBytes,
-        sizeFormatted: sizeBytes > 1024 * 1024
+        sizeFormatted: (metadata.sizeFormatted as string) || (sizeBytes > 1024 * 1024
           ? `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`
-          : `${(sizeBytes / 1024).toFixed(1)} KB`,
+          : `${(sizeBytes / 1024).toFixed(1)} KB`),
+        sha256: artifact.verified ? artifact.sha256 : '',
+        minSdk: (metadata.minSdk as number) || 24,
+        targetSdk: (metadata.targetSdk as number) || 36,
+        buildDate: (metadata.buildDate as string) || '',
+        verified: artifact.verified,
+        status: artifact.verified ? 'available' : exists ? 'unverified' : 'unavailable',
+        unavailableReason: artifact.verified ? null : artifact.reason,
+        qualityGates: metadata.qualityGates || {},
+        instructions: metadata.instructions || [
+          "1. Tap 'Download APK' to fetch the verified NexHaat application package.",
+          "2. When download completes, tap the notification or open your Downloads folder.",
+          "3. If prompted, allow 'Install unknown apps' for your browser or file manager.",
+          "4. Tap 'Install' and launch NexHaat."
+        ],
         downloadUrl: '/api/download/apk',
         directUrl: '/downloads/nexhaat.apk',
         exists,
@@ -929,11 +1031,25 @@ const handleApkDownload = (req: Request, res: Response) => {
       });
     }
 
+    const artifact = resolveApkArtifact();
+    if (!artifact.verified) {
+      return res.status(503).json({
+        success: false,
+        error: {
+          code: 'APK_NOT_VERIFIED',
+          message: 'The Android app package is not verified and is not served.',
+        },
+      });
+    }
+
     const stat = fs.statSync(apkFile);
+    const downloadName = path.basename(
+      String((readApkMetadataFile().displayName as string) || 'NexHaat-v1.0.0.apk').replace(/[^A-Za-z0-9._-]/g, '_'),
+    );
 
     // Enforce definitive Android APK MIME headers to prevent browser / Android OS MIME mismatch
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', 'attachment; filename="NexHaat-v1.0.0.apk"');
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
     res.setHeader('Content-Length', stat.size);
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -964,6 +1080,27 @@ app.get('/api/download/apk', handleApkDownload);
 app.head('/api/download/apk', handleApkDownload);
 app.get('/downloads/nexhaat.apk', handleApkDownload);
 app.head('/downloads/nexhaat.apk', handleApkDownload);
+app.get('/APK/latest.apk', handleApkDownload);
+app.head('/APK/latest.apk', handleApkDownload);
+
+// Serve APK metadata and checksums directly from /APK/
+app.get('/APK/latest.json', (_req: Request, res: Response) => {
+  const jsonPath = path.resolve(__dirname, 'APK', 'latest.json');
+  if (fs.existsSync(jsonPath)) {
+    res.setHeader('Content-Type', 'application/json');
+    return fs.createReadStream(jsonPath).pipe(res);
+  }
+  return res.status(404).json({ error: 'latest.json not found' });
+});
+
+app.get('/APK/checksums.txt', (_req: Request, res: Response) => {
+  const checksumsPath = path.resolve(__dirname, 'APK', 'checksums.txt');
+  if (fs.existsSync(checksumsPath)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return fs.createReadStream(checksumsPath).pipe(res);
+  }
+  return res.status(404).send('checksums.txt not found');
+});
 
 // 11. WebSocket Server for Real-Time Gemini Live API (gemini-3.8-live)
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
@@ -1101,7 +1238,7 @@ if (!isProduction) {
 }
 
 const PORT = 3000;
-const HOST = process.env.HOST || (isProduction ? '0.0.0.0' : '127.0.0.1');
+const HOST = process.env.HOST || '0.0.0.0';
 server.listen(PORT, HOST, () => {
   console.log(`NexHaat server running on http://${HOST}:${PORT}`);
 });

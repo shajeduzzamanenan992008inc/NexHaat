@@ -1,0 +1,32 @@
+Project: NexHaat
+Phase: 3.2 Controlled Fresh Debug Build
+Agent: Buffy (housing the current activity for record-keeping)
+Report created: 2026-11-07T09:40:00+0600
+One-line outcome: one controlled fresh Debug build — build PASS, APK VERIFIED, no device install, no Stable release, no source change, no commit/push/deploy.
+Quick status:
+FRESH_DEBUG_BUILD: PASS
+DEBUG_APK: VERIFIED
+DEVICE_INSTALL: NOT_RUN
+STABLE_APK: NOT_RELEASED
+GET_APP_STATUS: UNAVAILABLE
+PRODUCTION_SIGNING: BLOCKED
+PROJECT_SOURCE_CHANGES: NONE
+COMMIT_PUSH_DEPLOY: NONE
+Most relevant numbers:
+- Gradle result: BUILD SUCCESSFUL in 9m 38s
+- Tasks: 42 actionable tasks: 42 executed
+- External bound: 2,400s; actual build duration: 580s
+- New APK: android/app/build/outputs/apk/debug/app-debug.apk
+- New APK size: 21,884,019 bytes
+- New APK SHA-256: f42061b46ade21d0bfc584fb75cb374d8bc45ac775655454fa8d7c21ce87608c
+- New APK mtime: 2026-11-07 09:33:47.456553600 +0600
+- Package: com.nexhaat.app
+- Version: 1.0.0 / code 1
+- Signing: v2 verified; one signer; CN=Android Debug; RSA 2048
+Key caveats:
+- The new APK is byte-identical to the pre-build backup. SHA equality therefore does not prove the old file was reused; freshness is evidenced by the new mtime, the 09:33:47 packaging steps, and 42/42 executed tasks under --rerun-tasks.
+- Memory was tight. About 30s into the build, free physical RAM was roughly 227 MB; the continuous monitor’s memory query returned nothing useful, so only Java process counts are reliable from that logger.
+- Stable metadata still unavailable and verified:false; APK/NexHaat.apk still absent.
+- No device or emulator: DEVICE_INSTALL remains NOT_RUN.
+- API miss resolved during preflight: Gradle 9.7.1’s build (nnapi) not found / out of bounds is expected on x86_64 unless a Windows NNAPI emulator image is used; this is a known compatibility note, not a report defect — see Section 6 of the report.
+No Phase 3.3 work started.

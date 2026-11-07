@@ -13,13 +13,9 @@ import {
   TwoFactorStatus,
 } from '../lib/flaskAuth';
 import { useApp } from '../context/AppContext';
-<<<<<<< HEAD
 import { Shield, ShieldAlert, ShieldCheck, Key, Copy, Check, RefreshCw, Lock, ArrowLeft } from 'lucide-react';
-=======
-import { Shield, ShieldAlert, ShieldCheck, Key, Copy, Check, RefreshCw, Lock, ArrowLeft, ScanLine } from 'lucide-react';
 import { evaluatePasswordStrength } from '../lib/motionTokens';
 import type { UserRole } from '../types';
->>>>>>> d5fb7ab (Fix)
 
 interface FlaskAuthPanelProps {
   onClose: () => void;
@@ -238,11 +234,7 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
         </div>
 
         {error && (
-<<<<<<< HEAD
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900 flex items-start gap-2" role="alert">
-=======
           <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900 flex items-start gap-2 animate-error-shake" role="alert">
->>>>>>> d5fb7ab (Fix)
             <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -308,14 +300,9 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
                 <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-<<<<<<< HEAD
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${tfStatus?.enabled ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60' : 'bg-slate-200 text-slate-600 dark:bg-slate-800'}`}>
-                        {tfStatus?.enabled ? <ShieldCheck className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
-=======
                       <div className={`relative overflow-hidden w-10 h-10 rounded-xl flex items-center justify-center ${tfStatus?.enabled ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60' : 'bg-slate-200 text-slate-600 dark:bg-slate-800'}`}>
                         {tfStatus?.enabled ? <ShieldCheck className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
                         <span className="animate-radar-scan" />
->>>>>>> d5fb7ab (Fix)
                       </div>
                       <div>
                         <p className="font-bold text-sm text-ink dark:text-white">
@@ -642,9 +629,6 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
                 placeholder={t('Password', 'পাসওয়ার্ড')}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
               />
-<<<<<<< HEAD
-=======
-
               {/* Dynamic Animated Password Strength Indicator in Register mode */}
               {mode === 'register' && password.length > 0 && (() => {
                 const strength = evaluatePasswordStrength(password);
@@ -663,7 +647,6 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
                   </div>
                 );
               })()}
->>>>>>> d5fb7ab (Fix)
               <p className="text-xs text-slate-500">
                 {mode === 'register'
                   ? t('After registration, the existing secure Flask OTP screen will open.', 'রেজিস্ট্রেশনের পর বিদ্যমান নিরাপদ Flask OTP স্ক্রিন খুলবে।')
@@ -672,11 +655,7 @@ export const FlaskAuthPanel: React.FC<FlaskAuthPanelProps> = ({ onClose }) => {
               <button
                 type="submit"
                 disabled={isSubmitting || isFlaskAuthLoading}
-<<<<<<< HEAD
-                className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-60 transition-colors shadow-sm"
-=======
                 className="marketplace-action-button w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-60 transition-colors shadow-sm"
->>>>>>> d5fb7ab (Fix)
               >
                 {isSubmitting ? t('Please wait…', 'অপেক্ষা করুন…') : mode === 'login' ? t('Sign in to NexHaat', 'NexHaat-এ সাইন ইন') : t('Continue to OTP verification', 'OTP verification-এ যান')}
               </button>

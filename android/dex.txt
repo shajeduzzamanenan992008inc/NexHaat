@@ -1,0 +1,9 @@
+ 41803884  1981-01-01 01:01   classes.dex
+    10096  1981-01-01 01:01   lib/arm64-v8a/libandroidx.graphics.path.so
+     7112  1981-01-01 01:01   lib/arm64-v8a/libdatastore_shared_counter.so
+     7252  1981-01-01 01:01   lib/armeabi-v7a/libandroidx.graphics.path.so
+     4416  1981-01-01 01:01   lib/armeabi-v7a/libdatastore_shared_counter.so
+     9284  1981-01-01 01:01   lib/x86/libandroidx.graphics.path.so
+     5148  1981-01-01 01:01   lib/x86/libdatastore_shared_counter.so
+    10760  1981-01-01 01:01   lib/x86_64/libandroidx.graphics.path.so
+     6224  1981-01-01 01:01   lib/x86_64/libdatastore_shared_counter.so
