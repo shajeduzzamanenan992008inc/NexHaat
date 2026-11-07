@@ -12,22 +12,12 @@ import struct
 import time
 import urllib.parse
 from datetime import UTC, datetime
-<<<<<<< HEAD
-from typing import List, Optional, Tuple
-
-from sqlalchemy import delete, func, select
-=======
 
 from sqlalchemy import delete, func, or_, select, update
->>>>>>> d5fb7ab (Fix)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
 from ..models.security import UserBackupCode, UserTwoFactor
-<<<<<<< HEAD
-from .two_factor_crypto import decrypt_totp_secret, encrypt_totp_secret
-=======
->>>>>>> d5fb7ab (Fix)
 
 DEFAULT_ISSUER = "NexHaat"
 TOTP_TIME_STEP_SECONDS = 30
@@ -65,15 +55,9 @@ def get_provisioning_uri(
 def verify_totp_code(
     secret: str,
     code: str,
-<<<<<<< HEAD
-    last_used_step: Optional[int] = None,
-    allowed_skew: int = 1
-) -> Tuple[bool, Optional[int]]:
-=======
     last_used_step: int | None = None,
     allowed_skew: int = 1
 ) -> tuple[bool, int | None]:
->>>>>>> d5fb7ab (Fix)
     """Verify an RFC 6238 TOTP code against the shared secret.
 
     Enforces replay protection: a code from an earlier or identical time step
@@ -114,14 +98,6 @@ def verify_totp_code(
     return False, None
 
 
-<<<<<<< HEAD
-def generate_backup_codes(count: int = BACKUP_CODE_COUNT) -> List[str]:
-    """Generate secure 8-digit decimal backup codes."""
-    return [f"{secrets.randbelow(100_000_000):08d}" for _ in range(count)]
-
-
-def save_backup_codes(user_id: int, codes: List[str]) -> None:
-=======
 def consume_totp_step(
     user_id: int,
     step: int,
@@ -172,7 +148,6 @@ def generate_backup_codes(count: int = BACKUP_CODE_COUNT) -> list[str]:
 
 
 def save_backup_codes(user_id: int, codes: list[str]) -> None:
->>>>>>> d5fb7ab (Fix)
     """Store password-hashed backup codes for a user.
 
     Plaintext codes are never stored. Existing unused codes are removed first.
@@ -210,14 +185,6 @@ def verify_and_consume_backup_code(user_id: int, code: str) -> bool:
         )
     ).all()
 
-<<<<<<< HEAD
-    for item in unused_codes:
-        if check_password_hash(item.code_hash, clean_code):
-            item.used_at = datetime.now(UTC)
-            db.session.commit()
-            return True
-
-=======
     matching_ids = [item.id for item in unused_codes if check_password_hash(item.code_hash, clean_code)]
     if not matching_ids:
         return False
@@ -235,7 +202,6 @@ def verify_and_consume_backup_code(user_id: int, code: str) -> bool:
     if result.rowcount:
         db.session.commit()
         return True
->>>>>>> d5fb7ab (Fix)
     return False
 
 

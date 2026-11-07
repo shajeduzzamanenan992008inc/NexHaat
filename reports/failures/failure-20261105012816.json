@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-11-05T01:28:16.721805+00:00",
+  "buildId": "20261105012816",
+  "failedGate": "Security Test Suite",
+  "details": "Simulated failure via --force-fail gate2",
+  "diagnostics": {},
+  "gateHistory": [
+    {
+      "name": "Repository Structure & Manifest",
+      "status": "PASS",
+      "durationSec": 0.13,
+      "details": "Structure passes validation; AndroidManifest and Gradle configurations verified.",
+      "diagnostics": {
+        "manifest": "android/app/src/main/AndroidManifest.xml",
+        "package": "com.nexhaat.app"
+      }
+    },
+    {
+      "name": "Security Test Suite",
+      "status": "FAIL",
+      "durationSec": 0.0,
+      "details": "Simulated failure via --force-fail gate2",
+      "diagnostics": {}
+    }
+  ],
+  "lastKnownGoodApk": "/app/applet/APK/latest.apk"
+}

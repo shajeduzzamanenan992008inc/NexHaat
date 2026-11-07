@@ -1,0 +1,96 @@
+{
+  "appName": "NexHaat",
+  "packageId": "com.nexhaat.app",
+  "buildId": "20261106170347",
+  "generatedAt": "2026-11-06T17:03:48.822354+00:00",
+  "overallStatus": "BLOCKED",
+  "releaseReady": false,
+  "failedGate": {
+    "gate": 2,
+    "name": "Gate 2 (simulated)",
+    "status": "FAIL",
+    "mandatory": "mandatory",
+    "durationSec": 0.0,
+    "detail": "simulated failure via --force-fail gate2",
+    "facts": {}
+  },
+  "gates": [
+    {
+      "gate": 1,
+      "name": "Repository integrity & manifest",
+      "status": "PASS",
+      "mandatory": "mandatory",
+      "durationSec": 1.12,
+      "detail": "structure validator passed; no conflict markers; manifest and Gradle identity match",
+      "facts": {
+        "applicationId": "com.nexhaat.app",
+        "identity": {
+          "versionName": "1.0.0",
+          "versionCode": 1,
+          "minSdk": 24,
+          "targetSdk": 36,
+          "applicationId": "com.nexhaat.app"
+        },
+        "conflictMarkers": [],
+        "currentScan": {
+          "command": [
+            "git",
+            "grep",
+            "-n",
+            "-I",
+            "-e",
+            "^<<<<<<< ",
+            "-e",
+            "^>>>>>>> ",
+            "-e",
+            "^=======$"
+          ],
+          "exitStatus": 1,
+          "rawMarkerLines": [],
+          "normalizedMarkerLines": []
+        }
+      }
+    },
+    {
+      "gate": 2,
+      "name": "Gate 2 (simulated)",
+      "status": "FAIL",
+      "mandatory": "mandatory",
+      "durationSec": 0.0,
+      "detail": "simulated failure via --force-fail gate2",
+      "facts": {}
+    }
+  ],
+  "artifact": null,
+  "passwords": null,
+  "toolchain": {
+    "python": "C:\\Program Files\\Python315\\python.exe",
+    "java": null,
+    "javaVersion": null,
+    "npm": "C:\\Program Files\\nodejs\\npm.CMD",
+    "node": "C:\\Program Files\\nodejs\\node.EXE",
+    "adb": null,
+    "emulator": null,
+    "gradleWrapper": "D:\\FTP\\NexHaat\\android\\gradlew.bat",
+    "androidSdkDirs": [],
+    "buildTools": [],
+    "gradleIdentity": {
+      "versionName": "1.0.0",
+      "versionCode": 1,
+      "minSdk": 24,
+      "targetSdk": 36,
+      "applicationId": "com.nexhaat.app"
+    },
+    "signingConfigured": false
+  },
+  "liveRelease": {
+    "latestApkExists": false,
+    "latestJsonExists": true,
+    "publicMirrorExists": false,
+    "releases": []
+  },
+  "notRun": [
+    "Android instrumented UI journeys (no androidTest sources are present in the repository)",
+    "Hosted (non-localhost) download and DNS behaviour"
+  ]
+}

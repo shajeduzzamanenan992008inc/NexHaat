@@ -22,6 +22,10 @@ export interface ApkMetadata {
   downloadUrl: string;
   directUrl: string;
   exists: boolean;
+  sha256?: string;
+  verified?: boolean;
+  buildDate?: string;
+  instructions?: string[];
 }
 
 export interface ApkProgress {

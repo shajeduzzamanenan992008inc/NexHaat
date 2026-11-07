@@ -148,7 +148,3 @@ class UserBackupCode(db.Model):
     )
 
     user = db.relationship("User", backref=db.backref("backup_codes", cascade="all, delete-orphan"))
-<<<<<<< HEAD
-
-=======
->>>>>>> d5fb7ab (Fix)

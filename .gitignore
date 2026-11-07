@@ -153,6 +153,17 @@ $RECYCLE.BIN/
 .playwright-mcp/
 .playwright/
 /artifacts/
+# Android System Images & Emulators
+android/system-images*/
+android/build-debug-nohup.out
+android/gradlew-build.pid
+
+# Backups & Reports
+node_modules.backup.before-ci/
+.temp_recovery/
+android/system-images*/
+node_modules.backup.before-ci/
+.temp_recovery/
 
 # Do not blanket-ignore image formats: approved screenshots, diagrams and brand
 # assets may be committed under docs/assets/ or another intentional source path.

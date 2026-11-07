@@ -19,20 +19,12 @@ import struct
 import time
 from datetime import UTC, datetime, timedelta
 
-<<<<<<< HEAD
-from sqlalchemy import select
-
-from app.extensions import db
-from app.models import User, UserBackupCode, UserTwoFactor
-from app.services.two_factor import generate_totp_secret, verify_totp_code
-=======
 import pytest
 from sqlalchemy import select, update
 
 from app.extensions import db
 from app.models import User, UserBackupCode, UserTwoFactor
 from app.services.two_factor import generate_totp_secret
->>>>>>> d5fb7ab (Fix)
 from app.services.two_factor_crypto import (
     TwoFactorCryptoError,
     decrypt_totp_secret,
@@ -78,32 +70,16 @@ def test_crypto_tampering_rejected():
     encrypted, version = encrypt_totp_secret(secret, key_input=TEST_ENCRYPTION_KEY)
     tampered = bytearray(encrypted)
     tampered[-1] ^= 0x01
-<<<<<<< HEAD
-    try:
-        decrypt_totp_secret(bytes(tampered), key_input=TEST_ENCRYPTION_KEY)
-        assert False, "Tampered ciphertext must fail decryption"
-    except TwoFactorCryptoError:
-        pass
-=======
     with pytest.raises(TwoFactorCryptoError):
         decrypt_totp_secret(bytes(tampered), key_input=TEST_ENCRYPTION_KEY)
->>>>>>> d5fb7ab (Fix)
 
 
 def test_crypto_wrong_key_rejected():
     secret = "JBSWY3DPEHPK3PXP"
     encrypted, _ = encrypt_totp_secret(secret, key_input=TEST_ENCRYPTION_KEY)
     wrong_key = b"wrongkeywrongkeywrongkeywrongkey"
-<<<<<<< HEAD
-    try:
-        decrypt_totp_secret(encrypted, key_input=wrong_key)
-        assert False, "Decryption with wrong key must fail"
-    except TwoFactorCryptoError:
-        pass
-=======
     with pytest.raises(TwoFactorCryptoError):
         decrypt_totp_secret(encrypted, key_input=wrong_key)
->>>>>>> d5fb7ab (Fix)
 
 
 def test_crypto_fresh_nonce_per_encryption():
@@ -145,11 +121,7 @@ def test_totp_setup_and_confirm_flow(client, app):
     assert tf.encrypted_secret != secret.encode()
 
     # Confirm with valid TOTP code
-<<<<<<< HEAD
-    valid_code = _generate_totp_code(secret)
-=======
     valid_code = _generate_totp_code(secret, step_offset=1)
->>>>>>> d5fb7ab (Fix)
     res = client.post("/api/v1/auth/2fa/confirm", json={"code": valid_code})
     assert res.status_code == 200
     assert res.get_json()["data"]["two_factor_enabled"] is True
@@ -159,14 +131,11 @@ def test_totp_setup_and_confirm_flow(client, app):
     assert tf.enabled is True
     assert tf.confirmed_at is not None
 
-<<<<<<< HEAD
-=======
     # Enrollment confirmation is also single-use for this TOTP time step.
     repeated = client.post("/api/v1/auth/2fa/confirm", json={"code": valid_code})
     assert repeated.status_code == 400
     assert repeated.get_json()["error"]["code"] == "INVALID_CODE"
 
->>>>>>> d5fb7ab (Fix)
 
 def test_login_enforces_2fa_challenge(client, app):
     app.config.update(WTF_CSRF_ENABLED=False)
@@ -287,8 +256,6 @@ def test_2fa_challenge_replay_attack_rejected(client, app):
     assert res_replay.get_json()["error"]["code"] == "INVALID_CODE"
 
 
-<<<<<<< HEAD
-=======
 def test_server_rendered_2fa_challenge_rejects_replayed_step(client, app):
     app.config.update(WTF_CSRF_ENABLED=False)
     user = _create_user(email="html_replay@example.com", password="Password123!")
@@ -326,7 +293,6 @@ def test_server_rendered_2fa_challenge_rejects_replayed_step(client, app):
         assert sess.get("pending_2fa_attempts") == 1
 
 
->>>>>>> d5fb7ab (Fix)
 def test_2fa_challenge_lockout_after_five_attempts(client, app):
     app.config.update(WTF_CSRF_ENABLED=False)
     user = _create_user(email="lockout@example.com", password="Password123!")
@@ -355,8 +321,6 @@ def test_2fa_challenge_lockout_after_five_attempts(client, app):
     assert res_locked.status_code == 429
     assert res_locked.get_json()["error"]["code"] == "CODE_LOCKED"
 
-<<<<<<< HEAD
-=======
 
 def test_backup_code_consumption_loses_a_competing_claim(client, app, monkeypatch):
     """A code read before another consumer claims it cannot be consumed twice."""
@@ -451,4 +415,3 @@ def test_crypto_fails_closed_without_cryptography(monkeypatch):
     with pytest.raises(TwoFactorCryptoError):
         decrypt_totp_secret(encrypted, key_input=TEST_ENCRYPTION_KEY)
 
->>>>>>> d5fb7ab (Fix)

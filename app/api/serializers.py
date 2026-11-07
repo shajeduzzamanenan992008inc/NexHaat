@@ -212,4 +212,3 @@ def user_to_dict(user):
         "preferred_locale": user.preferred_locale,
         "is_totp_enabled": bool(getattr(user, "is_totp_enabled", False)),
     }
-

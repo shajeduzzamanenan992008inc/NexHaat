@@ -1,15 +1,15 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
-  const flaskApiOrigin = env.VITE_FLASK_API_ORIGIN?.trim() || 'http://127.0.0.1:5000';
+  const flaskApiOrigin = env.VITE_FLASK_API_ORIGIN?.trim();
 
-  return {
-    plugins: [
-      react(),
+  const plugins: PluginOption[] = [react()];
+  if (command === 'build') {
+    const { VitePWA } = await import('vite-plugin-pwa');
+    plugins.push(
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['logo.svg', 'icon.svg', 'apple-touch-icon.png'],
@@ -77,14 +77,16 @@ export default defineConfig(({ mode }) => {
             },
           ],
         },
-        // Keep generated service-worker output out of `vite dev` unless the
-        // developer opts in, so development does not rewrite `dev-dist/`.
         devOptions: {
           enabled: env.VITE_PWA_DEV === 'true',
           type: 'module',
         },
       }),
-    ],
+    );
+  }
+
+  return {
+    plugins,
     build: {
       rollupOptions: {
         output: {
@@ -103,17 +105,32 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       allowedHosts: true,
       hmr: false,
-      proxy: {
-        // Forward same-origin React requests to Flask during local development.
-        '/api': {
-          target: flaskApiOrigin,
-          changeOrigin: true,
-        },
-        '/auth': {
-          target: flaskApiOrigin,
-          changeOrigin: true,
-        },
-      },
+      proxy: flaskApiOrigin
+        ? {
+            // Forward same-origin React requests to configured Flask origin during local development.
+            '/api': {
+              target: flaskApiOrigin,
+              changeOrigin: true,
+              configure: (proxy) => {
+                proxy.on('error', (_err, _req, res) => {
+                  if (res && !res.headersSent && typeof res.writeHead === 'function') {
+                    res.writeHead(503, { 'Content-Type': 'application/json' });
+                    res.end(
+                      JSON.stringify({
+                        success: false,
+                        error: { code: 'BACKEND_UNAVAILABLE', message: 'Flask backend is unavailable.' },
+                      }),
+                    );
+                  }
+                });
+              },
+            },
+            '/auth': {
+              target: flaskApiOrigin,
+              changeOrigin: true,
+            },
+          }
+        : undefined,
     },
   };
 });

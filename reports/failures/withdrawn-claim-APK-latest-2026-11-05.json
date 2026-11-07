@@ -1,0 +1,35 @@
+{
+  "_note": "Verbatim copy of APK/latest.json as it existed at commit ac6636a (2026-11-05), before the unverifiable verified=true claim was withdrawn on 2026-11-06. Kept as evidence: no file in this checkout ever matched this size or checksum.",
+  "appName": "NexHaat",
+  "packageId": "com.nexhaat.app",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "minSdk": 24,
+  "targetSdk": 36,
+  "buildId": "20261105013049",
+  "buildDate": "2026-11-05T01:30:49.078837+00:00",
+  "buildType": "release",
+  "filename": "nexhaat.apk",
+  "displayName": "NexHaat-v1.0.0.apk",
+  "releaseFilename": "NexHaat-v1.0.0-20261105013049.apk",
+  "sha256": "68ce8ad85cbe3868ea2f178c95e82476675501891ef939f146cc774dba9e3e22",
+  "sizeBytes": 33762,
+  "sizeFormatted": "33.0 KB",
+  "verified": true,
+  "qualityGates": {
+    "Repository Structure & Manifest": "PASS",
+    "Security Test Suite": "PASS",
+    "Marketplace API Suite": "PASS",
+    "TypeScript Compilation": "PASS",
+    "APK Packaging & Integrity": "PASS",
+    "Smoke Verification": "PASS"
+  },
+  "downloadUrl": "/api/download/apk",
+  "directUrl": "/downloads/nexhaat.apk",
+  "instructions": [
+    "1. Tap 'Download APK' to fetch the verified NexHaat application package.",
+    "2. When download completes, tap the notification or open your Downloads folder.",
+    "3. If prompted, allow 'Install unknown apps' for your browser or file manager.",
+    "4. Tap 'Install' and launch NexHaat."
+  ]
+}

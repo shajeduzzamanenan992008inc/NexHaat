@@ -532,25 +532,13 @@ def two_factor_login_challenge():
             flash(gettext("Too many incorrect codes. Please sign in again."), "error")
             return redirect(url_for("auth.login"))
 
-<<<<<<< HEAD
-        from ..services.two_factor import verify_and_consume_backup_code, verify_totp_code
-=======
         from ..services.two_factor import consume_totp_step, verify_and_consume_backup_code, verify_totp_code
->>>>>>> d5fb7ab (Fix)
         from ..services.two_factor_crypto import decrypt_totp_secret
 
         authenticated = False
         if len(code) == 6 and code.isdigit():
             tf = user.two_factor
             secret = decrypt_totp_secret(tf.encrypted_secret, version=tf.encryption_key_version)
-<<<<<<< HEAD
-            valid, step = verify_totp_code(secret, code, last_used_step=tf.last_used_step)
-            if valid:
-                tf.last_used_step = step
-                db.session.commit()
-                authenticated = True
-                record_audit("auth.login_2fa", actor=user)
-=======
             valid, step = verify_totp_code(secret, code)
             if valid:
                 authenticated = consume_totp_step(
@@ -563,7 +551,6 @@ def two_factor_login_challenge():
                 if authenticated:
                     db.session.commit()
                     record_audit("auth.login_2fa", actor=user)
->>>>>>> d5fb7ab (Fix)
         elif len(code) == 8 and code.isdigit():
             if verify_and_consume_backup_code(user.id, code):
                 authenticated = True
